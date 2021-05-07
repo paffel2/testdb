@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5672bb4823baaa5d90b73241c9f3bede8c29fce9227f39735dd50c78614284c2
+-- hash: 4b2f0425820aeee714bcbea0664a27c1a223dd6444fb99d0c0d2b0ed10bbfffc
 
 name:           testdb
 version:        0.1.0.0
@@ -30,6 +30,7 @@ library
       Lib
   other-modules:
       Testdatabase
+      Types
       Paths_testdb
   hs-source-dirs:
       src
@@ -42,6 +43,7 @@ library
     , req
     , req-conduit
     , text
+    , time
     , wai
     , warp
   default-language: Haskell2010
