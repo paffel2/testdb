@@ -11,6 +11,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GHC.Generics
 import Data.Time
+import Data.Aeson
 
 data User = User { first_name :: Maybe String,
                    last_name :: Maybe String,
@@ -37,7 +38,17 @@ data News = News { short_title :: String,
 data Category = Category { category_name :: String,
                            maternal_category :: Maybe Int 
                          } deriving (Show, Generic, ToRow, FromRow)
+data GetNews = GetNews { title :: String,
+                         news_id :: Int 
+                       } deriving (Show, Generic, ToRow, FromRow)
+instance ToJSON GetNews where
+    toJSON = genericToJSON defaultOptions
 
+newtype NewsArray = NewsArray {news :: [GetNews]} deriving (Show, Generic)
+
+instance ToJSON NewsArray where
+    toJSON = genericToJSON defaultOptions
+ 
 
 
 

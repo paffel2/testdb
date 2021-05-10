@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4b2f0425820aeee714bcbea0664a27c1a223dd6444fb99d0c0d2b0ed10bbfffc
+-- hash: 03f4f9c64099d83a7e32ee5cfc0f5233442c2bf20476f763e574a66fbc8dde8c
 
 name:           testdb
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Lib
   other-modules:
+      Server
       Testdatabase
       Types
       Paths_testdb
@@ -39,6 +40,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , http-client
+    , http-types
     , postgresql-simple
     , req
     , req-conduit

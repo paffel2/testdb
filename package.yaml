@@ -35,6 +35,7 @@ library:
     - req-conduit
     - http-client
     - time
+    - http-types
   exposed-modules:  Lib
 executables:
   testdb-exe:

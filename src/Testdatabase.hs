@@ -136,7 +136,12 @@ downloadImages = do
     Prelude.putStrLn "done"-}
     
 
-
+getNews :: IO NewsArray 
+getNews = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
+    rows <- query_ conn "select title, news_id from news order by 2" :: IO [GetNews]
+    close conn
+    return (NewsArray rows)
 
 
 
