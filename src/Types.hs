@@ -38,7 +38,7 @@ data News = News { short_title :: String,
 data Category = Category { category_name :: String,
                            maternal_category :: Maybe Int 
                          } deriving (Show, Generic, ToRow, FromRow)
-data GetNews = GetNews { title :: String,
+data GetNews = GetNews { title :: T.Text ,
                          news_id :: Int 
                        } deriving (Show, Generic, ToRow, FromRow)
 instance ToJSON GetNews where
@@ -48,6 +48,13 @@ newtype NewsArray = NewsArray {news :: [GetNews]} deriving (Show, Generic)
 
 instance ToJSON NewsArray where
     toJSON = genericToJSON defaultOptions
+
+data FindNewsByTitle = FindNewsByTitle { f_title :: T.Text,
+                                         page :: Int  } deriving (Show, Generic, ToRow, FromRow)
+
+
+
+
  
 
 

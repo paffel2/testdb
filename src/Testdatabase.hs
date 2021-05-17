@@ -14,6 +14,7 @@ import Database.PostgreSQL.Simple.Internal
 
 
 
+
 a :: Int 
 a = 1 + 1
 
@@ -145,6 +146,46 @@ getNews = do
 
 
 
+findNewsByTitle :: T.Text -> IO NewsArray
+findNewsByTitle title = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
+    rows <- query conn "select title, news_id from news where title ilike ? order by 2" $ Only $ In [T.concat ["%",title,"%"]] :: IO [GetNews]
+    close conn
+    return (NewsArray rows)
+
+
+text :: T.Text 
+text = "ката"
+
+printTitle :: T.Text -> IO ()
+printTitle tst = do
+    arr <- findNewsByTitle tst
+    let (c:cs) = news arr
+    TIO.putStrLn $ title c
+
+readTextToInt :: T.Text -> IO Int
+readTextToInt text = catch (readIO $ T.unpack text) $ \e -> do
+   let err = displayException (e :: IOException)
+   print "not int"
+   return 1
+
+findNewsByTitle' :: T.Text -> T.Text -> IO NewsArray
+findNewsByTitle' page title = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
+    pg <- readTextToInt page
+    let fnews = FindNewsByTitle (T.concat ["%",title,"%"]) ((pg-1)*10)
+    rows <- query conn "select title, news_id from news where title ilike ? order by 1 limit 10 offset ? " fnews :: IO [GetNews]
+    close conn
+    return (NewsArray rows)
+
+fnbt :: IO NewsArray
+fnbt = findNewsByTitle' "1" "к"
+
+page' :: T.Text 
+page' = "1"
+
+title' :: T.Text 
+title' = "s"
 
 
 
