@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 03f4f9c64099d83a7e32ee5cfc0f5233442c2bf20476f763e574a66fbc8dde8c
+-- hash: 0acb09ba08b213e16ff7aa45bd4bf97d8a35886e311ee1daa7cf5969cb3ded05
 
 name:           testdb
 version:        0.1.0.0
@@ -47,6 +47,7 @@ library
     , text
     , time
     , wai
+    , wai-extra
     , warp
   default-language: Haskell2010
 

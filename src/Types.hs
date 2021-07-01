@@ -7,6 +7,7 @@ import Control.Monad
 import Control.Applicative
 import Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GHC.Generics
@@ -20,10 +21,17 @@ data User = User { first_name :: Maybe String,
                    user_password :: String,
                    creation_date :: UTCTime,
                    admin_mark :: Bool } deriving (Show, Generic, ToRow, FromRow)
+data User' = User' { first_name' :: Maybe T.Text,
+                   last_name' :: Maybe T.Text,
+                   avatar' :: Maybe Int,
+                   login' :: T.Text,
+                   user_password' :: T.Text,
+                   creation_date' :: UTCTime,
+                   admin_mark' :: Bool } deriving (Show, Generic, ToRow, FromRow)
 
 
 data Author = Author { author_user_id :: Int,
-                       description :: Maybe String
+                       description :: Maybe T.Text
                        } deriving (Show, Generic, ToRow, FromRow)
 
 
@@ -52,7 +60,16 @@ instance ToJSON NewsArray where
 data FindNewsByTitle = FindNewsByTitle { f_title :: T.Text,
                                          page :: Int  } deriving (Show, Generic, ToRow, FromRow)
 
+data Image = Image { f_name :: String,
+                     content_type :: String,
+                     content :: Binary LBS.ByteString 
+                   } deriving (Show, Generic, ToRow, FromRow)
 
+
+newtype Myid = Myid { my_id :: Int } deriving (Generic, ToRow, FromRow)
+instance Show Myid where
+    show (Myid x) = show x
+newtype Login = Login { login'' :: T.Text } deriving (Generic, ToRow, FromRow)
 
 
  

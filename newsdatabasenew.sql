@@ -22,10 +22,10 @@ CREATE TABLE Users (
     first_name VARCHAR(20),
     last_name VARCHAR(20),
     avatar INT,
-    login VARCHAR(20) UNIQUE,
-    user_password VARCHAR(20),
-    creation_date DATE,
-    admin_mark BOOLEAN,
+    login VARCHAR(20) UNIQUE NOT NULL,
+    user_password VARCHAR(20) NOT NULL,
+    creation_date DATE NOT NULL,
+    admin_mark BOOLEAN NOT NULL,
     FOREIGN KEY (avatar) REFERENCES Images(image_id) ON DELETE SET NULL);
 
 CREATE TABLE Authors (
@@ -49,7 +49,7 @@ CREATE TABLE News (
     short_title varchar(20) NOT NULL,
     date_creation date NOT NULL,
     author_id int,
-    category_id int,
+    category_id int NOT NULL,
     --tags int[],  убрать так как поиск неуодбен
     news_text text NOT NULL,
     main_image INT,
@@ -61,9 +61,9 @@ CREATE TABLE News (
 
 CREATE TABLE Users_comments (
     comment_id serial PRIMARY KEY,
-    user_id int,
-    comment_text text,
-    news_id int,
+    user_id int NOT NULL,
+    comment_text text NOT NULL,
+    news_id int NOT NULL,
     comment_time timestamp NOT NULL,
     FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (news_id) REFERENCES News (news_id) ON DELETE CASCADE);
@@ -71,23 +71,21 @@ CREATE TABLE Users_comments (
 CREATE TABLE Drafts (
     draft_id serial PRIMARY KEY,
     news_id int,
-    user_id int,
+    user_id int NOT NULL,
     short_title varchar(20),
-    date_of_changes date,
+    date_of_changes date NOT NULL,
     category_id int,
-    --tags int[], не нужно для черновика
     draft_text text,
     main_image INT,
-    --images bytea[], 
     FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (news_id) REFERENCES News (news_id) ON DELETE SET NULL,
     FOREIGN KEY (category_id) REFERENCES categories (category_id) ON DELETE SET NULL,
-    FOREIGN KEY (main_image) REFERENCES Images (image_id) ON DELETE SET NULL);  
+    FOREIGN KEY (main_image) REFERENCES Images (image_id) ON DELETE SET NULL); 
 
 
 CREATE TABLE News_tags (
-    news_id int,
-    tag_id int,
+    news_id int NOT NULL,
+    tag_id int NOT NULL,
     FOREIGN KEY (news_id) REFERENCES News (news_id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES Tags (tag_id) ON DELETE CASCADE);
 
@@ -103,21 +101,21 @@ CREATE TABLE Drafts_images (
     image_name VARCAHR(50),
     FOREIGN KEY (draft_id) REFERENCES Drafts (draft_id) ON DELETE CASCADE);*/
 CREATE TABLE News_images (
-    news_id int,
-    image_id int,
+    news_id int NOT NULL,
+    image_id int NOT NULL,
     FOREIGN KEY (news_id) REFERENCES News (news_id) ON DELETE CASCADE,
     FOREIGN KEY (image_id) REFERENCES Images (image_id) ON DELETE CASCADE);
 
 CREATE TABLE Drafts_images (
-    draft_id int,
-    image_id INT,
-    image_name VARCAHR(50),
+    draft_id int NOT NULL,
+    image_id INT NOT NULL,
+    --image_name VARCAHR(50),
     FOREIGN KEY (draft_id) REFERENCES Drafts (draft_id) ON DELETE CASCADE,
     FOREIGN KEY (image_id) REFERENCES Images (image_id) ON DELETE CASCADE);
 
 CREATE TABLE Draft_tags (
-    draft_id int,
-    tag_id int,
+    draft_id int NOT NULL,
+    tag_id int NOT NULL,
     FOREIGN KEY (draft_id) REFERENCES Drafts (draft_id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES Tags (tag_id) ON DELETE CASCADE);
 
