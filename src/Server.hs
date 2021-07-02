@@ -126,6 +126,9 @@ app req respond
     | path == "registration" =
         registration >>= respond
 
+    | path == "new_draft" =
+        new_draft >>= respond
+
     | otherwise =
       respond $ responseOk ""
 
@@ -202,7 +205,61 @@ app req respond
                 let login = T.take 50 $ E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
                 let password = T.take 50 $ E.decodeUtf8 $ fromMaybe "" (lookup "password" i)
                 createUser' login password f_name l_name (BC.unpack $ fileName file) (BC.unpack $ fileContentType file) (fileContent file)
-                return $ responseOk "test"
+                return $ responseOk "new user register"
+        new_draft = do
+            (i,f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            let main_image = foundParametr "main_image" f
+            let images = foundParametr "images" f
+            let main_image_triple = if fileContent (Prelude.head main_image) == "" then ("","","")
+                                                                                   else (BC.unpack $ fileName $ Prelude.head main_image, BC.unpack $ fileContentType $ Prelude.head main_image, fileContent $ Prelude.head main_image  )
+            
+            let images_list = if fileContent (Prelude.head images) == "" then []
+                                                                             else toTriple images
+
+            let conT = any (/= "image") (take 5 . sndTriple <$> images_list)
+            if ((Prelude.take 5  (sndTriple main_image_triple) /= "image") && main_image_triple /= ("","","")) || (images_list /= [] && conT)
+                then return $ responseOk "bad image"
+                else do
+                    let login = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
+                    l <- checkAuthor login
+                    case l of
+                        Nothing -> return $ responseOk "author not founded"
+                        Just x -> do
+                            let cat = fromMaybe "" (lookup "category" i)
+                            let catT = T.toLower $ E.decodeUtf8 cat
+                            TIO.putStrLn catT                    
+                            c <- checkCategory catT
+                            case c of
+                                Nothing -> return $ responseOk "Category not founded"
+                                Just cn -> do
+                                    let tags = T.toLower $ E.decodeUtf8 $ fromMaybe "" (lookup "tags" i)
+                                    TIO.putStrLn tags
+                                    tags_ids <- checkTag $ splitOnPunctuationMark tags
+                                    case tags_ids of
+                                        Left mess -> return $ responseOk mess
+                                        Right tl -> do
+                                                    let text = E.decodeUtf8 $ fromMaybe "" (lookup "news_text" i)
+                                                    let sh_title = E.decodeUtf8 $ fromMaybe "" (lookup "short_title" i)
+                                                    --print i
+                                                    TIO.putStrLn sh_title
+                                                    if T.length sh_title > 20 then
+                                                        return $ responseOk "too long title"
+                                                        else do
+                                                        result <- createDraft main_image_triple images_list x cn tl text sh_title
+                                                        return $ responseOk result
+
+        toTriple (x:xs) = (BC.unpack $ fileName x, BC.unpack $ fileContentType x, fileContent x) :  toTriple xs
+        toTriple [] = []
+        fstTriple (a,b,c) = a
+        sndTriple (a,b,c) = b
+        thrdTriple (a,b,c) = c
+        foundParametr :: B.ByteString -> [(B.ByteString, Network.Wai.Parse.FileInfo c)] -> [Network.Wai.Parse.FileInfo c]
+        foundParametr param ((p,c):xs) = if p == param then  
+                                                c : foundParametr param xs
+                                                else foundParametr param xs
+        foundParametr _ [] = []
+
+ 
 
 
                     
@@ -229,5 +286,12 @@ authorParams s = l where
         Just (Just x) -> x
         _ -> ""
     findLogin = lookup "login" s
+
+tagsString :: T.Text 
+tagsString = "sport news"
+
+splitOnPunctuationMark :: T.Text -> [T.Text]
+splitOnPunctuationMark  = T.splitOn " " 
+
 
 

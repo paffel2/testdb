@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Testdatabase where
 import Database.PostgreSQL.Simple
+--import Database.PostgreSQL.Simple.FromField
 import Control.Monad
 import Control.Applicative
 import Data.ByteString as B
@@ -13,6 +14,9 @@ import Types
 import Data.Time
 import Control.Exception
 import Database.PostgreSQL.Simple.Internal
+import qualified Data.Text.Encoding as E
+import Data.Maybe
+
 
 
 
@@ -104,10 +108,10 @@ createAuthor usid desc= do
     close conn
     Prelude.putStrLn "author created"
 
-createCategory :: String -> Maybe Int -> IO ()
+createCategory :: T.Text -> Maybe Int -> IO ()
 createCategory categoryName maternalCategoryId = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    let newCategory = Category categoryName maternalCategoryId
+    let newCategory = Category (T.toLower  categoryName) maternalCategoryId
     execute conn "insert into categories (category_name, maternal_category) values (?,?)" newCategory
     close conn
     Prelude.putStrLn "done"
@@ -227,17 +231,22 @@ authtest _ =  Prelude.putStrLn "end"
 sumWithSpace :: String -> String -> String 
 sumWithSpace a b = a ++ " " ++ b-}
 
-loadImage :: String -> String -> LBS.ByteString -> IO Int
+loadImage :: String -> String -> LBS.ByteString -> IO (Maybe Int)
 loadImage fileName contentType content' = do
-    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
-    let image = Image fileName contentType (Binary content')
-    let q = "insert into images_data (image_name, content_type, image_b) values (?,?,?) returning image_id"
+    if fileName == "" && contentType == "" && content' == "" 
+        then return Nothing
+        else do 
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
+            let image = Image fileName contentType (Binary content')
+            let q = "insert into images_data (image_name, content_type, image_b) values (?,?,?) returning image_id"
     --(n:ns) :: [Myid] <- returning conn q [image] 
-    [Only n] <- returning conn q [image] 
-    close conn
+            [Only n] <- returning conn q [image] 
+            close conn
     --print n
-    Prelude.putStrLn "image loaded"
-    return n
+            Prelude.putStrLn "image loaded"
+            return (Just n)
+tstLoadImage :: IO (Maybe Int)
+tstLoadImage = loadImage "" "" ""
 
 findUser :: T.Text -> IO (Maybe Int)
 findUser s = do
@@ -262,10 +271,115 @@ createUser' login password f_name l_name avatar_name avatar_contentType avatar= 
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     now <- getCurrentTime 
     n <- loadImage avatar_name avatar_contentType avatar
-    let newUser = User' (Just f_name) (Just l_name) (Just n) login password now False
+    let newUser = User' (Just f_name) (Just l_name) n login password now False
     execute conn "insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) values (?,?,?,?,crypt(?,gen_salt('md5')),?,?)" newUser
     close conn
     Prelude.putStrLn "done"
 
 
 
+
+loadImages :: [(String, String,LBS.ByteString)] -> IO [Int]
+loadImages x = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
+    let image = toImagesList x
+    let q = "insert into images_data (image_name, content_type, image_b) values (?,?,?) returning image_id"
+    --(n:ns) :: [Myid] <- returning conn q [image] 
+    n <- returning conn q image
+    close conn
+    let ans = myidtointlst n
+    Prelude.putStrLn "image loaded"
+    return ans
+
+toImagesList :: [(String, String,LBS.ByteString)] -> [Image]
+toImagesList ((fileName, contentType, content'):xs) = Image fileName contentType (Binary content') : toImagesList xs
+toImagesList [] = []
+
+checkAuthor :: T.Text -> IO (Maybe Int)
+checkAuthor login = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    rows <- query conn "select author_id from authors join users on authors.author_user_id = users.user_id where login = ?" [login]:: IO [Myid]
+    if  Prelude.null rows then
+        return Nothing 
+    else
+        return (Just (fMyidTInt (Prelude.head rows)))
+
+
+checkCategory :: T.Text  -> IO (Maybe Int)
+checkCategory category = do
+     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+     rows <- query conn "select category_id from categories where category_name = ?" [category]:: IO [Myid]
+     if Prelude.null rows then
+         return Nothing 
+     else
+         return (Just (fMyidTInt (Prelude.head rows)))
+
+tstCategory :: T.Text
+tstCategory  = "Наука"
+
+
+
+createTag :: T.Text -> IO ()
+createTag tag  = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let newTag = Tag (T.toLower  tag)
+    if T.length tag > 20 then do
+        close conn
+        Prelude.putStrLn "to long tag"
+                         else do
+                            execute conn "insert into tags (tag_name) values (?)" newTag
+                            close conn
+                            Prelude.putStrLn "done"
+
+checkTag :: [T.Text] -> IO (Either LBS.ByteString  [Int])
+checkTag tagsList = do
+    let len = T.length <$> tagsList
+    let nums = [1,2,3] :: [Int]
+    if Prelude.any (>20) len then
+        return $ Left "someone tag to long"
+        else do
+             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+             rows <- query conn "select tag_id from tags where tag_name in ?" (Only (In tagsList)) :: IO [Myid]
+             if Prelude.length rows < Prelude.length tagsList then return $ Left "someone tag not exist"
+                else return $ Right $ fMyidTInt<$> rows 
+textsToTags :: [T.Text] -> [Tag]
+textsToTags = Prelude.map Tag 
+
+tagL :: [T.Text]
+tagL = ["новости", "наука"]
+
+
+createDraft :: (String,String,LBS.ByteString) -> [(String,String,LBS.ByteString )] -> Int -> Int -> [Int] -> T.Text -> T.Text -> IO LBS.ByteString 
+createDraft main_image_triple images_list author_id' category_id' tags_ids text sh_title= do
+    main_image_id <- loadImage (fstTriple main_image_triple) (sndTriple main_image_triple) (thrdTriple main_image_triple)
+    other_images_ids <- loadImages images_list
+    now <- getCurrentTime 
+    let (Just mid) = main_image_id
+    let dr = Draft author_id' sh_title now category_id' text mid
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    [Only n] <- returning conn "insert into drafts (author_id, short_title, date_of_changes, category_id, draft_text, main_image) values (?,?,?,?,?,?) returning draft_id" [dr] :: IO [Only Int]
+    print "1"
+    let drtg = drIdTagId n tags_ids
+    executeMany conn "insert into draft_tags (draft_id, tag_id) values (?,?)" drtg
+    let drim = drIdTagId n other_images_ids
+    executeMany conn "insert into drafts_images (draft_id, image_id) values (?,?)" drim
+    return "draft created"
+
+
+{-insertDraftTag :: [DrIdTgId] -> IO ()
+insertDraftTag xs = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    executeMany conn "insert into draft_tags (draft_id, tag_id) values (?,?)" xs
+    print "done"-}
+
+
+tst'' :: [DrIdTgId]
+tst'' = [DrIdTgId 1 2, DrIdTgId 1 3]
+
+fstTriple (a,b,c) = a
+sndTriple (a,b,c) = b
+thrdTriple (a,b,c) = c
+
+drIdTagId :: Int -> [Int] -> [DrIdTgId]
+drIdTagId x (y:ys) = DrIdTgId x y : drIdTagId x ys
+drIdTagId _ [] = []

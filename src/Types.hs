@@ -43,7 +43,7 @@ data News = News { short_title :: String,
                    main_image :: Binary B.ByteString 
                  } deriving (Show, Generic, ToRow, FromRow)
 
-data Category = Category { category_name :: String,
+data Category = Category { category_name :: T.Text,
                            maternal_category :: Maybe Int 
                          } deriving (Show, Generic, ToRow, FromRow)
 data GetNews = GetNews { title :: T.Text ,
@@ -69,10 +69,30 @@ data Image = Image { f_name :: String,
 newtype Myid = Myid { my_id :: Int } deriving (Generic, ToRow, FromRow)
 instance Show Myid where
     show (Myid x) = show x
+myidtointlst :: [Myid] -> [Int]
+myidtointlst ((Myid x):xs) = x : myidtointlst xs
+myidtointlst [] = []
 newtype Login = Login { login'' :: T.Text } deriving (Generic, ToRow, FromRow)
 
+newtype Tag = Tag { tag_name :: T.Text } deriving (Show,Generic, ToRow, FromRow)
 
- 
+--newtype TagList = TagList { tag_list :: [Tag] } deriving (Show,Generic, ToRow, FromRow)
+
+
+data Draft = Draft { author_id' :: Int,
+                     draft_short_title :: T.Text,
+                     date_of_changes :: UTCTime,
+                     draft_category_id :: Int,
+                     draft_text :: T.Text,
+                     main_image_id :: Int 
+                     } deriving (Show,Generic, ToRow, FromRow)
+
+data DrIdTgId = DrIdTgId { draft_id' :: Int,
+                           tag_id' :: Int
+                           } deriving (Show,Generic, ToRow, FromRow)
 
 
 
+data DridImId = DridImId { draft_id'' :: Int,
+                           image_id'' :: Int 
+                           } deriving (Show,Generic, ToRow, FromRow)
