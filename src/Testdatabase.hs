@@ -16,15 +16,17 @@ import Control.Exception
 import Database.PostgreSQL.Simple.Internal
 import qualified Data.Text.Encoding as E
 import Data.Maybe
+import Text.Read
+import Data.String
 
 
 
 
 
-a :: Int 
+a :: Int
 a = 1 + 1
 
-hello :: IO Int 
+hello :: IO Int
 hello = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     --conn <- connect defaultConnectInfo
@@ -34,7 +36,7 @@ hello = do
     close conn
     return i
 
-b :: BC.ByteString 
+b :: BC.ByteString
 b = "Павел"
 
 
@@ -60,7 +62,7 @@ printLst [] = TIO.putStr ""
 createUser :: IO ()
 createUser = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    now <- getCurrentTime 
+    now <- getCurrentTime
     let newUser = User (Just "Павел") (Just "Зарубин") Nothing "dahaku" "123" now True
     execute conn "insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) values (?,?,?,?,crypt(?,gen_salt('md5')),?,?)" newUser
     close conn
@@ -69,25 +71,25 @@ createUser = do
 
 
 auth :: String  -> String -> IO String
-auth login password = do 
+auth login password = do
     catch ( do
             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-            [Only check] <- query conn "select (case check_pass  when TRUE then 'token' when FALSE then 'wrong password' else 'wrong login' end) from (select (user_password = crypt(?,user_password)) as check_pass from users where login = ?) ce" (password,login)        
+            [Only check] <- query conn "select (case check_pass  when TRUE then 'token' when FALSE then 'wrong password' else 'wrong login' end) from (select (user_password = crypt(?,user_password)) as check_pass from users where login = ?) ce" (password,login)
             close conn
-            return check) 
-        $ \e -> do 
+            return check)
+        $ \e -> do
                     let err = show (e :: IOException)
                     return "wrong login"
 
 
 auth' :: String  -> String -> IO Bool
-auth' login password = do 
+auth' login password = do
     catch ( do
             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-            [Only check] <- query conn "select (user_password = crypt(?,user_password)) as check_pass from users where login = ?" (password,login)        
+            [Only check] <- query conn "select (user_password = crypt(?,user_password)) as check_pass from users where login = ?" (password,login)
             close conn
-            return check) 
-        $ \e -> do 
+            return check)
+        $ \e -> do
                     let err = show (e :: IOException)
                     Prelude.putStrLn "wrong login"
                     return False
@@ -122,7 +124,7 @@ newCat = createCategory "Наука" Nothing-}
 createNews :: String -> Int -> Int -> T.Text -> String -> IO ()
 createNews shortTitle authorId categoryId newsText mainImage = do
     mImage <- BC.readFile mainImage
-    now <- getCurrentTime 
+    now <- getCurrentTime
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let newNews = News shortTitle now authorId categoryId newsText (Binary mImage)
     execute conn "insert into news (short_title, date_creation, author_id, category_id, news_text, main_image) values (?,?,?,?,?,?)" newNews
@@ -141,9 +143,9 @@ downloadImages = do
     close conn
     BC.writeFile "src/dl.jpg" i
     Prelude.putStrLn "done"
-    
 
-getNews :: IO NewsArray 
+
+getNews :: IO NewsArray
 getNews = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
     rows <- query_ conn "select title, news_id from news order by 2 DESC" :: IO [GetNews]
@@ -160,7 +162,7 @@ findNewsByTitle title = do
     return (NewsArray rows)
 
 
-text :: T.Text 
+text :: T.Text
 text = "ката"
 
 printTitle :: T.Text -> IO ()
@@ -187,10 +189,10 @@ findNewsByTitle' page title = do
 fnbt :: IO NewsArray
 fnbt = findNewsByTitle' "1" "к"
 
-page' :: T.Text 
+page' :: T.Text
 page' = "1"
 
-title' :: T.Text 
+title' :: T.Text
 title' = "s"
 
 {-testloginpassword :: [(String, String)]
@@ -233,14 +235,14 @@ sumWithSpace a b = a ++ " " ++ b-}
 
 loadImage :: String -> String -> LBS.ByteString -> IO (Maybe Int)
 loadImage fileName contentType content' = do
-    if fileName == "" && contentType == "" && content' == "" 
+    if fileName == "" && contentType == "" && content' == ""
         then return Nothing
-        else do 
+        else do
             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
             let image = Image fileName contentType (Binary content')
             let q = "insert into images_data (image_name, content_type, image_b) values (?,?,?) returning image_id"
     --(n:ns) :: [Myid] <- returning conn q [image] 
-            [Only n] <- returning conn q [image] 
+            [Only n] <- returning conn q [image]
             close conn
     --print n
             Prelude.putStrLn "image loaded"
@@ -253,10 +255,10 @@ findUser s = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     rows <- query conn "select user_id from users where login = ?" (Login s) :: IO [Myid]
     if  Prelude.null rows then
-        return Nothing 
+        return Nothing
     else
         return (Just (fMyidTInt (Prelude.head rows)))
-    
+
 tl :: T.Text
 tl = "dahaku"
 
@@ -269,7 +271,7 @@ fMyidTInt (Myid x) = x
 createUser' :: T.Text -> T.Text -> T.Text -> T.Text -> String -> String -> LBS.ByteString  -> IO ()
 createUser' login password f_name l_name avatar_name avatar_contentType avatar= do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    now <- getCurrentTime 
+    now <- getCurrentTime
     n <- loadImage avatar_name avatar_contentType avatar
     let newUser = User' (Just f_name) (Just l_name) n login password now False
     execute conn "insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) values (?,?,?,?,crypt(?,gen_salt('md5')),?,?)" newUser
@@ -300,7 +302,7 @@ checkAuthor login = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     rows <- query conn "select author_id from authors join users on authors.author_user_id = users.user_id where login = ?" [login]:: IO [Myid]
     if  Prelude.null rows then
-        return Nothing 
+        return Nothing
     else
         return (Just (fMyidTInt (Prelude.head rows)))
 
@@ -310,7 +312,7 @@ checkCategory category = do
      conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
      rows <- query conn "select category_id from categories where category_name = ?" [category]:: IO [Myid]
      if Prelude.null rows then
-         return Nothing 
+         return Nothing
      else
          return (Just (fMyidTInt (Prelude.head rows)))
 
@@ -334,31 +336,31 @@ createTag tag  = do
 checkTag :: [T.Text] -> IO (Either LBS.ByteString  [Int])
 checkTag tagsList = do
     let len = T.length <$> tagsList
-    let nums = [1,2,3] :: [Int]
+    --let nums = [1,2,3] :: [Int]
     if Prelude.any (>20) len then
         return $ Left "someone tag to long"
         else do
              conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
              rows <- query conn "select tag_id from tags where tag_name in ?" (Only (In tagsList)) :: IO [Myid]
              if Prelude.length rows < Prelude.length tagsList then return $ Left "someone tag not exist"
-                else return $ Right $ fMyidTInt<$> rows 
+                else return $ Right $ fMyidTInt<$> rows
 textsToTags :: [T.Text] -> [Tag]
-textsToTags = Prelude.map Tag 
+textsToTags = Prelude.map Tag
 
 tagL :: [T.Text]
 tagL = ["новости", "наука"]
 
 
-createDraft :: (String,String,LBS.ByteString) -> [(String,String,LBS.ByteString )] -> Int -> Int -> [Int] -> T.Text -> T.Text -> IO LBS.ByteString 
+createDraft :: (String,String,LBS.ByteString) -> [(String,String,LBS.ByteString )] -> Int -> Int -> [Int] -> T.Text -> T.Text -> IO LBS.ByteString
 createDraft main_image_triple images_list author_id' category_id' tags_ids text sh_title= do
     main_image_id <- loadImage (fstTriple main_image_triple) (sndTriple main_image_triple) (thrdTriple main_image_triple)
     other_images_ids <- loadImages images_list
-    now <- getCurrentTime 
+    now <- getCurrentTime
     let (Just mid) = main_image_id
     let dr = Draft author_id' sh_title now category_id' text mid
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     [Only n] <- returning conn "insert into drafts (author_id, short_title, date_of_changes, category_id, draft_text, main_image) values (?,?,?,?,?,?) returning draft_id" [dr] :: IO [Only Int]
-    print "1"
+    --print "1"
     let drtg = drIdTagId n tags_ids
     executeMany conn "insert into draft_tags (draft_id, tag_id) values (?,?)" drtg
     let drim = drIdTagId n other_images_ids
@@ -383,3 +385,262 @@ thrdTriple (a,b,c) = c
 drIdTagId :: Int -> [Int] -> [DrIdTgId]
 drIdTagId x (y:ys) = DrIdTgId x y : drIdTagId x ys
 drIdTagId _ [] = []
+
+
+checkNews :: Int -> IO Bool
+checkNews n' = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
+    rows <- query conn "select news_id from news where news_id = ?" [n'] :: IO [Only Int]
+    close conn
+    if Prelude.null rows then
+        return False
+        else return True
+
+checkUser :: T.Text -> IO (Maybe Int)
+checkUser login' = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    rows <- query conn "select user_id from users where login = ?" [login']:: IO [Myid]
+    close conn
+    if  Prelude.null rows then
+        return Nothing
+    else
+        return (Just (fMyidTInt (Prelude.head rows)))
+
+createComment :: Int -> Int -> T.Text -> IO Int
+createComment userId newsId comment = do
+    now <- getCurrentTime
+    let new_comm = Comment userId comment newsId now
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    [Only n] <- returning conn "insert into users_comments (user_id, comment_text, news_id, comment_time) values (?,?,?,?) returning comment_id" [new_comm] :: IO [Only Int]
+    close conn
+    return n
+
+
+
+getNewsFilterByTitle  :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByTitle  titleName page sortParam =
+    case titleName of
+      Nothing -> return (Left "No tag parametr")
+      Just bs -> do
+                    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                    --let cn = BC.pack $ show $ Prelude.length n - 1
+                    let sort' = if sortParam == "" then ""
+                                            else BC.concat [" order by ",sortParam," DESC"]
+                    let pg = if isNothing page then " limit 10 offset 0"
+                                        else 
+                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                    let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text from news join authors using (author_id) join users using (user_id) join categories using (category_id) where short_title = ? ",sort', pg]
+                    rows <- query conn q [bs]
+                    close conn
+                    return (Right $ NewsArray' rows)
+
+getNews' :: ByteString -> Maybe ByteString-> IO NewsArray'
+getNews' sortParam pageParam = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let sort' = if sortParam == "" then ""
+                else BC.concat [" order by ",sortParam," DESC"]
+    let pg = if isNothing pageParam then " limit 10 offset 0"
+            else 
+                BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" pageParam)) - 1)*10 ]
+    let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news join authors using (author_id) join users using (user_id) join categories using (category_id)", sort',pg]
+    --rows <- query_ conn "select news_id, short_title, date_creation, author_id, category_id, news_text  from news" :: IO [GetNews']
+    rows <- query_ conn q:: IO [GetNews']
+    close conn
+    return (NewsArray' rows)
+
+getNewsFilterByCategoryId :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByCategoryId cat_id page sortParam =
+    case cat_id of
+      Nothing -> return (Left "No category parametr")
+      Just bs -> do
+            case readByteStringToInt (fromMaybe "" cat_id) of
+              Nothing -> return ( Left "bad category parametr")
+              Just n -> do
+                        conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                        let sort' = if sortParam == "" then ""
+                                                else BC.concat [" order by ",sortParam," DESC"]
+                        let pg = if isNothing page then " limit 10 offset 0"
+                                            else 
+                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                        let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news  join authors using (author_id) join users using (user_id) join categories using (category_id) where category_id = ? ", sort',pg]
+                        rows <- query conn q [n]
+                        close conn
+                        return (Right $ NewsArray' rows)
+
+getNewsFilterByTagId :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByTagId tag_id page sortParam =
+    case tag_id of
+      Nothing -> return (Left "No tag parametr")
+      Just bs -> do
+            case readByteStringToInt (fromMaybe "" tag_id) of
+              Nothing -> return ( Left "bad tag parametr")
+              Just n -> do
+                        conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                        let sort' = if sortParam == "" then ""
+                                                else BC.concat [" order by ",sortParam," DESC"]
+                        --let pg = fromMaybe 1 (readByteStringToInt (fromMaybe "" page))
+                        let pg = if isNothing page then " limit 10 offset 0"
+                                            else 
+                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                        --let fnews = FindNewsByCategory n ((pg-1)*10)
+                        let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news  join authors using (author_id) join users using (user_id) join categories using (category_id) join news_tags using (news_id) where tag_id = ?", sort',pg]
+                        --rows <- query conn "select news_id, short_title, date_creation, author_id, category_id, news_text  from news join news_tags using (news_id) where tag_id = ? order by 2 DESC limit 10 offset ?" fnews :: IO [GetNews']
+                        rows <- query conn q [n]
+                        close conn
+                        return (Right $ NewsArray' rows)
+
+getNewsFilterByTagIn  :: Maybe ByteString -> Maybe ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByTagIn  tag_lst page =
+    case tag_lst of
+      Nothing -> return (Left "No tag parametr")
+      Just bs -> do
+            case readByteStringListInt (fromMaybe "" tag_lst) of
+              Nothing -> return ( Left "bad tag parametr")
+              Just n -> do
+                        conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                        
+                        let pg = fromMaybe 1 (readByteStringToInt (fromMaybe "" page))
+                        rows <- query conn "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news join authors using (author_id) join users using (user_id) join categories using (category_id) join news_tags using (news_id) where tag_id in ? group by news_id,author_name,category_name order by 2 DESC " (Only (In n))
+                        close conn
+                        return (Right $ NewsArray' $ takePage pg rows)
+
+getNewsFilterByTagAll  :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByTagAll  tag_lst page sortParam =
+    case tag_lst of
+      Nothing -> return (Left "No tag parametr")
+      Just bs -> do
+            case readByteStringListInt (fromMaybe "" tag_lst) of
+              Nothing -> return ( Left "bad tag_all parametr")
+              Just n -> do
+                        conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                        let cn = BC.pack $ show $ Prelude.length n - 1
+                        let sort' = if sortParam == "" then ""
+                                                else BC.concat [" order by ",sortParam," DESC"]
+                        let pg = if isNothing page then " limit 10 offset 0"
+                                            else 
+                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                        let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news join authors using (author_id) join users using (user_id) join categories using (category_id) join news_tags using (news_id) where tag_id in ? group by news_id,author_name,category_name having count(*) > ",cn, " ",sort',pg]
+                        rows <- query conn q (Only (In n))
+                        close conn
+                        return (Right $ NewsArray' rows)
+getNewsFilterByAuthorName  :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByAuthorName  authorName page sortParam =
+    case authorName of
+      Nothing -> return (Left "No tag parametr")
+      Just bs -> do
+                    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                    let sort' = if sortParam == "" then ""
+                                            else BC.concat [" order by ",sortParam," DESC"]
+                    let pg = if isNothing page then " limit 10 offset 0"
+                                        else 
+                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                    let q = toQuery $ BC.concat ["select * from (select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text from news join authors using (author_id) join users using (user_id) join categories using (category_id)) as temp_t where author_name = ? ",sort', pg]
+                    rows <- query conn q [bs]
+                    close conn
+                    return (Right $ NewsArray' rows)
+
+getNewsFilterByContent  :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByContent  content page sortParam =
+    case content of
+      Nothing -> return (Left "No tag parametr")
+      Just bs -> do
+                    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                    let sort' = if sortParam == "" then ""
+                                            else BC.concat [" order by ",sortParam," DESC"]
+                    let pg = if isNothing page then " limit 10 offset 0"
+                                        else 
+                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                    let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text from news join authors using (author_id) join users using (user_id) join categories using (category_id) where news_text like ? ",sort', pg]
+                    rows <- query conn q [BC.concat ["%",bs,"%"]]
+                    close conn
+                    return (Right $ NewsArray' rows)
+
+getNewsFilterByDate  :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByDate  date page sortParam =
+    case date of
+      Nothing -> return (Left "No date parametr")
+      Just bs -> do
+                    let date' = readByteStringToDay bs
+                    case date' of
+                      Nothing -> return (Left "Bad date parametr")
+                      Just day -> do
+                                conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                                let sort' = if sortParam == "" then ""
+                                            else BC.concat [" order by ",sortParam," DESC"]
+                                let pg = if isNothing page then " limit 10 offset 0"
+                                         else 
+                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text from news join authors using (author_id) join users using (user_id) join categories using (category_id) where date_creation = ? ",sort', pg]
+                                rows <- query conn q [day]
+                                close conn
+                                return (Right $ NewsArray' rows)
+
+
+getNewsFilterByAfterDate  :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByAfterDate  date page sortParam =
+    case date of
+      Nothing -> return (Left "No date parametr")
+      Just bs -> do
+                    let date' = readByteStringToDay bs
+                    case date' of
+                      Nothing -> return (Left "Bad date parametr")
+                      Just day -> do
+                                conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                                let sort' = if sortParam == "" then ""
+                                            else BC.concat [" order by ",sortParam," DESC"]
+                                let pg = if isNothing page then " limit 10 offset 0"
+                                         else 
+                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text from news join authors using (author_id) join users using (user_id) join categories using (category_id) where date_creation > ? ",sort', pg]
+                                rows <- query conn q [day]
+                                close conn
+                                return (Right $ NewsArray' rows)
+getNewsFilterByBeforeDate  :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
+getNewsFilterByBeforeDate  date page sortParam =
+    case date of
+      Nothing -> return (Left "No date parametr")
+      Just bs -> do
+                    let date' = readByteStringToDay bs
+                    case date' of
+                      Nothing -> return (Left "Bad date parametr")
+                      Just day -> do
+                                conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                                let sort' = if sortParam == "" then ""
+                                            else BC.concat [" order by ",sortParam," DESC"]
+                                let pg = if isNothing page then " limit 10 offset 0"
+                                         else 
+                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text from news join authors using (author_id) join users using (user_id) join categories using (category_id) where date_creation < ? ",sort', pg]
+                                rows <- query conn q [day]
+                                close conn
+                                return (Right $ NewsArray' rows)
+
+getNewsById :: Int-> IO NewsArray'
+getNewsById news_id = do
+    if news_id /= 0 then do
+        conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+        let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news join authors using (author_id) join users using (user_id) join categories using (category_id) where news_id = ?"]
+        rows <- query conn q [news_id]
+        close conn
+        return (NewsArray' rows)
+        else return (NewsArray' [])
+
+
+readByteStringToInt :: ByteString -> Maybe Int
+readByteStringToInt num = readMaybe $ BC.unpack num
+
+readByteStringListInt :: BC.ByteString -> Maybe [Int]
+readByteStringListInt lst = readMaybe $ BC.unpack lst
+
+
+takePage :: forall a. Int -> [a] -> [a]
+takePage p list = Prelude.take 10 $ Prelude.drop ((p-1)*10) list
+
+
+readByteStringToDay :: ByteString -> Maybe Day
+readByteStringToDay bs = readMaybe $ BC.unpack bs
+
+
+
+toQuery :: ByteString -> Query 
+toQuery s = fromString $ BC.unpack s

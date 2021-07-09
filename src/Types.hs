@@ -13,6 +13,7 @@ import qualified Data.Text.IO as TIO
 import GHC.Generics
 import Data.Time
 import Data.Aeson
+import Database.PostgreSQL.Simple.Time
 
 data User = User { first_name :: Maybe String,
                    last_name :: Maybe String,
@@ -96,3 +97,59 @@ data DrIdTgId = DrIdTgId { draft_id' :: Int,
 data DridImId = DridImId { draft_id'' :: Int,
                            image_id'' :: Int 
                            } deriving (Show,Generic, ToRow, FromRow)
+
+data Comment = Comment { comment_user_id :: Int,
+                         comment_text :: T.Text,
+                         comment_news_id :: Int,
+                         comment_time :: UTCTime
+                         } deriving (Show,Generic, ToRow, FromRow)
+
+
+
+
+data FindNewsByTitle' = FindNewsByTitle' { f_title' :: BC.ByteString ,
+                                         page' :: Int  } deriving (Show, Generic, ToRow, FromRow)
+
+
+
+data GetNews' = GetNews' {  news_id' :: Int ,
+                            short_title' :: T.Text ,
+                            date_creation' :: Day,
+                            --author_id'' :: Int,
+                            author_name :: T.Text,
+                            --author_last_name :: T.Text,
+                            category_name' :: T.Text,
+                            news_text' :: T.Text
+                       } deriving (Show, Generic, ToRow, FromRow)
+
+
+instance ToJSON GetNews' where
+    --toJSON = genericToJSON defaultOptions
+    {-toJSON (GetNews' ni st dc ai ci nt) = object [
+                                                    "news_id'" .= ni,
+                                                    "short_title'" .= st,
+                                                    "date_creation'" .= dc,
+                                                    "author_id''" .= ai,
+                                                    "category_id'" .= ci,
+                                                    "news_text'" .= nt
+                                                    ]-}
+
+newtype NewsArray' = NewsArray' { news' :: [GetNews']} deriving (Show, Generic)
+
+instance ToJSON NewsArray' where
+    toJSON = genericToJSON defaultOptions
+
+data FindNewsByCategory = FindNewsByCategory { c_id :: Int,
+                                         c_page :: Int  } deriving (Show, Generic, ToRow, FromRow)
+
+
+{-data FindNewsByTagIn = FindNewsByTagIn { t_ids :: [Int],
+                                         t_page :: Int  } deriving (Show, Generic, ToRow, FromRow)-}
+
+                            
+daytst = 
+    do 
+        now <- getCurrentTime 
+        print $ utctDay now
+
+        
