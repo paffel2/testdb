@@ -23,8 +23,6 @@ import Data.String
 
 
 
-a :: Int
-a = 1 + 1
 
 hello :: IO Int
 hello = do
@@ -70,7 +68,7 @@ createUser = do
 
 
 
-auth :: String  -> String -> IO String
+{-auth :: String  -> String -> IO String
 auth login password = do
     catch ( do
             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
@@ -79,7 +77,7 @@ auth login password = do
             return check)
         $ \e -> do
                     let err = show (e :: IOException)
-                    return "wrong login"
+                    return "wrong login"-}
 
 
 auth' :: String  -> String -> IO Bool
@@ -94,6 +92,63 @@ auth' login password = do
                     Prelude.putStrLn "wrong login"
                     return False
 
+auth :: BC.ByteString  -> BC.ByteString -> IO (Either LBS.ByteString LBS.ByteString)
+auth login password = do
+            ui <- checkUser' login password
+            case ui of
+              Nothing -> return $ Left "wrong login or password"
+              Just n -> do
+                    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                    (token,now) <- generateToken login
+                    let q = "insert into tokens (user_id, token ,creation_date) values (?, ? ,?) ON CONFLICT(user_id) DO UPDATE set token = ?, creation_date= ?"
+                    execute conn q (n,token,now,token,now)
+                    close conn
+                    return $ Right $ LBS.pack $ B.unpack token
+
+generateToken :: BC.ByteString -> IO (BC.ByteString, UTCTime)
+generateToken login = do
+    now <- getCurrentTime
+    let token = Prelude.filter (`Prelude.notElem` filt ) (show now)
+    return (BC.concat [login,BC.pack token],now)
+        where filt = " :.-UTC" :: String
+
+
+
+
+            --[Only check] <- query conn "select (user_password = crypt(?,user_password)) as check_pass from users where login = ?" (password,login) :: IO [Only Bool]
+            {-if check then do
+                now <- getCurrentTime
+                let token = BC.concat [login, BC.pack $ show now]
+                execute conn "insert into tokens (user_id" [token]
+                close conn
+                return $ Right token
+            else do
+                close conn
+                BC.putStrLn $ BC.concat["someone try login use login: ",login ," and password: ", password]
+                return $ Left "wrong login or password"-}
+ --"insert into tokens (user_id, token ,creation_date) (select user_id, concat(login,now()) as l,now() from users where user_id = ?) ON CONFLICT(user_id) DO UPDATE SET token = (select concat(login,now()) from users where user_id = ?), creation_date = now()"
+checkUser' :: BC.ByteString -> BC.ByteString -> IO (Maybe Int)
+checkUser' login password = do
+    catch ( do 
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            [Only user_id] <- query conn "select user_id from users where user_password = crypt(?,user_password) and login = ? " (password,login) :: IO [Only (Maybe Int)]
+            close conn
+            return user_id)
+        $ \e -> do
+            let err = show (e :: IOException)
+            --print "wrong login"
+            return Nothing
+
+lg :: BC.ByteString
+lg = "dahaku"
+ps :: BC.ByteString 
+ps = "qwerty"
+
+ps' :: BC.ByteString 
+ps' = "qwerty1"
+
+lg' :: BC.ByteString
+lg' = "dahaku22222222"
 {-getBytesFromImages :: String -> IO ()
 getBytesFromImages fp  = do
     file <- BC.readFile fp
@@ -625,6 +680,120 @@ getNewsById news_id = do
         return (NewsArray' rows)
         else return (NewsArray' [])
 
+getCommentsByNewsId :: Int -> Maybe ByteString ->  IO (Either LBS.ByteString CommentArray)
+getCommentsByNewsId news_id page = do
+        --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+        check <- checkNews news_id
+        if check then do
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            let q = "select (concat(first_name, ' ', last_name)) as author_name, comment_text, comment_time, comment_id from users_comments join users using (user_id) where news_id = ? order by comment_time"
+            rows <- query conn q [news_id]
+            close conn
+            return (Right $ CommentArray rows)
+        else return (Left "News not exist")
+
+{-addComment' :: T.Text  -> Int -> T.Text -> IO (Either LBS.ByteString LBS.ByteString)
+addComment' login newsId comment = do
+    cn <- checkNews newsId
+    if not cn then
+        return $ Left "News not exsist"
+    else do
+        cu <- checkUser login
+        case cu of
+          Nothing -> return $ Left "User not exsist"
+          Just userId -> do
+              now <- getCurrentTime 
+              let com = Comment userId comment newsId now
+              conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+              execute conn "insert into users_comments (user_id, comment_text, news_id, comment_time) values (?,?,?,?)" com
+              close conn
+              return $ Right "comment added"-}
+
+addComment :: T.Text  -> Int -> T.Text -> IO (Either LBS.ByteString LBS.ByteString)
+addComment token newsId comment = do
+    cn <- checkNews newsId
+    if not cn then
+        return $ Left "News not exsist"
+    else do
+        ct <- checkToken token
+        case ct of
+            (0, mes) -> return $ Left mes
+            (userId,_) -> do
+                now <- getCurrentTime 
+                let com = Comment userId comment newsId now
+                conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                execute conn "insert into users_comments (user_id, comment_text, news_id, comment_time) values (?,?,?,?)" com
+                close conn
+                return $ Right "comment added"
+
+    {-let new_comm = Comment userId comment newsId now
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    [Only n] <- returning conn "insert into users_comments (user_id, comment_text, news_id, comment_time) values (?,?,?,?) returning comment_id" [new_comm] :: IO [Only Int]
+    close conn
+    return n-}
+deleteComment :: ByteString  -> IO (Either LBS.ByteString LBS.ByteString)
+deleteComment comment_id = do
+    let ci = readByteStringToInt comment_id
+    case ci of
+      Nothing -> return $ Left "Bad comment_id"
+      Just n -> do
+          conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+          execute conn "delete from users_comments where comment_id = ?" [n]
+          return $ Right "Comment deleted"
+        {-return $ Left "News not exsist"
+    else do
+        cu <- checkUser login
+        case cu of
+          Nothing -> return $ Left "User not exsist"
+          Just userId -> do
+              now <- getCurrentTime 
+              let com = Comment userId comment newsId now
+              conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+              execute conn "insert into users_comments (user_id, comment_text, news_id, comment_time) values (?,?,?,?)" com
+              close conn
+              return $ Right "comment added"-}
+
+checkToken :: T.Text -> IO (Int, LBS.ByteString)
+checkToken token = do
+    --TIO.putStrLn token
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    rows <- query conn "select user_id, creation_date from tokens where token = ?" [token] :: IO [CheckToken]
+    close conn
+    --print rows
+    --return (1,"")
+    --print rows
+    --return (True,"")
+    if Prelude.null rows then
+        return (0, "Token not exist")
+        else do
+            now <- getCurrentTime
+            if diffUTCTime now (ct_creation_date $ Prelude.head rows) > 86400 then  return (0,"Token too old")
+                                         else return (ct_user_id $ Prelude.head rows,"")
+
+
+checkAdmin :: T.Text -> IO (Bool, LBS.ByteString)
+checkAdmin token = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    rows <- query conn "select admin_mark from users join tokens using (user_id) where token = ? and (current_timestamp - tokens.creation_date < interval '1 day')" [token] :: IO [Only Bool]
+    close conn
+    if Prelude.null rows then
+        return (False, "Bad token")
+        else do
+            let ct = fromOnly $ Prelude.head rows
+            if ct then
+                return (ct,"")
+            else
+                return (ct, "Not admin")
+
+
+tstToken :: T.Text 
+tstToken = "dahaku20210713085011962691"
+
+tstToken' :: T.Text 
+tstToken' = "niamh20210713095646487796"
+
+tstToken'' :: T.Text 
+tstToken'' = "12"
 
 readByteStringToInt :: ByteString -> Maybe Int
 readByteStringToInt num = readMaybe $ BC.unpack num

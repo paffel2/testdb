@@ -18,7 +18,7 @@ import Database.PostgreSQL.Simple.Time
 data User = User { first_name :: Maybe String,
                    last_name :: Maybe String,
                    avatar :: Maybe B.ByteString,
-                   login :: String,
+                   user_login :: String,
                    user_password :: String,
                    creation_date :: UTCTime,
                    admin_mark :: Bool } deriving (Show, Generic, ToRow, FromRow)
@@ -146,10 +146,30 @@ data FindNewsByCategory = FindNewsByCategory { c_id :: Int,
 {-data FindNewsByTagIn = FindNewsByTagIn { t_ids :: [Int],
                                          t_page :: Int  } deriving (Show, Generic, ToRow, FromRow)-}
 
-                            
+
+data Comment' = Comment' { comment_author_name :: T.Text,
+                              comment_text' :: T.Text,
+                              comment_time' :: UTCTime,
+                              comment_id' :: Int
+                            } deriving (Show, Generic, ToRow, FromRow)
+
+newtype CommentArray = CommentArray { comments :: [Comment']} deriving (Show, Generic)
+instance ToJSON Comment' where
+
+instance ToJSON CommentArray where
+    toJSON = genericToJSON defaultOptions
+
+                          
 daytst = 
     do 
         now <- getCurrentTime 
         print $ utctDay now
 
-        
+
+--newtype Myid' = Myid' {}
+
+--type Myid' = Maybe Int
+
+data CheckToken = CheckToken { ct_user_id :: Int,
+                               ct_creation_date :: UTCTime
+                               } deriving (Show, Generic, ToRow, FromRow)

@@ -331,7 +331,7 @@ newComment req = do
 
 
 
-notMainServ :: IO ()
+{-notMainServ :: IO ()
 notMainServ = do
     putStrLn "Serving..."
     runSettings defaultSettings  appPath
@@ -349,13 +349,13 @@ appPath req respond
         respond $ responseOk "some work!"
         where
             path = BC.tail $ rawPathInfo req
-            pathParams = BC.split '/' path
+            pathParams = BC.split '/' path-}
 
 
 
 
-notMainServ' :: IO ()
-notMainServ' = do
+notMainServ :: IO ()
+notMainServ = do
     putStrLn "Serving..."
     runSettings  (setMaximumBodyFlush (Just 1048576) $ setPort 8000 defaultSettings) appPath'
 
@@ -383,6 +383,7 @@ appPath' req respond
 appPath' :: Application
 appPath' req respond 
     | pathHead == "news" = newsMethodBlock path pathElems req >>= respond
+    | pathHead == "login" = login req >>= respond
     | otherwise = 
         respond $ responseBadRequest "bad url"
     where
@@ -408,10 +409,43 @@ newsMethodBlock path pathElems req
               case result of
                 Left bs -> return $ responseBadRequest bs
                 Right na ->  return $ responseOk $ encode na
-    | pathElemC == 3 = 
-        return $ responseOk "send comments"
+    | pathElemC == 3 = do
+        let newsId = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
+        case newsId of
+          Nothing -> return $ responseBadRequest "bad news id"
+          Just n -> 
+              if last pathElems == "comments"
+                  then do
+                      result <- sendCommentsByNewsId req n
+                      case result of
+                        Left bs -> return $ responseBadRequest "bad news id"
+                        Right ca -> return $ responseOk $ encode ca
+
+                  else
+                        return $ responseBadRequest "Not founded"
     | pathElemC == 4 =
-        return $ responseOk "add comment"
+        case last pathElems of
+            "add_comment" -> do
+                let news_id = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
+                case news_id of
+                  Nothing -> return $ responseBadRequest "bad news id"
+                  Just n -> do
+                            result <- addCommentByNewsId req n
+                            case result of
+                              Left bs -> return $ responseBadRequest bs
+                              Right bs -> return $ responseOk bs
+
+            "delete_comment" -> do
+                let news_id = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
+                case news_id of
+                  Nothing -> return $ responseBadRequest "bad news id"
+                  Just n -> do
+                    result <- deleteCommentById req
+                    case result of
+                      Left bs ->  return $ responseBadRequest bs
+                      Right bs ->  return $ responseOk bs
+            _ -> return $ responseBadRequest "bad request1"
+        --return $ responseOk "add comment"
     | otherwise = 
         return $ responseBadRequest "bad request2"
     where
@@ -419,12 +453,7 @@ newsMethodBlock path pathElems req
 
 sendNews :: Request  -> IO (Either LBS.ByteString NewsArray')
 sendNews req = do
-    -- queryBS == "" = Right <$> getNews' (fromMaybe "" sortParam)
-    -- otherwise = do
-        --print fstParamName
-        --print fstParam
         print filterParamName
-        --print filterParam
         let p = fromMaybe "no param" filterParam
         TIO.putStrLn $ E.decodeUtf8 p
         case filterParamName of 
@@ -443,14 +472,10 @@ sendNews req = do
 
 
     where 
-        --queryBS = rawQueryString req
-        --queryParams@[(paramName,param)] = queryString req
         queryParams = queryString req
         fstQueryParam@(fstParamName,fstParam) = head queryParams
-        --pageParam@(pageP,page) = head $ tail queryParams
         pageParam = fromMaybe Nothing (lookup "page" queryParams)
         sortParam = fromMaybe Nothing (lookup "sort" queryParams)
-        --dirParam = fromMaybe Nothing (lookup "dir" queryParams)
         filterParamName = myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|> myLookup "tag" queryParams 
                       <|> myLookup "tag_all" queryParams <|> myLookup "author" queryParams
                       <|> myLookup "title" queryParams <|> myLookup "content" queryParams
@@ -474,11 +499,82 @@ sendNewsById req nid = do
             return $ Left "unexpected params"
 
 
+
+  
+
+
+sendCommentsByNewsId :: Request -> Int -> IO (Either LBS.ByteString CommentArray)
+sendCommentsByNewsId req news_id = do
+    let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
+    getCommentsByNewsId news_id pageParam
+
+
+{-addCommentByNewsId' :: Request -> Int -> IO (Either LBS.ByteString LBS.ByteString)
+addCommentByNewsId' req news_id = do
+    (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+    let login = lookup "login" i
+    case login of
+      Nothing -> return $ Left "No login field"
+      Just bs -> do
+            let comment = lookup "comment_text" i
+            case comment of
+              Nothing -> return $ Left "No login field"
+              Just bs' -> do
+                addComment (E.decodeUtf8 $ fromMaybe "" login) news_id (E.decodeUtf8 $ fromMaybe "" comment)-}
+
+
+
+addCommentByNewsId :: Request -> Int -> IO (Either LBS.ByteString LBS.ByteString)
+addCommentByNewsId req news_id = do
+    (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+    let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    --let c = E.decodeUtf8 $ fromMaybe "" token
+    --print c
+    let comment = lookup "comment_text" i
+    case comment of
+        Nothing -> return $ Left "No comment field"
+        Just bs' -> do
+                addComment (E.decodeUtf8 $ fromMaybe "" token) news_id (E.decodeUtf8 $ fromMaybe "" comment)
+
+{-deleteCommentById :: Request ->  IO (Either LBS.ByteString LBS.ByteString)
+deleteCommentById req  = do
+    (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+    let comment_id = lookup "comment_id" i
+    case comment_id of
+      Nothing -> return $ Left "no comment_id field"
+      Just bs -> deleteComment bs-}
+            --return $ Right ""
+    --addComment login news_id comment
+
+deleteCommentById :: Request ->  IO (Either LBS.ByteString LBS.ByteString)
+deleteCommentById req  = do
+    let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    ct <- checkAdmin (E.decodeUtf8 $ fromMaybe "" token)
+    case ct of
+        (True,_) -> do
+                (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+                let comment_id = lookup "comment_id" i
+                case comment_id of
+                    Nothing -> return $ Left "no comment_id field"
+                    Just bs -> deleteComment bs
+        (False, bs) -> return $ Left bs
+
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key []          =  Nothing
 myLookup  key ((x,_):xys)
     | key == x           =  Just key
-    | otherwise         =  myLookup key xys   
+    | otherwise         =  myLookup key xys
 
 
-
+login :: Request -> IO Response
+login req = do
+    (i,_) <- parseRequestBody lbsBackEnd req
+    let log = fromMaybe "" (lookup "login" i)
+    let pass = fromMaybe "" (lookup "user_password" i)
+    check <- auth log pass
+    case check of
+      Left bs -> return $ responseBadRequest bs
+      Right bs -> return $ responseOk bs
+    {-else do
+        print ("someone try login with login " ++ log)
+        return $ responseBadRequest "not logged"-}

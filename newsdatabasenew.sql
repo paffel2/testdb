@@ -119,6 +119,12 @@ CREATE TABLE Draft_tags (
     FOREIGN KEY (draft_id) REFERENCES Drafts (draft_id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES Tags (tag_id) ON DELETE CASCADE);
 
+CREATE TABLE Tokens (
+	user_id int NOT NULL UNIQUE PRIMARY KEY, 
+	token VARCHAR(50) NOT NULL UNIQUE,
+	creation_date timestamp with time zone NOT NULL,
+	FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE CASCADE);
+
 CREATE EXTENSION pgcrypto;
 
  /*
