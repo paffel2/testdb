@@ -165,13 +165,13 @@ createAuthor usid desc= do
     close conn
     Prelude.putStrLn "author created"
 
-createCategory :: T.Text -> Maybe Int -> IO ()
+createCategory :: T.Text -> Maybe Int -> IO LBS.ByteString 
 createCategory categoryName maternalCategoryId = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let newCategory = Category (T.toLower  categoryName) maternalCategoryId
     execute conn "insert into categories (category_name, maternal_category) values (?,?)" newCategory
     close conn
-    Prelude.putStrLn "done"
+    return "Category created"
 
 {-newCat :: IO ()
 newCat = createCategory "Наука" Nothing-}
@@ -293,9 +293,9 @@ loadImage fileName contentType content' = do
     if fileName == "" && contentType == "" && content' == ""
         then return Nothing
         else do
-            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
             let image = Image fileName contentType (Binary content')
-            let q = "insert into images_data (image_name, content_type, image_b) values (?,?,?) returning image_id"
+            let q = "insert into images (image_name, image_b, content_type,) values (?,?,?) returning image_id"
     --(n:ns) :: [Myid] <- returning conn q [image] 
             [Only n] <- returning conn q [image]
             close conn
@@ -460,6 +460,8 @@ checkUser login' = do
         return Nothing
     else
         return (Just (fMyidTInt (Prelude.head rows)))
+tst''' :: T.Text 
+tst''' = "paffel2"
 
 createComment :: Int -> Int -> T.Text -> IO Int
 createComment userId newsId comment = do
@@ -786,14 +788,59 @@ checkAdmin token = do
                 return (ct, "Not admin")
 
 
-tstToken :: T.Text 
+
+createUser'' :: BC.ByteString  -> BC.ByteString  -> T.Text -> T.Text -> String -> String -> LBS.ByteString  -> IO (Either LBS.ByteString LBS.ByteString )
+createUser'' login password f_name l_name avatar_name avatar_contentType avatar= do
+    cu <- checkUser $ E.decodeUtf8 login
+    --TIO.putStrLn $ E.decodeUtf8 login
+    case cu of
+      Just _ -> return $ Left "User with same login already exist"
+      Nothing -> do
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            now <- getCurrentTime
+            n <- loadImage' avatar_name avatar_contentType avatar
+            case n of
+              Nothing -> return $ Left "Avatar not loaded"
+              i -> do
+                let newUser = User'' (Just f_name) (Just l_name) i (E.decodeUtf8 login) (E.decodeUtf8 password) now False (E.decodeUtf8 login)
+                --print newUser
+                catch (do
+                    rows <- query conn "insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) values (?,?,?,?,crypt(?,gen_salt('md5')),?,?); select user_id from users where login = ?" newUser :: IO [Only Int]
+                --execute conn "update users set user_password = crypt(?,gen_salt('md5')) where login = ?" (T (E.decodeUtf8 password) (E.decodeUtf8 login))
+                    close conn
+                    if Prelude.null rows then
+                        return $ Left "cant register new user"
+                        else auth login password) $ \e ->  do
+                                        let err = sqlErrorMsg e
+                                        TIO.putStrLn $ E.decodeUtf8 err
+                                        return $ Left "Database error"
+
+
+loadImage' :: String -> String -> LBS.ByteString -> IO (Maybe Int)
+loadImage' fileName contentType content' = do
+    if fileName == "" && contentType == "" && content' == ""
+        then return Nothing
+        else do
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            let image = Image' fileName (Binary content') contentType
+            let q = "insert into images (image_name, image_b, content_type) values (?,?,?) returning image_id"
+    --(n:ns) :: [Myid] <- returning conn q [image] 
+            [Only n] <- returning conn q [image]
+            close conn
+    --print n
+            Prelude.putStrLn "image loaded"
+            return (Just n)
+
+
+
+{-tstToken :: T.Text 
 tstToken = "dahaku20210713085011962691"
 
 tstToken' :: T.Text 
 tstToken' = "niamh20210713095646487796"
 
 tstToken'' :: T.Text 
-tstToken'' = "12"
+tstToken'' = "12"-}
 
 readByteStringToInt :: ByteString -> Maybe Int
 readByteStringToInt num = readMaybe $ BC.unpack num
@@ -813,3 +860,122 @@ readByteStringToDay bs = readMaybe $ BC.unpack bs
 
 toQuery :: ByteString -> Query 
 toQuery s = fromString $ BC.unpack s
+
+
+{-crut :: IO Int
+crut = do
+    now <- getCurrentTime 
+    let newUser = Rt "123" (Just "f_name") (Just "l_name") (Just 25) "123" now  False
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let q = "insert into tst (p, f, l , a , login , c, m) values (crypt(?,gen_salt('md5')),?,?,?,  ?, ? ) RETURNING tst_id"
+    rows <- returning conn q [newUser] :: IO [Only Int]
+    --execute conn "update tst set user_password = crypt(?,gen_salt('md5')) where login = ?" (T "pas" "321")
+    print rows
+    close conn
+    return 1-}
+
+
+
+
+{-cr :: IO ()
+cr = do--login password f_name l_name avatar_name avatar_contentType avatar= do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    now <- getCurrentTime
+    --n <- loadImage avatar_name avatar_contentType avatar
+    --let newUser = User' (Just "f_name") (Just "l_name") (Just 5) "login" "password" now False 
+    let newUser = Rt (Just "f_name") (Just "l_name") (Just 5) "login1" "password" now False "login1"
+    --execute conn "insert into tst (f, l, a, login, p, c, m) values (?,?,?,?,crypt(?,gen_salt('md5')),?,?)" newUser
+    let q = "insert into tst (f, l, a, login, p, c, m) values (?,?,?,?,crypt(?,gen_salt('md5')),?,?); select tst_id from tst where login = ?"
+    rows <- query conn q newUser :: IO [Only Int]
+    print rows
+    close conn
+    Prelude.putStrLn "done"-}
+
+
+getCategoriesList :: Maybe BC.ByteString -> IO ListOfCategories
+getCategoriesList pageParam = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let pg = if isNothing pageParam then " limit 10 offset 0"
+                else 
+                    BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" pageParam)) - 1)*10 ]
+    let q = toQuery $ BC.concat ["select category_name from categories",pg]
+    rows <- query_ conn q :: IO [Category']
+    close conn
+    return (ListOfCategories rows)
+
+deleteCategory :: T.Text -> IO LBS.ByteString 
+deleteCategory categoryName = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    execute conn "delete from categories where category_name = ?" [categoryName]
+    close conn
+    --execute conn "delete from tst where c_name = ?" [categoryName]
+    return "Category deleted"
+
+editCategoryName :: ByteString -> Maybe ByteString -> IO (Either LBS.ByteString LBS.ByteString )
+editCategoryName old_name new_name = do
+    let new_name' = fromMaybe "" new_name
+    cnn <- checkCategory $ E.decodeUtf8 new_name'
+    case cnn of
+      Just n -> return $ Left "category with new name already exist"
+      Nothing -> do
+          if new_name' /= "" then do
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            let q = "update categories set category_name = ? where category_name = ?"
+            let edit = EditCategoryName (E.decodeUtf8 new_name') (E.decodeUtf8 old_name)
+            --let q = "update tst set c_name = ? where c_name = ?" 
+            execute conn q edit
+            return $ Right "Category name changed"
+            else
+                return $ Left "Bad new name"
+
+editCategoryMaternal :: ByteString -> Maybe ByteString -> IO (Either LBS.ByteString LBS.ByteString )
+editCategoryMaternal category_name new_maternal = do
+    let new_maternal' = fromMaybe "" new_maternal
+    cnn <- checkCategory $ E.decodeUtf8 new_maternal'
+    case cnn of
+      Nothing -> return $ Left "maternal category not exist"
+      Just n -> do
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            let q = "update categories set maternal_category = ? where category_name = ?"
+            let edit = EditCategoryMaternal n (E.decodeUtf8 category_name)
+            --let q = "update tst set m_id = ? where c_name = ?" 
+            execute conn q edit
+            return $ Right "Maternal category changed"
+
+fullEditCategory :: ByteString -> Maybe ByteString -> Maybe ByteString -> IO (Either LBS.ByteString LBS.ByteString )
+fullEditCategory old_name new_name new_maternal = do
+    let new_name' = fromMaybe "" new_name
+    cnn <- checkCategory $ E.decodeUtf8 new_name'
+    case cnn of
+      Just n -> return $ Left "category with new name already exist"
+      Nothing -> do
+            if new_name' /= "" then do
+                let new_maternal' = fromMaybe "" new_maternal
+                cnn <- checkCategory $ E.decodeUtf8 new_maternal'
+                case cnn of
+                    Nothing -> return $ Left "maternal category not exist"
+                    Just n -> do
+                        conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                        let edit = EditCategory (E.decodeUtf8 new_name') n (E.decodeUtf8 old_name)
+                        let q = "update categories set category_name =? ,maternal_category = ? where category_name = ?"
+                        --let q = "update tst set c_name = ?, m_id = ? where c_name = ?" 
+                        execute conn q edit
+                        return $ Right "Category edited"
+            else
+                return $ Left "Bad new name"
+
+tstC :: (Maybe T.Text, Maybe Int, Maybe T.Text)
+tstC = (Just "", Just 20, Just "" )
+{-getNews' :: ByteString -> Maybe ByteString-> IO NewsArray'
+getNews' sortParam pageParam = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let sort' = if sortParam == "" then ""
+                else BC.concat [" order by ",sortParam," DESC"]
+    let pg = if isNothing pageParam then " limit 10 offset 0"
+            else 
+                BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" pageParam)) - 1)*10 ]
+    let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news join authors using (author_id) join users using (user_id) join categories using (category_id)", sort',pg]
+    --rows <- query_ conn "select news_id, short_title, date_creation, author_id, category_id, news_text  from news" :: IO [GetNews']
+    rows <- query_ conn q:: IO [GetNews']
+    close conn
+    return (NewsArray' rows)-}

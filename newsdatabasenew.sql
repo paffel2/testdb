@@ -37,7 +37,8 @@ CREATE TABLE Authors (
 CREATE TABLE categories (
     category_id serial PRIMARY KEY,
     category_name varchar(50) NOT NULL UNIQUE,
-    maternal_category int);
+    maternal_category int,
+    FOREIGN KEY (maternal_category) REFERENCES categories(category_id) ON DELETE CASCADE);
     
     
 CREATE TABLE Tags (

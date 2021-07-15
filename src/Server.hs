@@ -384,6 +384,8 @@ appPath' :: Application
 appPath' req respond 
     | pathHead == "news" = newsMethodBlock path pathElems req >>= respond
     | pathHead == "login" = login req >>= respond
+    | pathHead == "registration" = registration req >>= respond
+    | pathHead == "categories" = categoriesBlock path pathElems req >>= respond
     | otherwise = 
         respond $ responseBadRequest "bad url"
     where
@@ -575,6 +577,147 @@ login req = do
     case check of
       Left bs -> return $ responseBadRequest bs
       Right bs -> return $ responseOk bs
-    {-else do
-        print ("someone try login with login " ++ log)
-        return $ responseBadRequest "not logged"-}
+
+registration :: Request -> IO Response 
+registration req = do
+    (i,f) <- parseRequestBody lbsBackEnd req
+    let [(_,file)] = f
+    let file_contentType = fileContentType file
+    --TIO.putStrLn $ E.decodeUtf8 $ fileName file
+    if BC.take 5 file_contentType /= "image"
+        then return $ responseBadRequest "Bad avatar file  "
+        else do
+            let f_name = E.decodeUtf8 $ fromMaybe "" (lookup "f_name" i)
+            let l_name = E.decodeUtf8 $ fromMaybe "" (lookup "l_name" i)
+            let login = fromMaybe "" (lookup "login" i)
+            let password = fromMaybe "" (lookup "password" i)
+            if T.length f_name > 50 || T.length l_name > 50 || T.length (E.decodeUtf8 login) > 50 || T.length (E.decodeUtf8 password) > 50
+                then return $ responseBadRequest "one parametr more then 50 symbols"
+                else do
+                    result <- createUser'' login password f_name l_name (BC.unpack $ fileName file) (BC.unpack $ fileContentType file) (fileContent file)
+                    case result of
+                      Left bs -> return $ responseBadRequest bs
+                      Right bs -> return $ responseOk bs
+
+sendCategoriesList :: Request -> IO Response 
+sendCategoriesList req = do
+    result <- getCategoriesList pageParam
+    return $ responseOk $ encode result
+    where 
+        queryParams = queryString req
+        pageParam = fromMaybe Nothing (lookup "page" queryParams)
+
+createCategory' :: Request -> IO Response
+createCategory' req = do
+    let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    ct <- checkAdmin $ E.decodeUtf8 $ fromMaybe "" token
+    case ct of 
+        (False,bs) -> return $ responseBadRequest bs
+        (True,_) -> do
+                (i,_) <- parseRequestBody lbsBackEnd req
+                let category_name = lookup "category_name" i
+                case category_name of
+                    Nothing -> return $ responseBadRequest "Bad category name"
+                    Just bs -> do
+                        ch <- checkCategory $ E.decodeUtf8 bs
+                        case ch of
+                            Just n -> return $ responseBadRequest "Category already exist"
+                            Nothing -> do
+                                    let maternal_category_name = lookup "maternal_category_name" i
+                                    case maternal_category_name of
+                                        Nothing -> do
+                                            result <- createCategory (E.decodeUtf8 bs) Nothing
+                                            return $ responseOk result
+
+                                        Just bs' -> do
+                                            chm <- checkCategory $ E.decodeUtf8 bs'
+                                            case chm of
+                                              Nothing -> return $ responseBadRequest "Maternal category not exist"
+                                              Just n -> do
+                                                  result <- createCategory (E.decodeUtf8 bs) (Just n)
+                                                  return $ responseOk result
+deleteCategory' :: Request -> IO Response 
+deleteCategory' req = do
+    let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    ct <- checkAdmin $ E.decodeUtf8 $ fromMaybe "" token
+    case ct of 
+        (False,bs) -> return $ responseBadRequest bs
+        (True,_) -> do
+            (i,_) <- parseRequestBody lbsBackEnd req
+            let category_name = lookup "category_name" i
+            case category_name of
+              Nothing -> return $ responseBadRequest "no categoty_name field"
+              Just bs -> do
+                  result <- deleteCategory $ E.decodeUtf8 bs
+                  return $ responseOk result
+
+editCategory' :: Request -> IO Response 
+editCategory' req = do
+    let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    ct <- checkAdmin $ E.decodeUtf8 $ fromMaybe "" token
+    case ct of 
+        (False,bs) -> return $ responseBadRequest bs
+        (True,_) -> do
+                    let category_name_parametr = lookup "category_name" $ queryString req
+    --print category_name_parametr
+                    case category_name_parametr of
+                        Nothing -> return $ responseBadRequest "no category name parametr"
+                        Just m_bs -> do
+                            let category_name = fromMaybe "" m_bs
+                            cc <- checkCategory $ E.decodeUtf8 category_name
+                            case cc of
+                                Nothing -> return $ responseBadRequest "category not exist"
+                                _ -> do
+                                    let new_maternal_parametr = lookup "new_maternal" $ queryString req
+                                    let new_name_parametr = lookup "new_name" $ queryString req
+                                    case (new_maternal_parametr,new_name_parametr) of 
+                                        (Nothing, Nothing) -> return $ responseBadRequest "no editable parametrs"
+                                        (Nothing, Just nnp) -> do 
+                                                    result <- editCategoryName category_name nnp
+                                                    case result of
+                                                            Left bs -> return $ responseBadRequest bs
+                                                            Right bs -> return $ responseOk bs
+
+                                        (Just nmp,Nothing) -> do 
+                                                    result <-editCategoryMaternal category_name nmp
+                                                    case result of
+                                                            Left bs -> return $ responseBadRequest bs
+                                                            Right bs -> return $ responseOk bs
+
+                                        (Just nmp,Just nnp) -> do
+                                                    result <-fullEditCategory category_name nnp nmp
+                                                    case result of
+                                                            Left bs -> return $ responseBadRequest bs
+                                                            Right bs -> return $ responseOk bs
+
+
+            
+
+categoriesBlock :: BC.ByteString -> [BC.ByteString] -> Request -> IO Response 
+categoriesBlock path pathElems req | pathElemsC == 1 = sendCategoriesList req
+                                   | pathElemsC == 2 = 
+                                       case last pathElems of
+                                           "delete_category" -> deleteCategory' req
+                                           "create_category" -> createCategory' req
+                                           "edit_category" -> editCategory' req
+                                           _ -> return $ responseBadRequest "bad request"
+                                   | otherwise = return $ responseBadRequest "bad request"
+
+
+    where pathElemsC = length pathElems
+
+
+{-(i, f) <- parseRequestBody lbsBackEnd req
+            print i
+            let [(_,file)] = f
+            print $ fileName file
+            print $ fileContentType file
+            if BC.take 5 (fileContentType file) /= "image" then
+                return $ responseOk "bad avatar"
+            else do
+                let f_name = T.take 50 $ E.decodeUtf8 $ fromMaybe "" (lookup "f_name" i)
+                let l_name = T.take 50 $ E.decodeUtf8 $ fromMaybe "" (lookup "l_name" i)
+                let login = T.take 50 $ E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
+                let password = T.take 50 $ E.decodeUtf8 $ fromMaybe "" (lookup "password" i)
+                createUser' login password f_name l_name (BC.unpack $ fileName file) (BC.unpack $ fileContentType file) (fileContent file)
+                return $ responseOk "new user register"-}

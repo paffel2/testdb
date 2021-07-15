@@ -173,3 +173,58 @@ daytst =
 data CheckToken = CheckToken { ct_user_id :: Int,
                                ct_creation_date :: UTCTime
                                } deriving (Show, Generic, ToRow, FromRow)
+
+
+data Image' = Image' { f_name' :: String,
+                     content' :: Binary LBS.ByteString,
+                     content_type' :: String
+                   } deriving (Show, Generic, ToRow, FromRow)
+
+
+data User'' = User'' { first_name'' :: Maybe T.Text,
+                   last_name'' :: Maybe T.Text,
+                   avatar'' :: Maybe Int,
+                   login''' :: T.Text,
+                   user_password'' :: T.Text,
+                   creation_date'' :: UTCTime,
+                   admin_mark'' :: Bool,
+                   get_user_id :: T.Text
+                   } deriving (Show, Generic, ToRow, FromRow)
+
+
+{-data Rt = Rt {     --u :: String,
+                   f :: Maybe T.Text,
+                   l :: Maybe T.Text,
+                   a :: Maybe Int,
+                   l' :: T.Text,
+                   u :: T.Text,
+                   d :: UTCTime,
+                   m :: Bool,
+                   ll :: T.Text} deriving (Show, Generic, ToRow, FromRow)
+
+data T = T { p' :: T.Text,
+            u_l :: T.Text 
+            } deriving (Show, Generic, ToRow, FromRow)-}
+
+
+newtype Category' = Category' { category_name'' :: T.Text } deriving (Show, Generic, ToRow, FromRow)
+instance ToJSON Category' where
+    toJSON = genericToJSON defaultOptions
+
+newtype ListOfCategories = ListOfCategories { categories' :: [Category']} deriving (Show, Generic)
+instance ToJSON ListOfCategories where
+    toJSON = genericToJSON defaultOptions
+
+
+data EditCategoryName = EditCategoryName { 
+                                   new_name ::  T.Text,
+                                   edit_category_name ::T.Text } deriving (Show, Generic, ToRow, FromRow)
+
+data EditCategoryMaternal = EditCategoryMaternal { 
+                                   new_maternal ::  Int,
+                                   category_name''' ::T.Text } deriving (Show, Generic, ToRow, FromRow)
+
+data EditCategory = EditCategory { 
+                                   new_name' ::  T.Text,
+                                   new_maternal' :: Int,
+                                   edit_category_name' ::T.Text } deriving (Show, Generic, ToRow, FromRow)
