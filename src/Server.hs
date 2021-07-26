@@ -21,6 +21,12 @@ import Types
 import Data.Maybe
 import Text.Read
 import Control.Applicative
+import HelpFunction
+import Responses
+import NewsAndComments
+import Categories
+import Users
+import Drafts
 
 
 {-simpleApp :: Application 
@@ -71,14 +77,14 @@ tst = SimpleJson "Paul" 26
 
 
 
-responseOk, responseNotFound, responseBadRequest :: LBS.ByteString -> Response
+{-responseOk, responseNotFound, responseBadRequest :: LBS.ByteString -> Response
 
 responseOk = responsePlainText status200
 responseNotFound = responsePlainText notFound404
 responseBadRequest = responsePlainText badRequest400
 
 responsePlainText :: Status -> LBS.ByteString -> Response
-responsePlainText = (`responseLBS` [(hContentType, "text/plain")])
+responsePlainText = (`responseLBS` [(hContentType, "text/plain")])-}
 
 
 {-app :: Application 
@@ -251,7 +257,7 @@ app req respond
                                                     --print i
                                                     TIO.putStrLn sh_title
                                                     if T.length sh_title > 20 then
-                                                        return $ responseOk "too long title"
+                                                        return $ responseBadRequest "too long title"
                                                         else do
                                                         result <- createDraft main_image_triple images_list x cn tl text sh_title
                                                         return $ responseOk result
@@ -298,8 +304,8 @@ authorParams s = l where
 tagsString :: T.Text 
 tagsString = "sport news"
 
-splitOnPunctuationMark :: T.Text -> [T.Text]
-splitOnPunctuationMark  = T.splitOn " " 
+{-splitOnPunctuationMark :: T.Text -> [T.Text]
+splitOnPunctuationMark  = T.splitOn " " -}
 
 
 
@@ -386,6 +392,9 @@ appPath' req respond
     | pathHead == "login" = login req >>= respond
     | pathHead == "registration" = registration req >>= respond
     | pathHead == "categories" = categoriesBlock path pathElems req >>= respond
+    | pathHead == "deleteUser" = deleteUser req >>= respond
+    | pathHead == "drafts" = draftsBlock pathElems req >>= respond
+    -- pathHead == "new_draft" = createDraft' req >>= respond
     | otherwise = 
         respond $ responseBadRequest "bad url"
     where
@@ -395,7 +404,7 @@ appPath' req respond
         pathHead = head pathElems
 
 
-newsMethodBlock :: BC.ByteString -> [BC.ByteString] -> Request ->  IO Response
+{-newsMethodBlock :: BC.ByteString -> [BC.ByteString] -> Request ->  IO Response
 newsMethodBlock path pathElems req     
     | pathElemC == 1 = do
         result <- sendNews req
@@ -559,16 +568,16 @@ deleteCommentById req  = do
                 case comment_id of
                     Nothing -> return $ Left "no comment_id field"
                     Just bs -> deleteComment bs
-        (False, bs) -> return $ Left bs
+        (False, bs) -> return $ Left bs-}
 
-myLookup :: Eq a => a -> [(a, b)] -> Maybe a
+{-myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key []          =  Nothing
 myLookup  key ((x,_):xys)
     | key == x           =  Just key
-    | otherwise         =  myLookup key xys
+    | otherwise         =  myLookup key xys-}
 
 
-login :: Request -> IO Response
+{-login :: Request -> IO Response
 login req = do
     (i,_) <- parseRequestBody lbsBackEnd req
     let log = fromMaybe "" (lookup "login" i)
@@ -597,9 +606,9 @@ registration req = do
                     result <- createUser'' login password f_name l_name (BC.unpack $ fileName file) (BC.unpack $ fileContentType file) (fileContent file)
                     case result of
                       Left bs -> return $ responseBadRequest bs
-                      Right bs -> return $ responseOk bs
+                      Right bs -> return $ responseOk bs-}
 
-sendCategoriesList :: Request -> IO Response 
+{-sendCategoriesList :: Request -> IO Response 
 sendCategoriesList req = do
     result <- getCategoriesList pageParam
     return $ responseOk $ encode result
@@ -651,7 +660,7 @@ deleteCategory' req = do
                   result <- deleteCategory $ E.decodeUtf8 bs
                   return $ responseOk result
 
-editCategory' :: Request -> IO Response 
+editCategory' :: Request -> IO Response
 editCategory' req = do
     let token = fromMaybe Nothing (lookup "token" $ queryString req)
     ct <- checkAdmin $ E.decodeUtf8 $ fromMaybe "" token
@@ -704,7 +713,11 @@ categoriesBlock path pathElems req | pathElemsC == 1 = sendCategoriesList req
                                    | otherwise = return $ responseBadRequest "bad request"
 
 
-    where pathElemsC = length pathElems
+    where pathElemsC = length pathElems-}
+
+
+
+
 
 
 {-(i, f) <- parseRequestBody lbsBackEnd req

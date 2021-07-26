@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 module Types where
 import Database.PostgreSQL.Simple
+import Database.PostgreSQL.Simple.Types
 import Control.Monad
 import Control.Applicative
 import Data.ByteString as B
@@ -228,3 +229,47 @@ data EditCategory = EditCategory {
                                    new_name' ::  T.Text,
                                    new_maternal' :: Int,
                                    edit_category_name' ::T.Text } deriving (Show, Generic, ToRow, FromRow)
+
+{-data Draft' = Draft' { --author_id'' :: Int,
+                     draft_short_title' :: T.Text,
+                     date_of_changes' :: UTCTime,
+                     draft_category_id' :: Int,
+                     draft_text' :: T.Text,
+                     main_image_id' :: Int,
+                     draft_images :: [Int] 
+                     } deriving (Show,Generic, ToRow, FromRow)
+instance ToJSON Draft'  where
+    toJSON = genericToJSON defaultOptions-}
+data Draft' = Draft' { --author_id'' :: Int,
+                     draft_short_title' :: T.Text,
+                     date_of_changes' :: UTCTime,
+                     draft_category_id' :: Int,
+                     draft_text' :: T.Text,
+                     draft_main_image_id' :: Int,
+                     draft_images :: PGArray Int
+                     } deriving (Show,Generic,FromRow)
+instance ToJSON Draft'  where
+    --toJSON = genericToJSON defaultOptions
+    toJSON (Draft' dst doc dci dt dmii di) = 
+        object ["draft_short_title'" .= dst,
+                "date_of_changes'" .= doc,
+                "draft_category_id'" .= dci,
+                "draft_text'" .= dt,
+                "draft_main_image_id'" .= dmii,
+                "draft_images" .= fromPGArray di]
+
+newtype DraftArray = DraftArray {drafts :: [Draft']} deriving (Show, Generic)
+instance ToJSON DraftArray where
+    toJSON = genericToJSON defaultOptions
+
+{-data GetDraftById = GetDraftById { author_id''' :: Int,
+                                   draft_id''' :: Int 
+                                   } deriving (Show, Generic, FromRow)-}
+
+
+{-newtype ImageId = ImageId { image_id''' :: Int} deriving (Show,Generic, ToRow, FromRow)
+instance ToJSON ImageId  where
+    toJSON = genericToJSON defaultOptions-}
+--newtype ArrayImages = ArrayImages { array_ids :: [ImageId]} deriving (Show,Generic, ToRow, FromRow)
+
+

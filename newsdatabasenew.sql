@@ -15,7 +15,11 @@ CREATE DATABASE "NewsServer1"
 CREATE TABLE Images (
 image_id serial PRIMARY KEY,
 image_name VARCHAR(50) NOT NULL,
-image_b bytea NOT NULL);
+image_b bytea NOT NULL,
+content_type VARCAHR(50) NOT NULL,
+FOREIGN KEY (image_id) REFERENCES News_images(image_id) ON DELETE CASCADE,
+FOREIGN KEY (image_id) REFERENCES Drafts_images(image_id) ON DELETE CASCADE,
+FOREIGN KEY (image_id) REFERENCES Users(avatar) ON DELETE CASCADE);
 
 CREATE TABLE Users (
     user_id serial PRIMARY KEY,
@@ -24,8 +28,8 @@ CREATE TABLE Users (
     avatar INT,
     login VARCHAR(20) UNIQUE NOT NULL,
     user_password VARCHAR(20) NOT NULL,
-    creation_date DATE NOT NULL,
-    admin_mark BOOLEAN NOT NULL,
+    creation_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    admin_mark BOOLEAN NOT NULL,    
     FOREIGN KEY (avatar) REFERENCES Images(image_id) ON DELETE SET NULL);
 
 CREATE TABLE Authors (
@@ -48,7 +52,7 @@ CREATE TABLE Tags (
 CREATE TABLE News (
     news_id serial PRIMARY KEY,
     short_title varchar(20) NOT NULL,
-    date_creation date NOT NULL,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL,
     author_id int,
     category_id int NOT NULL,
     --tags int[],  убрать так как поиск неуодбен
@@ -65,7 +69,7 @@ CREATE TABLE Users_comments (
     user_id int NOT NULL,
     comment_text text NOT NULL,
     news_id int NOT NULL,
-    comment_time timestamp NOT NULL,
+    comment_time TIMESTAMP WITH TIME ZONE NOT NULL,
     FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (news_id) REFERENCES News (news_id) ON DELETE CASCADE);
 
@@ -74,7 +78,7 @@ CREATE TABLE Drafts (
     news_id int,
     user_id int NOT NULL,
     short_title varchar(20),
-    date_of_changes date NOT NULL,
+    date_of_changes TIMESTAMP WITH TIME ZONE NOT NULL,
     category_id int,
     draft_text text,
     main_image INT,

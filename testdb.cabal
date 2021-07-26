@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0acb09ba08b213e16ff7aa45bd4bf97d8a35886e311ee1daa7cf5969cb3ded05
+-- hash: 34a1f17bf0f194ffa6b0f113757edaec90f2901ec1aecfa7ba8a926719caed0f
 
 name:           testdb
 version:        0.1.0.0
@@ -29,9 +29,15 @@ library
   exposed-modules:
       Lib
   other-modules:
+      Categories
+      Drafts
+      HelpFunction
+      NewsAndComments
+      Responses
       Server
       Testdatabase
       Types
+      Users
       Paths_testdb
   hs-source-dirs:
       src

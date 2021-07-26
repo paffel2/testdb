@@ -3,8 +3,8 @@
 module Testdatabase where
 import Database.PostgreSQL.Simple
 --import Database.PostgreSQL.Simple.FromField
-import Control.Monad
-import Control.Applicative
+--import Control.Monad
+--import Control.Applicative
 import Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
@@ -13,11 +13,12 @@ import qualified Data.Text.IO as TIO
 import Types
 import Data.Time
 import Control.Exception
-import Database.PostgreSQL.Simple.Internal
+--import Database.PostgreSQL.Simple.Internal
 import qualified Data.Text.Encoding as E
 import Data.Maybe
-import Text.Read
-import Data.String
+--import Text.Read
+--import Data.String
+import HelpFunction
 
 
 
@@ -365,11 +366,11 @@ checkAuthor login = do
 checkCategory :: T.Text  -> IO (Maybe Int)
 checkCategory category = do
      conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-     rows <- query conn "select category_id from categories where category_name = ?" [category]:: IO [Myid]
+     rows <- query conn "select category_id from categories where category_name = ?" [category]:: IO [Only Int]
      if Prelude.null rows then
          return Nothing
      else
-         return (Just (fMyidTInt (Prelude.head rows)))
+         return (Just (fromOnly $ Prelude.head rows))
 
 tstCategory :: T.Text
 tstCategory  = "Наука"
@@ -399,6 +400,7 @@ checkTag tagsList = do
              rows <- query conn "select tag_id from tags where tag_name in ?" (Only (In tagsList)) :: IO [Myid]
              if Prelude.length rows < Prelude.length tagsList then return $ Left "someone tag not exist"
                 else return $ Right $ fMyidTInt<$> rows
+
 textsToTags :: [T.Text] -> [Tag]
 textsToTags = Prelude.map Tag
 
@@ -433,9 +435,9 @@ insertDraftTag xs = do
 tst'' :: [DrIdTgId]
 tst'' = [DrIdTgId 1 2, DrIdTgId 1 3]
 
-fstTriple (a,b,c) = a
+{-stTriple (a,b,c) = a
 sndTriple (a,b,c) = b
-thrdTriple (a,b,c) = c
+thrdTriple (a,b,c) = c-}
 
 drIdTagId :: Int -> [Int] -> [DrIdTgId]
 drIdTagId x (y:ys) = DrIdTgId x y : drIdTagId x ys
@@ -825,11 +827,15 @@ loadImage' fileName contentType content' = do
             let image = Image' fileName (Binary content') contentType
             let q = "insert into images (image_name, image_b, content_type) values (?,?,?) returning image_id"
     --(n:ns) :: [Myid] <- returning conn q [image] 
-            [Only n] <- returning conn q [image]
+            rows <- returning conn q [image] :: IO [Only Int]
             close conn
     --print n
-            Prelude.putStrLn "image loaded"
-            return (Just n)
+            if Prelude.null rows then do
+                Prelude.putStrLn "Image not loaded"
+                return Nothing
+            else do
+                Prelude.putStrLn "image loaded"
+                return (Just (fromOnly $ Prelude.head rows))
 
 
 
@@ -842,24 +848,24 @@ tstToken' = "niamh20210713095646487796"
 tstToken'' :: T.Text 
 tstToken'' = "12"-}
 
-readByteStringToInt :: ByteString -> Maybe Int
+{-readByteStringToInt :: BC.ByteString -> Maybe Int
 readByteStringToInt num = readMaybe $ BC.unpack num
 
 readByteStringListInt :: BC.ByteString -> Maybe [Int]
 readByteStringListInt lst = readMaybe $ BC.unpack lst
 
 
-takePage :: forall a. Int -> [a] -> [a]
+takePage :: Int -> [a] -> [a]
 takePage p list = Prelude.take 10 $ Prelude.drop ((p-1)*10) list
 
 
-readByteStringToDay :: ByteString -> Maybe Day
+readByteStringToDay :: BC.ByteString -> Maybe Day
 readByteStringToDay bs = readMaybe $ BC.unpack bs
 
 
 
-toQuery :: ByteString -> Query 
-toQuery s = fromString $ BC.unpack s
+toQuery :: BC.ByteString -> Query 
+toQuery s = fromString $ BC.unpack s-}
 
 
 {-crut :: IO Int
@@ -964,6 +970,35 @@ fullEditCategory old_name new_name new_maternal = do
             else
                 return $ Left "Bad new name"
 
+
+deleteUserFromDb :: ByteString -> IO LBS.ByteString
+deleteUserFromDb login = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let q = "delete from users where login = ?"
+    execute conn q [login]
+    close conn
+    return "User deleted"
+
+
+
+checkAuthor' :: T.Text -> IO (Maybe Int)
+checkAuthor' token = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --TIO.putStrLn token
+    rows <- query conn "select author_id from authors join users using (user_id) join tokens using (user_id) where token = ?" [token]:: IO [Only Int]
+    if  Prelude.null rows then
+        return Nothing
+    else
+        return $ Just (fromOnly $ Prelude.head rows)
+
+getDraftsByAuthorId :: Int -> IO DraftArray 
+getDraftsByAuthorId a_id = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --let q = "select short_title, date_of_changes, category_id, draft_text, main_image from drafts where author_id = ?"
+    let q = "select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) from drafts join drafts_images using (draft_id) where author_id = ? group by draft_id"
+    rows <- query conn q [a_id] :: IO [Draft']
+    return $ DraftArray rows
+
 tstC :: (Maybe T.Text, Maybe Int, Maybe T.Text)
 tstC = (Just "", Just 20, Just "" )
 {-getNews' :: ByteString -> Maybe ByteString-> IO NewsArray'
@@ -979,3 +1014,113 @@ getNews' sortParam pageParam = do
     rows <- query_ conn q:: IO [GetNews']
     close conn
     return (NewsArray' rows)-}
+
+
+
+createDraftOnDb :: (String,String,LBS.ByteString) -> [(String,String,LBS.ByteString )] -> Int -> Int -> [Int] -> T.Text -> T.Text -> IO (Either LBS.ByteString Int)
+createDraftOnDb main_image_triple images_list author_id' category_id' tags_ids text sh_title= do
+    main_image_id <- loadImage' (fstTriple main_image_triple) (sndTriple main_image_triple) (thrdTriple main_image_triple)
+    case main_image_id of
+      Nothing -> return $ Left "Images not loaded"
+      Just main_i_id -> do
+            other_images <- loadImages' images_list
+            case other_images of
+              Left bs -> return $ Left bs
+              Right other_images_ids -> do
+                    now <- getCurrentTime
+                    --let (Just mid) = main_image_id
+                    let dr = Draft author_id' sh_title now category_id' text main_i_id
+                    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                    d_rows <- returning conn "insert into drafts (author_id, short_title, date_of_changes, category_id, draft_text, main_image) values (?,?,?,?,?,?) returning draft_id" [dr] :: IO [Only Int]
+                    if Prelude.null d_rows then
+                        return $ Left "Draft not created"
+                    else do
+                        let n = fromOnly $ Prelude.head d_rows
+                        let drtg = drIdTagId n tags_ids
+                        rows_dt <- executeMany conn "insert into draft_tags (draft_id, tag_id) values (?,?)" drtg
+                        if rows_dt /= 0 then do
+                            let drim = drIdTagId n other_images_ids
+                            rows_di <- executeMany conn "insert into drafts_images (draft_id, image_id) values (?,?)" drim
+                            if rows_di /= 0 then do
+                                close conn
+                                return $ Right n
+                            else do
+                                execute conn "delete from drafts where drfat_id = ?" [n]
+                                close conn
+                                return $ Left "draft not created"
+                        else do
+                            execute conn "delete from drafts where drfat_id = ?" [n]
+                            close conn
+                            return $ Left "draft not created"
+
+
+
+
+loadImages' :: [(String, String,LBS.ByteString)] -> IO (Either LBS.ByteString [Int])
+loadImages' x = do 
+    catch  ( do
+            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            let image = toImagesList' x
+            let q = "insert into images (image_name, image_b, content_type) values (?,?,?) returning image_id"
+    --(n:ns) :: [Myid] <- returning conn q [image] 
+            n <- returning conn q image :: IO [Only Int]
+            close conn
+            let ans = fromOnly <$> n
+            --print ans
+            Prelude.putStrLn "images loaded"
+            return $ Right ans) $ \e -> do
+                    let err = show (e :: IOException)
+                    return $ Left "cant loaded images"
+
+
+
+toImagesList' :: [(String, String,LBS.ByteString)] -> [Image']
+toImagesList' ((fileName, contentType, content'):xs) = Image' fileName (Binary content') contentType  : toImagesList' xs
+toImagesList' [] = []
+
+
+getDraftIdsByAuthor :: Int -> IO (Either LBS.ByteString  [Int])
+getDraftIdsByAuthor author_id = do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let q = "select draft_id from drafts where author_id = ?"
+    rows <- query conn q [author_id] :: IO [Only Int]
+    if Prelude.null rows then
+        return $ Left "No drafts"
+    else
+        return $ Right (fromOnly <$> rows)
+
+deleteDraftFromDb :: Int -> Int -> IO (Either LBS.ByteString LBS.ByteString)
+deleteDraftFromDb author_id draft_id = do
+    draft_list <- getDraftIdsByAuthor author_id
+    case draft_list of
+      Left bs -> return $ Left bs
+      Right draft_ids_list -> do
+              if draft_id `Prelude.notElem` draft_ids_list then
+                  return $ Left "You cant delete this draft"
+                else do
+                    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                    let q = "delete from drafts where draft_id = ?"
+                    execute conn q [draft_id]
+                    close conn
+                    return $ Right "Drafts deleted"
+
+
+getDraftByIdDromDb :: Int -> Int -> IO (Either LBS.ByteString  Draft')
+getDraftByIdDromDb author_id draft_id = do
+    draft_list <- getDraftIdsByAuthor author_id
+    case draft_list of
+      Left bs -> return $ Left bs
+      Right draft_ids_list -> do
+            if draft_id `Prelude.notElem` draft_ids_list then
+                return $ Left "Wrong draft_id"
+            else do
+                conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                let q = "select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) from drafts join drafts_images using (draft_id) where author_id = ? and draft_id = ? group by draft_id"
+                --execute conn q [draft_id]
+                --let req = GetDraftById author_id draft_id
+                rows <- query conn q (author_id,draft_id) :: IO [Draft']
+                close conn
+                if Prelude.null rows then
+                    return $ Left "Drafts deleted"
+                else return $ Right $ Prelude.head rows
+        
