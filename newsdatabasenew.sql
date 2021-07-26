@@ -121,7 +121,7 @@ CREATE TABLE Drafts_images (
 CREATE TABLE Draft_tags (
     draft_id int NOT NULL,
     tag_id int NOT NULL,
-    FOREIGN KEY (draft_id) REFERENCES Drafts (draft_id) ON DELETE CASCADE,
+    FOREIGN KEY (draft_id) REFERENCES Drafts (draft_id) ON DELETE CASCADE on update cascade,
     FOREIGN KEY (tag_id) REFERENCES Tags (tag_id) ON DELETE CASCADE);
 
 CREATE TABLE Tokens (
@@ -142,3 +142,4 @@ order by news_id*/
  
 select (password = crypt('123',password)) as check_pass from
 users where login = 'dahaku'*/
+--ДОБАВИТЬ ON UPDATE CASCADE

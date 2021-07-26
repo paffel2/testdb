@@ -19,6 +19,7 @@ import Data.Maybe
 --import Text.Read
 --import Data.String
 import HelpFunction
+import Database.PostgreSQL.Simple.Types
 
 
 
@@ -1123,4 +1124,66 @@ getDraftByIdDromDb author_id draft_id = do
                 if Prelude.null rows then
                     return $ Left "Drafts deleted"
                 else return $ Right $ Prelude.head rows
-        
+
+
+updateDraftInDb :: (String,String,LBS.ByteString) -> [(String,String,LBS.ByteString )] -> Int -> Int -> [Int] -> T.Text -> T.Text -> Int -> IO (Either LBS.ByteString LBS.ByteString)
+updateDraftInDb main_image_triple images_list author_id category_id tags_id text short_title draft_id  = do
+    draft_list <- getDraftIdsByAuthor author_id
+    case draft_list of
+      Left bs -> return $ Left bs
+      Right draft_ids_list -> do
+                    if draft_id `Prelude.notElem` draft_ids_list then
+                        return $ Left "Wrong draft_id"
+                    else do
+                        new_draft <- createDraftOnDb main_image_triple images_list author_id category_id tags_id text short_title
+                        case new_draft of
+                          Left bs -> return $ Left bs
+                          Right new_id -> do
+                              conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                              let delete_q = "delete from drafts where draft_id = ?"
+                              execute conn delete_q [draft_id]
+                              let q = "update drafts set draft_id = ? where draft_id = ?"
+                              execute conn q (draft_id,new_id)
+                              close conn
+                              return $ Right "Draft updated"
+
+
+publicNewsOnDb :: Int -> Int -> IO (Either LBS.ByteString LBS.ByteString)
+publicNewsOnDb author_id draft_id = do
+    dr <- getDraftByIdDromDb author_id draft_id
+    case dr of
+        Left bs -> return $ Left bs
+        Right draft -> do
+                conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                let q = "insert into news (short_title, date_creation, author_id, category_id, news_text, main_image) values (?,?,?,?,?,?) returning news_id"
+                now <- getCurrentTime 
+                n_id <- returning conn q [(draft_short_title' draft,now, author_id,draft_category_id' draft, draft_text' draft,draft_main_image_id' draft)] :: IO [Only Int]
+                if Prelude.null n_id then do
+                    close conn
+                    return $ Left "News not published"
+                else do
+                    --let news_id = fromOnly $ Prelude.head n_id
+                    --let q_images = toQuery $ BC.concat ["insert into News_images (news_id,image_id) values (", BC.pack $ show news_id, ",?)"]
+                    --let images_ids = fromPGArray $ draft_images draft
+                    --execute conn q_images images_ids
+                    execute conn "delete from drafts where draft_id = ? " [draft_id]
+                    close conn
+                    return $ Right "news published"
+
+                        {--conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                        --let delete_q = "delet from drafts where draft_id = ?"
+                        --execute conn delete_q [draft_id]
+                        --let q = "insert into drafts"
+                        main_image_id <- loadImage' (fstTriple main_image_triple) (sndTriple main_image_triple) (thrdTriple main_image_triple)
+                        case main_image_id of
+                            Nothing -> return $ Left "Images not loaded"
+                            Just main_i_id -> do
+                                other_images <- loadImages' images_list
+                                case other_images of
+                                        Left bs -> return $ Left bs
+                                        Right other_images_ids -> do
+                                                    now <- getCurrentTime
+                                                    close conn
+                                                    return $ Right ""  -}
+--createDraftOnDb :: (String,String,LBS.ByteString) -> [(String,String,LBS.ByteString )] -> Int -> Int -> [Int] -> T.Text -> T.Text -> IO (Either LBS.ByteString Int)
+--createDraftOnDb main_image_triple images_list author_id' category_id' tags_ids text sh_title= do
