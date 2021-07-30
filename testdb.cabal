@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 34a1f17bf0f194ffa6b0f113757edaec90f2901ec1aecfa7ba8a926719caed0f
+-- hash: 9d13a874f7a244ebb55d78f4378b280a5c01ffc87fe49632ddb44f01c90253db
 
 name:           testdb
 version:        0.1.0.0
@@ -30,14 +30,22 @@ library
       Lib
   other-modules:
       Categories
+      Categorieshandle
+      Config
+      Databaseoperations
       Drafts
+      FromRequest
       HelpFunction
+      Logger
       NewsAndComments
+      NewsAndCommentshandle
+      Patternproto
       Responses
       Server
       Testdatabase
       Types
       Users
+      Usershandle
       Paths_testdb
   hs-source-dirs:
       src
@@ -45,11 +53,11 @@ library
       aeson
     , base >=4.7 && <5
     , bytestring
+    , configurator
+    , directory
     , http-client
     , http-types
     , postgresql-simple
-    , req
-    , req-conduit
     , text
     , time
     , wai

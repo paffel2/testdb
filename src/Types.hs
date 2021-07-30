@@ -273,3 +273,7 @@ instance ToJSON ImageId  where
 --newtype ArrayImages = ArrayImages { array_ids :: [ImageId]} deriving (Show,Generic, ToRow, FromRow)
 
 
+data Image''' = Image''' { f_name'' :: BC.ByteString,
+                     content_type'' :: BC.ByteString,
+                     content'' :: Binary LBS.ByteString 
+                   } deriving (Show, Generic, ToRow, FromRow)

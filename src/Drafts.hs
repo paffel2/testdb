@@ -52,41 +52,41 @@ createDraft' req = do
     if ((Prelude.take 5  (sndTriple main_image_triple) /= "image") && main_image_triple /= ("","","")) || (images_list /= [] && con_type)
                 then return $ responseOk "bad image"       
                 else do
-                  let token = E.decodeUtf8 $ fromMaybe "" (fromMaybe Nothing (lookup "token" $ queryString req))
-                  ca <- checkAuthor' token
-                  case ca of
-                    Nothing -> return $ responseOk "author not founded"
-                    Just a_id -> do
-                              let cat = lookup "category" i
-                              case cat of
-                                Nothing -> return $ responseBadRequest "no category field"
-                                Just cat' -> do
-                                    c_id <- checkCategory $ T.toLower $ E.decodeUtf8 cat'
-                                    case c_id of
-                                      Nothing -> return $ responseBadRequest "category not exsist"
-                                      Just cat_id -> do
+                    let token = E.decodeUtf8 $ fromMaybe "" (fromMaybe Nothing (lookup "token" $ queryString req))
+                    ca <- checkAuthor' token
+                    case ca of
+                        Nothing -> return $ responseOk "author not founded"
+                        Just a_id -> do
+                                let cat = lookup "category" i
+                                case cat of
+                                    Nothing -> return $ responseBadRequest "no category field"
+                                    Just cat' -> do
+                                        c_id <- checkCategory $ T.toLower $ E.decodeUtf8 cat'
+                                        case c_id of
+                                            Nothing -> return $ responseBadRequest "category not exsist"
+                                            Just cat_id -> do
                                                     let t = lookup "tags" i
                                                     case t of
-                                                      Nothing -> return $ responseBadRequest "no tags field"
-                                                      Just tg -> do
-                                                        let sht = lookup "short_title" i
-                                                        case sht of
-                                                          Nothing -> return $ responseBadRequest "no short title field"
-                                                          Just sh -> do
-                                                              let sh_title = E.decodeUtf8  sh
-                                                              --let tags = T.toLower $ E.decodeUtf8 tg
-                                                              tags_ids <- checkTag $ splitOnPunctuationMark $ T.toLower $ E.decodeUtf8 tg
-                                                              case tags_ids of
-                                                                Left bs -> return $ responseBadRequest bs
-                                                                Right tag_list -> do
-                                                                if T.length sh_title > 20 then
-                                                                  return $ responseBadRequest "too long title"
-                                                                else do
-                                                                  let text = E.decodeUtf8 $ fromMaybe "" (lookup "news_text" i)
-                                                                  result <- createDraftOnDb main_image_triple images_list a_id cat_id tag_list text sh_title
-                                                                  case result of
-                                                                    Left bs -> return $ responseBadRequest bs
-                                                                    Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
+                                                        Nothing -> return $ responseBadRequest "no tags field"
+                                                        Just tg -> do
+                                                            let sht = lookup "short_title" i
+                                                            case sht of
+                                                                Nothing -> return $ responseBadRequest "no short title field"
+                                                                Just sh -> do
+                                                                    let sh_title = E.decodeUtf8  sh
+                                                                    --let tags = T.toLower $ E.decodeUtf8 tg
+                                                                    tags_ids <- checkTag $ splitOnPunctuationMark $ T.toLower $ E.decodeUtf8 tg
+                                                                    case tags_ids of
+                                                                        Left bs -> return $ responseBadRequest bs
+                                                                        Right tag_list -> do
+                                                                            if T.length sh_title > 20 then
+                                                                                return $ responseBadRequest "too long title"
+                                                                            else do
+                                                                                let text = E.decodeUtf8 $ fromMaybe "" (lookup "news_text" i)
+                                                                                result <- createDraftOnDb main_image_triple images_list a_id cat_id tag_list text sh_title
+                                                                                case result of
+                                                                                    Left bs -> return $ responseBadRequest bs
+                                                                                    Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n 
 
 deleteDraft :: Request -> IO Response 
 deleteDraft req = do
@@ -118,11 +118,11 @@ getDraftById draft_id req = do
 
 updateDraft :: Int -> Request -> IO Response 
 updateDraft draft_id req = do
-  let token = E.decodeUtf8 $ fromMaybe "" (fromMaybe Nothing (lookup "token" $ queryString req))
-  ca <- checkAuthor' token
-  case ca of
-    Nothing -> return $ responseBadRequest "author not founded"
-    Just author_id -> do
+    let token = E.decodeUtf8 $ fromMaybe "" (fromMaybe Nothing (lookup "token" $ queryString req))
+    ca <- checkAuthor' token
+    case ca of
+        Nothing -> return $ responseBadRequest "author not founded"
+        Just author_id -> do
                     (i,f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
                     let main_image = foundParametr "main_image" f
                     let images = foundParametr "images" f
@@ -136,34 +136,34 @@ updateDraft draft_id req = do
                         else do
                                 let cat = lookup "category" i
                                 case cat of
-                                  Nothing -> return $ responseBadRequest "no category field"
-                                  Just cat' -> do
-                                    c_id <- checkCategory $ T.toLower $ E.decodeUtf8 cat'
-                                    case c_id of
-                                      Nothing -> return $ responseBadRequest "category not exsist"
-                                      Just cat_id -> do
-                                                    let t = lookup "tags" i
-                                                    case t of
-                                                      Nothing -> return $ responseBadRequest "no tags field"
-                                                      Just tg -> do
+                                    Nothing -> return $ responseBadRequest "no category field"
+                                    Just cat' -> do
+                                        c_id <- checkCategory $ T.toLower $ E.decodeUtf8 cat'
+                                        case c_id of
+                                            Nothing -> return $ responseBadRequest "category not exsist"
+                                            Just cat_id -> do
+                                                let t = lookup "tags" i
+                                                case t of
+                                                    Nothing -> return $ responseBadRequest "no tags field"
+                                                    Just tg -> do
                                                         let sht = lookup "short_title" i
                                                         case sht of
-                                                          Nothing -> return $ responseBadRequest "no short title field"
-                                                          Just sh -> do
-                                                              let sh_title = E.decodeUtf8  sh
-                                                              --let tags = T.toLower $ E.decodeUtf8 tg
-                                                              tags_ids <- checkTag $ splitOnPunctuationMark $ T.toLower $ E.decodeUtf8 tg
-                                                              case tags_ids of
-                                                                Left bs -> return $ responseBadRequest bs
-                                                                Right tag_list -> do
-                                                                if T.length sh_title > 20 then
-                                                                  return $ responseBadRequest "too long title"
-                                                                else do
-                                                                  let text = E.decodeUtf8 $ fromMaybe "" (lookup "news_text" i)
-                                                                  result <- updateDraftInDb main_image_triple images_list author_id cat_id tag_list text sh_title draft_id
-                                                                  case result of
+                                                            Nothing -> return $ responseBadRequest "no short title field"
+                                                            Just sh -> do
+                                                                let sh_title = E.decodeUtf8  sh
+                                                                --let tags = T.toLower $ E.decodeUtf8 tg
+                                                                tags_ids <- checkTag $ splitOnPunctuationMark $ T.toLower $ E.decodeUtf8 tg
+                                                                case tags_ids of
                                                                     Left bs -> return $ responseBadRequest bs
-                                                                    Right bs -> return $ responseOk bs
+                                                                    Right tag_list -> do
+                                                                        if T.length sh_title > 20 then
+                                                                            return $ responseBadRequest "too long title"
+                                                                        else do
+                                                                            let text = E.decodeUtf8 $ fromMaybe "" (lookup "news_text" i)
+                                                                            result <- updateDraftInDb main_image_triple images_list author_id cat_id tag_list text sh_title draft_id
+                                                                            case result of
+                                                                                Left bs -> return $ responseBadRequest bs
+                                                                                Right bs -> return $ responseOk bs 
 
 publicNews :: Int -> Request -> IO Response
 publicNews draft_id req = do

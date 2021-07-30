@@ -1,8 +1,9 @@
-module Lib
-    ( someFunc
-    ) where
-        
-import Testdatabase ()
+module Lib where
+import Testdatabase 
+import Config 
+
+someFunc' :: IO ()
+someFunc' = putStrLn "someFunc"
 
 someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+someFunc = tstConfig

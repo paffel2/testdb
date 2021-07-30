@@ -20,6 +20,7 @@ import Data.Maybe
 --import Data.String
 import HelpFunction
 import Database.PostgreSQL.Simple.Types
+import Logger
 
 
 
@@ -508,6 +509,26 @@ getNews' sortParam pageParam = do
     close conn
     return (NewsArray' rows)
 
+
+{-getNewsFromDb :: Handle -> ByteString -> Maybe ByteString-> IO (Either LBS.ByteString NewsArray')
+getNewsFromDb hLogger sortParam pageParam = do
+    logInfo hLogger "Someone try get news"
+    let sort' = if sortParam == "" then ""
+                else BC.concat [" order by ",sortParam," DESC"]
+    let pg = if isNothing pageParam then " limit 10 offset 0"
+            else 
+                BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" pageParam)) - 1)*10 ]
+    let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, category_name, news_text  from news join authors using (author_id) join users using (user_id) join categories using (category_id)", sort',pg]
+    --rows <- query_ conn "select news_id, short_title, date_creation, author_id, category_id, news_text  from news" :: IO [GetNews']
+    catch (do 
+        conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+        rows <- query_ conn q:: IO [GetNews']
+        close conn
+        return $ Right (NewsArray' rows)) $ \e -> do
+                                        let err = T.pack $ BC.unpack $ sqlErrorMsg e
+                                        logError hLogger err
+                                        return $ Left "Database error"-}
+
 getNewsFilterByCategoryId :: Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
 getNewsFilterByCategoryId cat_id page sortParam =
     case cat_id of
@@ -684,6 +705,8 @@ getNewsById news_id = do
         close conn
         return (NewsArray' rows)
         else return (NewsArray' [])
+
+
 
 getCommentsByNewsId :: Int -> Maybe ByteString ->  IO (Either LBS.ByteString CommentArray)
 getCommentsByNewsId news_id page = do

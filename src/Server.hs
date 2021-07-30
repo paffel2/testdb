@@ -49,7 +49,7 @@ simpleApp jsonInfo _ respond = respond $
 simpleServer :: IO ()
 simpleServer = do
     putStrLn "Serving..."
-    run 8000 (simpleApp tst)-}
+    run 8000 (simpleApp tst)
 
 
 simpleApp :: ToJSON a => a -> Application
@@ -330,7 +330,7 @@ newComment req = do
                                   Just user_id' -> do
                                         let comment = E.decodeUtf8 $ fromMaybe "" (lookup "comment_text" i)
                                         createComment user_id' n comment
-                                        return $ responseOk "comment added"
+                                        return $ responseOk "comment added"-}
 
 
 
