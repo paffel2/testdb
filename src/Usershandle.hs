@@ -6,7 +6,7 @@ import Network.Wai
 import Network.Wai.Parse
 --import Network.HTTP.Types
 --import GHC.Generics
---import Data.Aeson
+import Data.Aeson
 --import Testdatabase
 --import Control.Exception
 --import qualified Data.Text.Lazy.Encoding as EL
@@ -26,6 +26,7 @@ import Responses
 --import NewsAndComments
 import Logger
 import Databaseoperations
+import FromRequest
 
 
 
@@ -64,7 +65,8 @@ registration hLogger req = do
 deleteUser :: Handle -> Request -> IO Response 
 deleteUser hLogger req = do
     let login = fromMaybe Nothing (lookup "login" $ queryString req)
-    let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    --let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    let token = takeToken req
     isAdmin <- checkAdmin hLogger $ E.decodeUtf8 $ fromMaybe "" token
     case isAdmin of 
         (False,bs) -> return $ responseBadRequest bs
@@ -73,3 +75,11 @@ deleteUser hLogger req = do
                 case result of                          
                     Left bs' -> return $ responseBadRequest bs'
                     Right bs' -> return $ responseOk bs'
+
+profile :: Handle -> Request -> IO Response 
+profile hLogger req = do
+    let token = takeToken req
+    result <- profileOnDb hLogger $ E.decodeUtf8 $ fromMaybe "" token
+    case result of
+        Left bs -> return $ responseBadRequest bs
+        Right pro -> return $ responseOk $ encode pro

@@ -25,6 +25,7 @@ import Responses
 import HelpFunction
 import Logger
 import Databaseoperations
+import FromRequest
 
 
 newsMethodBlock :: Handle -> BC.ByteString -> [BC.ByteString] -> Request -> IO Response
@@ -96,7 +97,9 @@ sendNews hLogger req = do
             Just _ -> do
                 logError hLogger "Bad request"
                 return $ Left "Bad request"
-            Nothing -> getNewsFromDb hLogger sortParam' pageParam
+            Nothing -> getNewsFromDb' hLogger sortParam' pageParam
+
+            --Nothing -> getNewsFromDb hLogger sortParam' pageParam
 
 
     where
@@ -152,7 +155,7 @@ addCommentByNewsId hLogger req news_id = do
 
 deleteCommentById :: Handle -> Request -> IO (Either LBS.ByteString LBS.ByteString)
 deleteCommentById hLogger req  = do
-    let token = fromMaybe Nothing (lookup "token" $ queryString req)
+    let token = takeToken req
     (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
     let comment_id = fromMaybe Nothing (lookup "comment_id" $ queryString req)
     let c_id = read . BC.unpack <$> comment_id :: Maybe Int

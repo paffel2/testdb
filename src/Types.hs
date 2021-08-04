@@ -243,10 +243,10 @@ instance ToJSON Draft'  where
 data Draft' = Draft' { --author_id'' :: Int,
                      draft_short_title' :: T.Text,
                      date_of_changes' :: UTCTime,
-                     draft_category_id' :: Int,
-                     draft_text' :: T.Text,
-                     draft_main_image_id' :: Int,
-                     draft_images :: PGArray Int
+                     draft_category_id' :: Maybe Int,
+                     draft_text' :: Maybe T.Text,
+                     draft_main_image_id' :: Maybe Int,
+                     draft_images :: Maybe (PGArray Int)
                      } deriving (Show,Generic,FromRow)
 instance ToJSON Draft'  where
     --toJSON = genericToJSON defaultOptions
@@ -256,7 +256,7 @@ instance ToJSON Draft'  where
                 "draft_category_id'" .= dci,
                 "draft_text'" .= dt,
                 "draft_main_image_id'" .= dmii,
-                "draft_images" .= fromPGArray di]
+                "draft_images" .= (fromPGArray <$> di)]
 
 newtype DraftArray = DraftArray {drafts :: [Draft']} deriving (Show, Generic)
 instance ToJSON DraftArray where
@@ -276,4 +276,29 @@ instance ToJSON ImageId  where
 data Image''' = Image''' { f_name'' :: BC.ByteString,
                      content_type'' :: BC.ByteString,
                      content'' :: Binary LBS.ByteString 
+                   } deriving (Show, Generic, ToRow, FromRow)
+
+
+newtype MyId = MyId { my_Id :: Maybe Int} deriving (Show, Generic, ToRow, FromRow)
+
+data Profile = Profile { profile_first_name :: Maybe T.Text,
+                         profile_last_name :: Maybe T.Text,
+                         profile_avatar :: Maybe Int
+                         } deriving (Show, Generic, ToRow, FromRow)
+{-data Profile = Profile { profile_first_name :: Maybe T.Text,
+                         profile_last_name :: Maybe T.Text,
+                         profile_avatar :: Maybe ByteString 
+                         } deriving (Show, Generic, ToRow, FromRow)-}
+
+instance ToJSON Profile where
+    toJSON (Profile pfn pln pa) = 
+        object ["profile_first_name" .= pfn,
+                "profile_last_name" .= pln,
+                "profile_avatar" .= pa]
+data TokenProfile = TokenProfile { token :: T.Text,
+                    token_lifetime' :: Int } deriving (Show, Generic, ToRow, FromRow) 
+data Image'''' = Image'''' { f_name''' :: BC.ByteString,
+                     content_type''' :: BC.ByteString,
+                     content''' :: Binary LBS.ByteString,
+                     draft_id''' :: Int
                    } deriving (Show, Generic, ToRow, FromRow)

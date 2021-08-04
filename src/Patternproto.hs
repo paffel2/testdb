@@ -26,11 +26,12 @@ import Responses
 import NewsAndCommentshandle
 --import Categories
 --import Users
-import Drafts
+--import Drafts
 import Logger
 import Config
 import Categorieshandle
 import Usershandle
+import Draftshandle
 
 
 
@@ -39,24 +40,25 @@ import Usershandle
 protoServ :: IO ()
 protoServ = do
     hConfig <- newConfigHandle
-    --let hLogger' = newLogHandle hConfig
+    hToken <- getTkConfig hConfig
     confLogger <- getLgConfig  hConfig
     confServer <- getSrConfig hConfig
+    confDb <- getDbConfig hConfig
     let hLogger = Handle (log_priority confLogger) printLog
-    --logInfo (newLogHandle confLogger) "Serving..."
     logInfo hLogger "Serving"
     --runSettings  (setMaximumBodyFlush (Just 1048576) $ setPort 8000 defaultSettings) $ appProto hLogger
-    runSettings (setMaximumBodyFlush (server_maximum_body_flush confServer) $ setPort (server_port confServer) defaultSettings) $ appProto hLogger
+    runSettings (setMaximumBodyFlush (server_maximum_body_flush confServer) $ setPort (server_port confServer) defaultSettings) $ appProto hLogger hToken confDb
 
-appProto :: Handle -> Application
-appProto hLogger req respond 
+appProto :: Handle -> ConfigModules -> ConfigModules -> Application
+appProto hLogger hToken confDb req respond 
     | pathHead == "news" = newsMethodBlock hLogger path pathElems req >>= respond
     | pathHead == "login" = login hLogger req >>= respond
     | pathHead == "registration" = registration hLogger req >>= respond
     | pathHead == "deleteUser" = deleteUser hLogger req >>= respond
-    {- pathHead == "categories" = categoriesBlock path pathElems req >>= respond
-    | pathHead == "drafts" = draftsBlock pathElems req >>= respond
-    -- pathHead == "new_draft" = createDraft' req >>= respond -}
+    | pathHead == "categories" = categoriesBlock hLogger path pathElems req >>= respond
+    | pathHead == "profile" = profile hLogger req >>= respond
+    | pathHead == "drafts" = draftsBlock hLogger pathElems req >>= respond
+    -- pathHead == "new_draft" = createDraft' req >>= respond 
     | otherwise = badUrlRespond
     where
         path = BC.tail $ rawPathInfo req

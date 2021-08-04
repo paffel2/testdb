@@ -30,9 +30,9 @@ takeToken :: Request -> Maybe BC.ByteString
 takeToken req = fromMaybe Nothing (lookup "token" $ queryString req)
 
 {-takeMainImage :: Request -> IO (Network.Wai.Parse.FileInfo c)
-takeMainImage req = (parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req) >>= foundParametr "main_image"-}
+takeMainImage req = (parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req) >>= foundParametr "main_image"
 takeDraftId :: Request -> Maybe Int
 takeDraftId req = readByteStringToInt $ fromMaybe "" (fromMaybe Nothing (lookup "draft_id" $ queryString req))
 
 takeNewsId :: Request -> Maybe Int
-takeNewsId req = readByteStringToInt $ fromMaybe "" (fromMaybe Nothing (lookup "news_id" $ queryString req))
+takeNewsId req = readByteStringToInt $ fromMaybe "" (fromMaybe Nothing (lookup "news_id" $ queryString req))-}

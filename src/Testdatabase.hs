@@ -374,8 +374,8 @@ checkCategory category = do
      else
          return (Just (fromOnly $ Prelude.head rows))
 
-tstCategory :: T.Text
-tstCategory  = "Наука"
+--tstCategory :: T.Text
+--tstCategory  = "Наука"
 
 
 

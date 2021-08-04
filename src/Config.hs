@@ -28,6 +28,18 @@ import Logger
 import qualified Data.Configurator as C
 
 data Modules = TK | DB | LG | SR
+{-data ConfigModules = 
+    Token { lifeTime :: Int }
+    | Database { db_host :: String,
+                 db_port :: String,
+                 db_login :: String,
+                 db_password :: String,
+                 db_name :: String 
+                 }
+    | Log { log_priority :: Priority }
+    | Server { server_port :: Int,
+               server_maximum_body_flush :: Maybe Int }
+    deriving (Show)-}
 data ConfigModules = 
     Token { lifeTime :: Int }
     | Database { db_host :: String,

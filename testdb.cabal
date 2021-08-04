@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9d13a874f7a244ebb55d78f4378b280a5c01ffc87fe49632ddb44f01c90253db
+-- hash: 6c4f2f79baee4bd0a4fa96eb83706ac8d2a2cb83d383e38291718acc46bf6a55
 
 name:           testdb
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
       Config
       Databaseoperations
       Drafts
+      Draftshandle
       FromRequest
       HelpFunction
       Logger

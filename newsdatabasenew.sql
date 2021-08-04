@@ -132,6 +132,19 @@ CREATE TABLE Tokens (
 
 CREATE EXTENSION pgcrypto;
 
+
+create function take_categories_list(cat_id int) returns text as $$
+	with recursive included_categories(category_id,category_name, maternal_category) as 
+	(select category_id,category_name, maternal_category from categories where category_id = cat_id
+	union all
+	select c.category_id,c.category_name,c.maternal_category from
+ 	included_categories i, categories c
+ 	where c.category_id = i.maternal_category)
+	select replace(replace(concat_ws(', ',array_agg(category_name)),'{',''),'}','') from included_categories $$
+	LANGUAGE SQL
+    IMMUTABLE
+	STRICT;
+
  /*
 select news_id, title, array_agg(image_b) as images_b from images right join news USING(news_id)
 group by 1
