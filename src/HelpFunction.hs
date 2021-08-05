@@ -9,7 +9,7 @@ import Data.Time.Calendar
 import Text.Read
 import Data.String
 import Types
-import Database.PostgreSQL.Simple
+--import Database.PostgreSQL.Simple
 import qualified Data.ByteString.Lazy as LBS
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
@@ -36,11 +36,11 @@ toImage :: FileInfo LBS.ByteString -> Image'''
 toImage file_info = Image''' (fileName file_info) (fileContentType file_info) (Binary $ fileContent file_info)
 
 fstTriple :: (a, b, c) -> a
-fstTriple (a,b,c) = a
+fstTriple (a,_,_) = a
 sndTriple :: (a, b, c) -> b
-sndTriple (a,b,c) = b
+sndTriple (_,b,_) = b
 thrdTriple :: (a, b, c) -> c
-thrdTriple (a,b,c) = c
+thrdTriple (_,_,c) = c
 
 
 splitOnPunctuationMark :: T.Text -> [T.Text]

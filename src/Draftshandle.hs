@@ -1,26 +1,25 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
 module Draftshandle where
 import Network.Wai
-import Network.Wai.Handler.Warp
+--import Network.Wai.Handler.Warp
 import Network.Wai.Parse
-import Network.HTTP.Types
-import GHC.Generics
+--import Network.HTTP.Types
+--import GHC.Generics
 import Data.Aeson
-import Testdatabase
-import Control.Exception
-import qualified Data.Text.Lazy.Encoding as EL
-import qualified Data.Text.Lazy.IO as TLIO
+--import Testdatabase
+--import Control.Exception
+--import qualified Data.Text.Lazy.Encoding as EL
+--import qualified Data.Text.Lazy.IO as TLIO
 import qualified Data.Text.Encoding as E
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import qualified Data.ByteString as B
+--import qualified Data.Text as T
+--import qualified Data.Text.IO as TIO
+--import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BC
-import Types
+--import Types
 import Data.Maybe
-import Text.Read
-import Control.Applicative
+--import Text.Read
+--import Control.Applicative
 import HelpFunction
 import Responses
 --import NewsAndComments
@@ -29,7 +28,7 @@ import Responses
 import Logger
 import FromRequest
 import Databaseoperations
-import Database.PostgreSQL.Simple
+--import Database.PostgreSQL.Simple
 
 {-sendDrafts :: Handle -> Request -> IO Response
 sendDrafts hLogger req = do
@@ -42,9 +41,9 @@ sendDrafts hLogger req = do
             return $ responseOk (encode drafts)-}
 sendDrafts :: Handle -> Request -> IO Response
 sendDrafts hLogger req = do
-    let token = takeToken req--fromMaybe Nothing (lookup "token" $ queryString req)
-    drafts <- Databaseoperations.getDraftsByAuthorToken hLogger $ E.decodeUtf8 $ fromMaybe "" token
-    case drafts of
+    let token' = takeToken req--fromMaybe Nothing (lookup "token" $ queryString req)
+    drafts' <- Databaseoperations.getDraftsByAuthorToken hLogger $ E.decodeUtf8 $ fromMaybe "" token'
+    case drafts' of
       Left bs -> return $ responseBadRequest bs
       Right draftsA -> do
             logInfo hLogger "Sending drafts to user"
@@ -101,12 +100,12 @@ createDraft' req = do
 createDraft :: Handle -> Request -> IO Response
 createDraft hLogger req = do
     (i,f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-    let main_image = foundParametr "main_image" f
+    let main'_image = foundParametr "main_image" f
     let images = foundParametr "images" f
-    let main_image_triple = if fileContent (Prelude.head main_image) == "" then ("","","")
-        else (BC.unpack $ fileName $ Prelude.head main_image, BC.unpack $ fileContentType $ Prelude.head main_image, fileContent $ Prelude.head main_image  )
-    let main_image_triple' = if fileContent (Prelude.head main_image) == "" then Nothing 
-        else Just $ toImage $ Prelude.head main_image--Image''' (fileName $ Prelude.head main_image) (fileContentType $ Prelude.head main_image) (Binary $ fileContent $ Prelude.head main_image)
+    let main_image_triple = if fileContent (Prelude.head main'_image) == "" then ("","","")
+        else (BC.unpack $ fileName $ Prelude.head main'_image, BC.unpack $ fileContentType $ Prelude.head main'_image, fileContent $ Prelude.head main'_image  )
+    let main_image_triple' = if fileContent (Prelude.head main'_image) == "" then Nothing 
+        else Just $ toImage $ Prelude.head main'_image--Image''' (fileName $ Prelude.head main_image) (fileContentType $ Prelude.head main_image) (Binary $ fileContent $ Prelude.head main_image)
     let images_list = if fileContent (Prelude.head images) == "" then []
         else toTriple images
     let images_list' = if fileContent (Prelude.head images) == "" then Nothing
@@ -117,12 +116,12 @@ createDraft hLogger req = do
                     logError hLogger "Bad image file"
                     return $ responseBadRequest "Bad image file"       
                 else do
-                    let token = takeToken req
+                    let token' = takeToken req
                     let category = lookup "category" i
                     let tags = lookup "tags" i
-                    let short_title = lookup "short_title" i
+                    let short'_title = lookup "short_title" i
                     let text = lookup "news_text" i
-                    result <- createDraftOnDb' hLogger token category tags short_title text main_image_triple' images_list'
+                    result <- createDraftOnDb' hLogger token' category tags short'_title text main_image_triple' images_list'
                     case result of
                       Left bs -> return $ responseBadRequest bs
                       Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
@@ -130,8 +129,8 @@ createDraft hLogger req = do
 
 deleteDraft :: Handle -> Request -> IO Response 
 deleteDraft hLogger req = do
-    let token = E.decodeUtf8 <$> takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger token
+    let token' = E.decodeUtf8 <$> takeToken req
+    ca <- Databaseoperations.checkAuthor hLogger token'
     case ca of
         Left bs -> return $ responseBadRequest bs
         Right n -> do
@@ -144,12 +143,12 @@ deleteDraft hLogger req = do
 
 getDraftById :: Handle -> Int -> Request -> IO Response
 getDraftById hLogger draft_id req = do
-    let token = E.decodeUtf8 <$> takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger token
+    let token' = E.decodeUtf8 <$> takeToken req
+    ca <- Databaseoperations.checkAuthor hLogger token'
     case ca of
       Left bs -> return $ responseBadRequest bs
-      Right author_id -> do
-        result <- getDraftByIdFromDb hLogger author_id draft_id
+      Right author'_id -> do
+        result <- getDraftByIdFromDb hLogger author'_id draft_id
         case result of
             Left bs -> return $ responseBadRequest bs
             Right draft -> return $ responseOk $ encode draft
@@ -157,24 +156,24 @@ getDraftById hLogger draft_id req = do
 
 updateDraft :: Handle -> Int -> Request -> IO Response 
 updateDraft hLogger draft_id req = do
-    let token = takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger $ E.decodeUtf8 <$> token
+    let token' = takeToken req
+    ca <- Databaseoperations.checkAuthor hLogger $ E.decodeUtf8 <$> token'
     case ca of
         Left bs -> return $ responseBadRequest bs
-        Right author_id -> do
+        Right author'_id -> do
             (i,f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-            let main_image = foundParametr "main_image" f
+            let main'_image = foundParametr "main_image" f
             let images = foundParametr "images" f
-            let main_image_triple = if fileContent (Prelude.head main_image) == "" then Nothing 
-                                    else Just $ toImage $ Prelude.head main_image
+            let main_image_triple = if fileContent (Prelude.head main'_image) == "" then Nothing 
+                                    else Just $ toImage $ Prelude.head main'_image
             let images_list = if fileContent (Prelude.head images) == "" then Nothing
                                 else Just $ toImage <$> images
             --let con_type = any (/= "image") (take 5 . sndTriple <$> images_list)
             let category = lookup "category" i
             let tags = lookup "tags" i
-            let short_title = lookup "short_title" i
+            let short'_title = lookup "short_title" i
             let text = lookup "news_text" i
-            result <- updateDraftInDb' hLogger token category tags short_title text main_image_triple images_list draft_id author_id
+            result <- updateDraftInDb' hLogger token' category tags short'_title text main_image_triple images_list draft_id author'_id
             --let result = Left ""
             case result of
                 Left bs -> return $ responseBadRequest bs
@@ -226,12 +225,12 @@ publicNews draft_id req = do
 
 publicNews :: Handle -> Int -> Request -> IO Response
 publicNews hLogger draft_id req = do
-    let token = takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger $ E.decodeUtf8 <$> token
+    let token' = takeToken req
+    ca <- Databaseoperations.checkAuthor hLogger $ E.decodeUtf8 <$> token'
     case ca of
         Left bs -> return $ responseBadRequest bs
-        Right author_id -> do
-                    result <- Databaseoperations.publicNewsOnDb hLogger author_id draft_id
+        Right author'_id -> do
+                    result <- Databaseoperations.publicNewsOnDb hLogger author'_id draft_id
                     case result of
                       Left bs -> return $ responseBadRequest bs
                       Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n

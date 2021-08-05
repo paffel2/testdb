@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
 module Responses where
 import Network.Wai
 --import Network.Wai.Handler.Warp

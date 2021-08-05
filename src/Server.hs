@@ -1,7 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
+
 module Server where
-import Network.Wai
+{-import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Parse
 import Network.HTTP.Types
@@ -26,7 +25,7 @@ import Responses
 import NewsAndComments
 import Categories
 import Users
-import Drafts
+import Drafts-}
 
 
 {-simpleApp :: Application 
@@ -358,7 +357,7 @@ appPath req respond
             pathParams = BC.split '/' path-}
 
 
-
+{------------------------------------------------------------------------------------------------------------
 
 notMainServ :: IO ()
 notMainServ = do
@@ -402,7 +401,7 @@ appPath' req respond
         pathElems = BC.split '/' path
         pathElemC = length pathElems
         pathHead = head pathElems
-
+-------------------------------------------------------------------------------------------}
 
 {-newsMethodBlock :: BC.ByteString -> [BC.ByteString] -> Request ->  IO Response
 newsMethodBlock path pathElems req     

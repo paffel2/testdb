@@ -1,7 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
+
 module Categories where
-import Network.Wai
+{-import Network.Wai
 --import Network.Wai.Handler.Warp
 import Network.Wai.Parse
 --import Network.HTTP.Types
@@ -133,3 +132,4 @@ categoriesBlock path pathElems req | pathElemsC == 1 = sendCategoriesList req
 
 
     where pathElemsC = length pathElems
+    -}

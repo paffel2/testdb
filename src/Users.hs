@@ -1,7 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
+
 module Users where
-import Network.Wai
+{-import Network.Wai
 --import Network.Wai.Handler.Warp
 import Network.Wai.Parse
 --import Network.HTTP.Types
@@ -69,3 +68,4 @@ deleteUser req = do
               Just bs -> do
                         m <- deleteUserFromDb bs
                         return $ responseOk m
+-}

@@ -9,7 +9,7 @@ import Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+--import qualified Data.Text.IO as TIO
 import Types
 import Data.Time
 import Control.Exception
@@ -19,7 +19,7 @@ import Data.Maybe
 --import Text.Read
 --import Data.String
 import HelpFunction
-import Database.PostgreSQL.Simple.Types
+--import Database.PostgreSQL.Simple.Types
 import Logger
 --import qualified System.Posix.Internals as TIO
 --import qualified GHC.TypeLits as T
@@ -63,31 +63,31 @@ getNewsFromDb' hLogger sortParam pageParam = do
         close conn
         return $ Right (NewsArray' rows)) $ \e -> do
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
-                                        logError hLogger "Database error in getting news list"
+                                        logError hLogger err --"Database error in getting news list"
                                         return $ Left "Database error"
 tstGetNews :: IO (Either LBS.ByteString NewsArray')
 tstGetNews = getNewsFromDb' (Handle Debug printLog) "" Nothing
-
+--переписать
 getNewsByIdFromDb :: Handle -> Maybe Int-> IO (Either LBS.ByteString  NewsArray')
 getNewsByIdFromDb hLogger Nothing = do
     logError hLogger "Bad news_id parameter"
     return $ Left "Bad news_id parameter"
-getNewsByIdFromDb hLogger (Just news_id) = catch ( do
-        logInfo hLogger $ T.concat ["Someone try get news №", T.pack $ show news_id]
+getNewsByIdFromDb hLogger (Just news'_id) = catch ( do
+        logInfo hLogger $ T.concat ["Someone try get news №", T.pack $ show news'_id]
         conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
         let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text  from news join authors using (author_id) join users using (user_id) where news_id = ?"]
-        rows <- query conn q [news_id]
+        rows <- query conn q [news'_id]
         close conn
-        logInfo hLogger $ T.concat ["Sending news with id = ", T.pack $ show news_id]
+        logInfo hLogger $ T.concat ["Sending news with id = ", T.pack $ show news'_id]
         return $ Right (NewsArray' rows) )$ \e -> do
                                             let err = E.decodeUtf8 $ sqlErrorMsg e
-                                            logError hLogger  $ T.concat["Database error in getting news №", T.pack $ show news_id]
+                                            logError hLogger err -- T.concat["Database error in getting news №", T.pack $ show news_id]
                                             return $ Left "Database error"
 
-
+--переписать
 getCommentsByNewsIdFromDb :: Handle -> Maybe Int -> Maybe ByteString ->  IO (Either LBS.ByteString CommentArray)
-getCommentsByNewsIdFromDb hLogger news_id page = do
-              check <- checkNews hLogger news_id
+getCommentsByNewsIdFromDb hLogger newsэ_id page_p = do
+              check <- checkNews hLogger newsэ_id
               case check of
                     (0, e) -> do
                         --logError hLogger e
@@ -100,16 +100,16 @@ getCommentsByNewsIdFromDb hLogger news_id page = do
                             close conn
                             return (Right $ CommentArray rows)) $ \e -> do
                                                     let err = E.decodeUtf8 $ sqlErrorMsg e
-                                                    logError hLogger $ T.concat["Database error in getting comments from news №", T.pack $ show n]
+                                                    logError hLogger err -- T.concat["Database error in getting comments from news №", T.pack $ show n]
                                                     return $ Left "Database error"
 
 checkNews :: Handle -> Maybe Int -> IO (Int, LBS.ByteString )
 checkNews hLogger Nothing = do
     logError hLogger "Bad news id"
     return  (0, "Bad news id")
-checkNews hLogger (Just news_id) = catch (do
+checkNews hLogger (Just news'_id) = catch (do
         conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='arraays'"
-        rows <- query conn "select news_id from news where news_id = ?" [news_id] :: IO [Only Int]
+        rows <- query conn "select news_id from news where news_id = ?" [news'_id] :: IO [Only Int]
         close conn
         if Prelude.null rows then do
             logError hLogger "News not exist"
@@ -121,15 +121,15 @@ checkNews hLogger (Just news_id) = catch (do
 
 
 
-
+----переписать
 addCommentToDb :: Handle -> T.Text  -> Maybe Int -> T.Text -> IO (Either LBS.ByteString LBS.ByteString)
-addCommentToDb hLogger token newsId comment = do
+addCommentToDb hLogger token' newsId comment = do
             check_news_id <- checkNews hLogger newsId
             case check_news_id of
                 (0, e') -> do
                         return $ Left e'
                 (n, _) -> do
-                    check_token <- checkToken hLogger token
+                    check_token <- checkToken hLogger token'
                     case check_token of
                         (0, e) -> do
                             return $ Left e
@@ -138,18 +138,22 @@ addCommentToDb hLogger token newsId comment = do
                             now <- getCurrentTime
                             let com = Comment userId comment n now
                             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-                            execute conn "insert into users_comments (user_id, comment_text, news_id, comment_time) values (?,?,?,?)" com
+                            n_r <- execute conn "insert into users_comments (user_id, comment_text, news_id, comment_time) values (?,?,?,?)" com
                             close conn
-                            logInfo hLogger $ T.concat ["User №", T.pack $ show userId, "  add news commentary to news №", T.pack $ show n]
-                            return $ Right "comment added") $ \e -> do
+                            if n_r > 0 then do
+                                logInfo hLogger $ T.concat ["User №", T.pack $ show userId, "  add news commentary to news №", T.pack $ show n]
+                                return $ Right "comment added"
+                            else do
+                                logError hLogger "Comment not added"
+                                return $ Right "Comment not added") $ \e -> do
                                                                     let err = E.decodeUtf8 $ sqlErrorMsg e
                                                                     logError hLogger err
                                                                     return $ Left "Database error"
 
 checkToken :: Handle -> T.Text -> IO (Int, LBS.ByteString )
-checkToken hLogger token = catch (do
+checkToken hLogger token' = catch (do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    rows <- query conn "select user_id, creation_date from tokens where token = ?" [token] :: IO [CheckToken]
+    rows <- query conn "select user_id, creation_date from tokens where token = ?" [token'] :: IO [CheckToken]
     close conn
     if Prelude.null rows then do
         logError hLogger "Token not exist"
@@ -164,11 +168,12 @@ checkToken hLogger token = catch (do
 
 
 deleteCommentFromDb :: Handle -> T.Text -> Maybe Int -> IO (Either LBS.ByteString LBS.ByteString)
-deleteCommentFromDb hLogger token Nothing = do
+--deleteCommentFromDb hLogger token' Nothing = do
+deleteCommentFromDb hLogger _ Nothing = do
     logError hLogger "Bad comment id"
     return $ Left "Bad comment id"
 
-deleteCommentFromDb hLogger token (Just comment_id) = do
+{-deleteCommentFromDb hLogger token (Just comment_id) = do
         isAdmin <- checkAdmin hLogger token
         case isAdmin of
             (False,e) -> return $ Left e
@@ -178,34 +183,51 @@ deleteCommentFromDb hLogger token (Just comment_id) = do
                 return $ Right "Comment deleted") $ \e -> do
                                                 let err = E.decodeUtf8 $ sqlErrorMsg e
                                                 logError hLogger err
+                                                return $ Left "Database error"-}
+deleteCommentFromDb hLogger token' (Just comment_id) = do
+        isAdmin <- checkAdmin hLogger token'
+        case isAdmin of
+            (False,e) -> return $ Left e
+            (True ,_) -> catch (do
+                conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+                n <- execute conn "delete from users_comments where comment_id = ?" [comment_id]
+                if n > 0 then do
+                    logInfo hLogger "Comment deleted"
+                    return $ Right "Comment deleted"
+                else do
+                    logError hLogger "Comment not deleted"
+                    return $ Left "Comment not deleted") $ \e -> do
+                                                let err = E.decodeUtf8 $ sqlErrorMsg e
+                                                logError hLogger err
                                                 return $ Left "Database error"
 
 
 
 checkAdmin :: Handle -> T.Text -> IO (Bool, LBS.ByteString)
-checkAdmin hLogger token = catch (do
+checkAdmin hLogger token' = catch (do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    rows <- query conn "select admin_mark from users join tokens using (user_id) where token = ? and (current_timestamp - tokens.creation_date < interval '1 day')" [token] :: IO [Only Bool]
+    rows <- query conn "select admin_mark from users join tokens using (user_id) where token = ? and (current_timestamp - tokens.creation_date < interval '1 day')" [token'] :: IO [Only Bool]
     close conn
     if Prelude.null rows then do
         logError hLogger "Bad token"
         return (False, "Bad token")
         else do
-            let admin_mark = fromOnly $ Prelude.head rows
-            if admin_mark then
-                return (admin_mark,"")
+            let admin'_mark = fromOnly $ Prelude.head rows
+            if admin'_mark then
+                return (admin'_mark,"")
             else
-                return (admin_mark, "Not admin")) $ \e -> do
+                return (admin'_mark, "Not admin")) $ \e -> do
                                                 let err = E.decodeUtf8 $ sqlErrorMsg e
                                                 logError hLogger err
                                                 return (False,"Database error")
 
 
 getNewsFilterByTagInFromDb :: Handle -> Maybe ByteString -> Maybe ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByTagInFromDb hLogger Nothing page = do
+--getNewsFilterByTagInFromDb hLogger Nothing page = do
+getNewsFilterByTagInFromDb hLogger Nothing _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
-getNewsFilterByTagInFromDb hLogger (Just tag_lst) page = do
+getNewsFilterByTagInFromDb hLogger (Just tag_lst) page_p = do
     logInfo hLogger "Someone try get news list filtered by tag_in parameter"
     case readByteStringListInt tag_lst of
                 Nothing -> do
@@ -213,7 +235,7 @@ getNewsFilterByTagInFromDb hLogger (Just tag_lst) page = do
                     return $ Left "bad tag parameter"
                 Just n -> catch (do
                         conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-                        let pg = fromMaybe 1 (readByteStringToInt (fromMaybe "" page))
+                        let pg = fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p))
                         rows <- query conn "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) join news_tags using (news_id) where tag_id in ? group by news_id,author_name order by 2 DESC " (Only (In n))
                         close conn
                         return (Right $ NewsArray' $ takePage pg rows)) $ \e -> do
@@ -222,10 +244,11 @@ getNewsFilterByTagInFromDb hLogger (Just tag_lst) page = do
                                                             return $ Left "Database error"
 
 getNewsFilterByCategoryIdFromDb :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByCategoryIdFromDb hLogger Nothing page sortParam = do
+--getNewsFilterByCategoryIdFromDb hLogger Nothing page sortParam = do
+getNewsFilterByCategoryIdFromDb hLogger Nothing _ _ = do
     logError hLogger "No category parameter"
     return $ Left "No category parameter"
-getNewsFilterByCategoryIdFromDb hLogger (Just cat_id) page sortParam = do
+getNewsFilterByCategoryIdFromDb hLogger (Just cat_id) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by category id"
     case readByteStringToInt cat_id of
                 Nothing -> do
@@ -235,9 +258,9 @@ getNewsFilterByCategoryIdFromDb hLogger (Just cat_id) page sortParam = do
                         conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                         let sort' = if sortParam == "" then ""
                                                 else BC.concat [" order by ",sortParam," DESC"]
-                        let pg = if isNothing page then " limit 10 offset 0"
+                        let pg = if isNothing page_p then " limit 10 offset 0"
                                             else
-                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                         let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text  from news  join authors using (author_id) join users using (user_id) where category_id = ? ", sort',pg]
                         rows <- query conn q [n]
                         close conn
@@ -248,17 +271,18 @@ getNewsFilterByCategoryIdFromDb hLogger (Just cat_id) page sortParam = do
 
 
 getNewsFilterByTitleFromDb  :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByTitleFromDb  hLogger Nothing page sortParam = do
+--getNewsFilterByTitleFromDb  hLogger Nothing page sortParam = do
+getNewsFilterByTitleFromDb  hLogger Nothing _ _ = do
     logError hLogger "No title parameter"
     return $ Left "No title parameter"
-getNewsFilterByTitleFromDb  hLogger (Just titleName) page sortParam = catch (do
+getNewsFilterByTitleFromDb  hLogger (Just titleName) page_p sortParam = catch (do
                     logInfo hLogger "Someone try get news list filtered by title"
                     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                     let sort' = if sortParam == "" then ""
                                             else BC.concat [" order by ",sortParam," DESC"]
-                    let pg = if isNothing page then " limit 10 offset 0"
+                    let pg = if isNothing page_p then " limit 10 offset 0"
                                         else
-                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                     let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) where short_title = ? ",sort', pg]
                     rows <- query conn q [titleName]
                     close conn
@@ -268,17 +292,18 @@ getNewsFilterByTitleFromDb  hLogger (Just titleName) page sortParam = catch (do
                                                             return $ Left "Database error"
 
 getNewsFilterByAuthorNameFromDb  :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByAuthorNameFromDb hLogger Nothing page sortParam = do
+--getNewsFilterByAuthorNameFromDb hLogger Nothing page sortParam = do
+getNewsFilterByAuthorNameFromDb hLogger Nothing _ _ = do
         logError hLogger "No author_name parameter"
         return $ Left "No author_name parameter"
-getNewsFilterByAuthorNameFromDb hLogger (Just authorName) page sortParam = catch (do
+getNewsFilterByAuthorNameFromDb hLogger (Just authorName) page_p sortParam = catch (do
                     logInfo hLogger "Someone try get news list filtered by author's name"
                     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                     let sort' = if sortParam == "" then ""
                                             else BC.concat [" order by ",sortParam," DESC"]
-                    let pg = if isNothing page then " limit 10 offset 0"
+                    let pg = if isNothing page_p then " limit 10 offset 0"
                                         else
-                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                     let q = toQuery $ BC.concat ["select * from (select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id)) as temp_t where author_name = ? ",sort', pg]
                     rows <- query conn q [authorName]
                     close conn
@@ -288,10 +313,11 @@ getNewsFilterByAuthorNameFromDb hLogger (Just authorName) page sortParam = catch
                                                             return $ Left "Database error"
 
 getNewsFilterByDateFromDb  :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByDateFromDb  hLogger Nothing page sortParam = do
+--getNewsFilterByDateFromDb  hLogger Nothing page sortParam
+getNewsFilterByDateFromDb  hLogger Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
-getNewsFilterByDateFromDb  hLogger (Just date) page sortParam = do
+getNewsFilterByDateFromDb  hLogger (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by date"
     let date' = readByteStringToDay date
     case date' of
@@ -302,9 +328,9 @@ getNewsFilterByDateFromDb  hLogger (Just date) page sortParam = do
                                 conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                                 let sort' = if sortParam == "" then ""
                                             else BC.concat [" order by ",sortParam," DESC"]
-                                let pg = if isNothing page then " limit 10 offset 0"
+                                let pg = if isNothing page_p then " limit 10 offset 0"
                                          else
-                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                                 let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) where date_creation = ? ",sort', pg]
                                 rows <- query conn q [day]
                                 close conn
@@ -314,10 +340,11 @@ getNewsFilterByDateFromDb  hLogger (Just date) page sortParam = do
                                                             return $ Left "Database error"
 
 getNewsFilterByTagAllFromDb  :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByTagAllFromDb  hLogger Nothing page sortParam = do
+--getNewsFilterByTagAllFromDb  hLogger Nothing page sortParam = do
+getNewsFilterByTagAllFromDb  hLogger Nothing _ _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
-getNewsFilterByTagAllFromDb  hLogger (Just tag_lst) page sortParam = do
+getNewsFilterByTagAllFromDb  hLogger (Just tag_lst) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by tag_all parameter"
     case readByteStringListInt tag_lst of
                 Nothing -> do
@@ -328,9 +355,9 @@ getNewsFilterByTagAllFromDb  hLogger (Just tag_lst) page sortParam = do
                         let cn = BC.pack $ show $ Prelude.length tag_list - 1
                         let sort' = if sortParam == "" then ""
                                                 else BC.concat [" order by ",sortParam," DESC"]
-                        let pg = if isNothing page then " limit 10 offset 0"
+                        let pg = if isNothing page_p then " limit 10 offset 0"
                                             else
-                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                         let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text  from news join authors using (author_id) join users using (user_id) join news_tags using (news_id) where tag_id in ? group by news_id,author_name having count(*) > ",cn, " ",sort',pg]
                         rows <- query conn q (Only (In tag_list))
                         close conn
@@ -340,19 +367,20 @@ getNewsFilterByTagAllFromDb  hLogger (Just tag_lst) page sortParam = do
                                                                 return $ Left "Database error"
 
 getNewsFilterByContentFromDb  :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByContentFromDb  hLogger Nothing page sortParam = do
+--getNewsFilterByContentFromDb  hLogger Nothing page_p sortParam = do
+getNewsFilterByContentFromDb  hLogger Nothing _ _ = do
     logError hLogger "No content parameter"
     return $ Left "No content parameter"
-getNewsFilterByContentFromDb  hLogger (Just content) page sortParam = catch (do
+getNewsFilterByContentFromDb  hLogger (Just content_c) page_p sortParam = catch (do
                 logInfo hLogger "Someone try get news list filtered by content"
                 conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                 let sort' = if sortParam == "" then ""
                                             else BC.concat [" order by ",sortParam," DESC"]
-                let pg = if isNothing page then " limit 10 offset 0"
+                let pg = if isNothing page_p then " limit 10 offset 0"
                                         else
-                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                     BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                 let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) where news_text like ? ",sort', pg]
-                rows <- query conn q [BC.concat ["%",content,"%"]]
+                rows <- query conn q [BC.concat ["%",content_c,"%"]]
                 close conn
                 return (Right $ NewsArray' rows)) $ \e -> do
                                                         let err = E.decodeUtf8 $ sqlErrorMsg e
@@ -360,10 +388,11 @@ getNewsFilterByContentFromDb  hLogger (Just content) page sortParam = catch (do
                                                         return $ Left "Database error"
 
 getNewsFilterByAfterDateFromDb  :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByAfterDateFromDb hLogger Nothing page sortParam = do
+--getNewsFilterByAfterDateFromDb hLogger Nothing page sortParam = do
+getNewsFilterByAfterDateFromDb hLogger Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
-getNewsFilterByAfterDateFromDb hLogger (Just date) page sortParam = do
+getNewsFilterByAfterDateFromDb hLogger (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by after_date parameter"
     let date' = readByteStringToDay date
     case date' of
@@ -374,9 +403,9 @@ getNewsFilterByAfterDateFromDb hLogger (Just date) page sortParam = do
                                 conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                                 let sort' = if sortParam == "" then ""
                                             else BC.concat [" order by ",sortParam," DESC"]
-                                let pg = if isNothing page then " limit 10 offset 0"
+                                let pg = if isNothing page_p then " limit 10 offset 0"
                                          else
-                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                                 let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) where date_creation > ? ",sort', pg]
                                 rows <- query conn q [day]
                                 close conn
@@ -386,10 +415,11 @@ getNewsFilterByAfterDateFromDb hLogger (Just date) page sortParam = do
                                                                         return $ Left "Database error"
 
 getNewsFilterByBeforeDateFromDb  :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByBeforeDateFromDb hLogger Nothing page sortParam = do
+--getNewsFilterByBeforeDateFromDb hLogger Nothing page sortParam = do
+getNewsFilterByBeforeDateFromDb hLogger Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
-getNewsFilterByBeforeDateFromDb hLogger (Just date) page sortParam = do
+getNewsFilterByBeforeDateFromDb hLogger (Just date) page_p sortParam = do
                 let date' = readByteStringToDay date
                 case date' of
                     Nothing -> do
@@ -400,9 +430,9 @@ getNewsFilterByBeforeDateFromDb hLogger (Just date) page sortParam = do
                         conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                         let sort' = if sortParam == "" then ""
                                             else BC.concat [" order by ",sortParam," DESC"]
-                        let pg = if isNothing page then " limit 10 offset 0"
+                        let pg = if isNothing page_p then " limit 10 offset 0"
                                          else
-                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                            BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p)) - 1)*10 ]
                         let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) where date_creation < ? ",sort', pg]
                         rows <- query conn q [day]
                         close conn
@@ -412,10 +442,11 @@ getNewsFilterByBeforeDateFromDb hLogger (Just date) page sortParam = do
                                                                 return $ Left "Database error"
 
 getNewsFilterByTagIdFromDb :: Handle -> Maybe ByteString -> Maybe ByteString -> ByteString -> IO (Either LBS.ByteString NewsArray')
-getNewsFilterByTagIdFromDb hLogger Nothing page sortParam = do
+--getNewsFilterByTagIdFromDb hLogger Nothing page sortParam = do
+getNewsFilterByTagIdFromDb hLogger Nothing _ _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
-getNewsFilterByTagIdFromDb hLogger (Just tag_id) page sortParam = do
+getNewsFilterByTagIdFromDb hLogger (Just tag_id) page_p' sortParam = do
     logInfo hLogger "Someone try get news list filtered by tag"
     case readByteStringToInt  tag_id of
                 Nothing -> do
@@ -425,9 +456,9 @@ getNewsFilterByTagIdFromDb hLogger (Just tag_id) page sortParam = do
                         conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
                         let sort' = if sortParam == "" then ""
                                                 else BC.concat [" order by ",sortParam," DESC"]
-                        let pg = if isNothing page then " limit 10 offset 0"
+                        let pg = if isNothing page_p' then " limit 10 offset 0"
                                             else
-                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page)) - 1)*10 ]
+                                         BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" page_p')) - 1)*10 ]
                         let q = toQuery $ BC.concat ["select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text  from news  join authors using (author_id) join users using (user_id) join news_tags using (news_id) where tag_id = ?", sort',pg]
                         rows <- query conn q [n]
                         close conn
@@ -453,22 +484,22 @@ checkUser login password = do
 generateToken :: BC.ByteString -> IO (BC.ByteString, UTCTime)
 generateToken login = do
     now <- getCurrentTime
-    let token = Prelude.filter (`Prelude.notElem` filt ) (show now)
-    return (BC.concat [login,BC.pack token],now)
+    let token' = Prelude.filter (`Prelude.notElem` filt ) (show now)
+    return (BC.concat [login,BC.pack token'],now)
         where filt = " :.-UTC" :: String
 
 authentication :: Handle -> BC.ByteString -> BC.ByteString -> IO (Either LBS.ByteString LBS.ByteString)
 authentication hLogger login password = catch (do
                 logInfo hLogger $ T.concat ["User with login ", E.decodeUtf8 login, " try logging"]
                 conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-                (token,now) <- generateToken login
+                (token',now) <- generateToken login
                 let q = "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) update tokens set token = ?, creation_date = ? where user_id in (select user_id from loging_user)"
                 --let q = "insert into tokens (user_id, token ,creation_date) values (?, ? ,?) ON CONFLICT(user_id) DO UPDATE set token = ?, creation_date= ?"
-                n <- execute conn q (login,password,token,now)
+                n <- execute conn q (login,password,token',now)
                 close conn
                 if n > 0 then do
                     logInfo hLogger $ T.concat ["User with login ", E.decodeUtf8 login, " logged"]
-                    return $ Right $ LBS.pack $ B.unpack token
+                    return $ Right $ LBS.pack $ B.unpack token'
                 else do
                     logError hLogger $ T.concat ["User with login ", E.decodeUtf8 login, " cant logged"]
                     return $ Left "Wrong login or password"
@@ -504,8 +535,8 @@ loadImageToDb hLogger image = do
                                         return Nothing-}
 
 createUserInDb :: Handle -> BC.ByteString  -> BC.ByteString  -> T.Text -> T.Text -> BC.ByteString  -> BC.ByteString  -> LBS.ByteString  -> IO (Either LBS.ByteString LBS.ByteString )
-createUserInDb hLogger login password f_name l_name avatar_name avatar_contentType avatar= do
-    if avatar_name == "" || avatar_contentType == "" || avatar == "" || BC.take 5 avatar_contentType /= "image" then do
+createUserInDb hLogger login password f'_name l_name avatar_name avatar_contentType avatar_b = do
+    if avatar_name == "" || avatar_contentType == "" || avatar_b == "" || BC.take 5 avatar_contentType /= "image" then do
         logError hLogger "Bad image file"
         return $ Left "Bad image file"
 
@@ -515,7 +546,7 @@ createUserInDb hLogger login password f_name l_name avatar_name avatar_contentTy
         --let q = "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) values (?,?,(select image_id from avatar_id),?,?,?,?)"
 
         let q = "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),?,?)"
-        n <- execute conn q (avatar_name,Binary avatar,avatar_contentType,f_name,l_name,login,password,now,False)
+        n <- execute conn q (avatar_name,Binary avatar_b,avatar_contentType,f'_name,l_name,login,password,now,False)
         if n > 0 then do
             logInfo hLogger $ T.concat ["User ", E.decodeUtf8 login, " registered"]
             firstToken hLogger login password
@@ -546,14 +577,14 @@ firstToken :: Handle -> BC.ByteString -> BC.ByteString ->  IO (Either LBS.ByteSt
 firstToken hLogger login password = catch (do
                 logInfo hLogger $ T.concat ["Generate first token for user ", E.decodeUtf8 login]
                 conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-                (token,now) <- generateToken login
+                (token',now) <- generateToken login
                 let q = "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"
                 --let q = "insert into tokens (user_id, token ,creation_date) values (?, ? ,?) ON CONFLICT(user_id) DO UPDATE set token = ?, creation_date= ?"
-                n <- execute conn q (login,password,token,now)
+                n <- execute conn q (login,password,token',now)
                 close conn
                 if n > 0 then do
                     logInfo hLogger $ T.concat ["User with login ", E.decodeUtf8 login, " logged"]
-                    return $ Right $ LBS.pack $ B.unpack token
+                    return $ Right $ LBS.pack $ B.unpack token'
                 else do
                     logError hLogger $ T.concat ["User with login ", E.decodeUtf8 login, " cant logged"]
                     return $ Left "Wrong login or password"
@@ -563,11 +594,11 @@ firstToken hLogger login password = catch (do
                                                                 return $ Left "Database error"
 
 profileOnDb :: Handle -> T.Text -> IO (Either LBS.ByteString Profile)
-profileOnDb hLogger token = catch (do
+profileOnDb hLogger token' = catch (do
     logInfo hLogger "Sending profile information"
     let q = "select first_name, last_name, avatar from users join tokens using (user_id) where  token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    rows <- query conn q (TokenProfile token 86400) :: IO [Profile]
+    rows <- query conn q (TokenProfile token' 86400) :: IO [Profile]
     close conn
     if Prelude.null rows then do
         logError hLogger "Bad token"
@@ -611,14 +642,14 @@ createCategoryOnDb hLogger _ Nothing = do
     logError hLogger "No maternal_category_name field"
     return $ Left "No maternal_category_name field"
 
-createCategoryOnDb hLogger (Just category_name) (Just maternal_name) = catch (do
+createCategoryOnDb hLogger (Just category'_name) (Just maternal_name) = catch (do
     logInfo hLogger "Creating new category"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let q = "insert into categories (category_name, maternal_category) values (?,?) returning category_id"
     if maternal_name == "" then do
         logInfo hLogger "Maternal category is null"
         --let m = Nothing :: Maybe T.Text
-        rows <- returning conn q [(category_name, Nothing :: Maybe T.Text)] :: IO [Only Int]
+        rows <- returning conn q [(category'_name, Nothing :: Maybe T.Text)] :: IO [Only Int]
         close conn
         logInfo hLogger "Category created"
         --let c_idd = LBS.fromStrict $ BC.pack $ show (fromOnly $ Prelude.head rows)
@@ -626,12 +657,12 @@ createCategoryOnDb hLogger (Just category_name) (Just maternal_name) = catch (do
     else do
     --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
         let check_maternal = "select category_id from categories where category_name = ?"
-        c_id <- query conn check_maternal [maternal_name] :: IO [Only Int]
-        if Prelude.null c_id then do
+        c'_id <- query conn check_maternal [maternal_name] :: IO [Only Int]
+        if Prelude.null c'_id then do
             logError hLogger "Maternal category not exist"
             return $ Left "Maternal category not exist"
             else do
-                rows <- returning conn q [(category_name, fromOnly $ Prelude.head c_id)] :: IO [Only Int]
+                rows <- returning conn q [(category'_name, fromOnly $ Prelude.head c'_id)] :: IO [Only Int]
                 close conn
                 logInfo hLogger "Category created"
                 return $ Right $ LBS.fromStrict $ BC.pack $ show (fromOnly $ Prelude.head rows)) $ \e -> do
@@ -666,11 +697,11 @@ editCategoryOnDb :: Handle -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> IO
 editCategoryOnDb hLogger Nothing _ _ = do
     logError hLogger "No old_name parametr"
     return $ Left "No old_name parametr"
-editCategoryOnDb hLogger (Just old_name) (Just new_name) (Just "") = catch (do
+editCategoryOnDb hLogger (Just old_name) (Just new'_name) (Just "") = catch (do
     logInfo hLogger $ T.concat ["Update category_name parameter on category ", old_name]
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let q = "update categories set category_name = ? where category_name = ?"
-    n <- execute conn q (new_name,old_name)
+    n <- execute conn q (new'_name,old_name)
     close conn
     if n > 0 then do
         logInfo hLogger $ T.concat ["Category ", old_name, " edited"]
@@ -686,14 +717,14 @@ editCategoryOnDb hLogger (Just old_name) (Just new_name) (Just "") = catch (do
                                             23505 -> return $ Left "Category already exist"
                                             _ -> return $ Left "Database error"
 
-editCategoryOnDb hLogger (Just old_name) (Just "") (Just new_maternal) = catch (do
+editCategoryOnDb hLogger (Just old_name) (Just "") (Just new'_maternal) = catch (do
     logInfo hLogger $ T.concat ["Update maternal_category parameter on category ", old_name]
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let check_maternal = "select category_id from categories where category_name = ?"
-    m_id <- query conn check_maternal [new_maternal] :: IO [Only Int]
+    m_id <- query conn check_maternal [new'_maternal] :: IO [Only Int]
     if Prelude.null m_id then do
         close conn
-        logError hLogger $ T.concat ["Maternal category ", new_maternal, " not exist" ]
+        logError hLogger $ T.concat ["Maternal category ", new'_maternal, " not exist" ]
         return $ Left "Maternal category not exist"
     else do
         let q = "update categories set maternal_category = ? where category_name = ?"
@@ -708,18 +739,18 @@ editCategoryOnDb hLogger (Just old_name) (Just "") (Just new_maternal) = catch (
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
                                         logError hLogger err
                                         return $ Left "Database error"
-editCategoryOnDb hLogger (Just old_name) (Just new_name) (Just new_maternal) = catch (do
+editCategoryOnDb hLogger (Just old_name) (Just new'_name) (Just new'_maternal) = catch (do
     logInfo hLogger $ T.concat ["Update all parameters on category ", old_name]
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let check_maternal = "select category_id from categories where category_name = ?"
-    m_id <- query conn check_maternal [new_maternal] :: IO [Only Int]
+    m_id <- query conn check_maternal [new'_maternal] :: IO [Only Int]
     if Prelude.null m_id then do
         close conn
-        logError hLogger $ T.concat ["Maternal category ", new_maternal, " not exist" ]
+        logError hLogger $ T.concat ["Maternal category ", new'_maternal, " not exist" ]
         return $ Left "Maternal category not exist"
     else do
         let q = "update categories set category_name = ?, maternal_category = ? where category_name = ?"
-        n <- execute conn q (new_name,fromOnly $ Prelude.head m_id, old_name)
+        n <- execute conn q (new'_name,fromOnly $ Prelude.head m_id, old_name)
         close conn
         if n > 0 then do
             logInfo hLogger $ T.concat ["Category ", old_name, " edited"]
@@ -753,10 +784,10 @@ checkAuthor :: Handle -> Maybe T.Text -> IO (Either LBS.ByteString Int)
 checkAuthor hLogger Nothing = do
     logError hLogger "No token parameter"
     return $ Left "No token parameter"
-checkAuthor hLogger (Just token) = catch (do
+checkAuthor hLogger (Just token') = catch (do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     --TIO.putStrLn token
-    rows <- query conn "select author_id from authors join users using (user_id) join tokens using (user_id) where token = ?" [token]:: IO [Only Int]
+    rows <- query conn "select author_id from authors join users using (user_id) join tokens using (user_id) where token = ?" [token']:: IO [Only Int]
     if  Prelude.null rows then do
         logError hLogger "User try get drafts without author's rights"
         return $ Left "You not author"
@@ -776,12 +807,12 @@ getDraftsByAuthorId a_id = do
     rows <- query conn q [a_id] :: IO [Draft']
     return $ DraftArray rows-}
 getDraftsByAuthorToken :: Handle -> T.Text -> IO (Either LBS.ByteString DraftArray)
-getDraftsByAuthorToken hLogger token = catch (do
+getDraftsByAuthorToken hLogger token' = catch (do
     logInfo hLogger "Someone try get drafts list"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     --let q = "select short_title, date_of_changes, category_id, draft_text, main_image from drafts where author_id = ?"
     let q = "select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) from drafts join drafts_images using (draft_id) join authors using (author_id) join tokens using (user_id) where token = ? and (now() - tokens.creation_date) < make_interval(secs => ?) group by draft_id"
-    rows <- query conn q  (TokenProfile token 86400) :: IO [Draft']
+    rows <- query conn q  (TokenProfile token' 86400) :: IO [Draft']
     close conn
     if Prelude.null rows then do
         logError hLogger "User use bad token or haven't drafts"
@@ -800,32 +831,37 @@ tstDrafts = getDraftsByAuthorToken (Handle Debug printLog) "dahaku20210802090318
 
 
 createDraftOnDb' :: Handle -> Maybe BC.ByteString  -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe Image''' -> Maybe [Image'''] -> IO (Either LBS.ByteString Int)
-createDraftOnDb' hLogger Nothing category tags short_title text main_image images_list = do
+--createDraftOnDb' hLogger Nothing category tags short_title text main_image images_list = do
+createDraftOnDb' hLogger Nothing _ _ _ _ _ _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-createDraftOnDb' hLogger _ Nothing tags short_title text main_image images_list = do
+--createDraftOnDb' hLogger _ Nothing tags short_title text main_image images_list = do
+createDraftOnDb' hLogger _ Nothing _ _ _ _ _ = do
     logError hLogger "No category field"
     return $ Left "No category field"
-createDraftOnDb' hLogger _ _ Nothing short_title text main_image images_list = do
+--createDraftOnDb' hLogger _ _ Nothing short_title text main_image images_list = do
+createDraftOnDb' hLogger _ _ Nothing _ _ _ _ = do
     logError hLogger "No tags field"
     return $ Left "No tags field"
-createDraftOnDb' hLogger _ _ _ Nothing text main_image images_list = do
+--createDraftOnDb' hLogger _ _ _ Nothing text main_image images_list = do
+createDraftOnDb' hLogger _ _ _ Nothing _ _ _ = do
     logError hLogger "No short_title field"
     return $ Left "No short_title field"
-createDraftOnDb' hLogger _ _ _ _ Nothing main_image images_list = do
+--createDraftOnDb' hLogger _ _ _ _ Nothing main_image images_list = do
+createDraftOnDb' hLogger _ _ _ _ Nothing _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
-createDraftOnDb' hLogger (Just token) (Just category) (Just tags) (Just short_title) (Just text) main_image images_list = do
+createDraftOnDb' hLogger (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list = do
     logInfo hLogger "Someone try add new draft"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    now <- getCurrentTime
+    --now <- getCurrentTime
     --let q = "with get_a as (select author_id from authors join tokens using (user_id) where token = ?), get_c as (select category_id from categories where category_name = ?) insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a),?,?,(select category_id from get_c),?) returning draft_id"
     let q =  toQuery $ BC.concat ["with get_a as (select author_id from authors join tokens using (user_id) where token = '",
-                    token,
+                    token',
                     "'), get_c as (select category_id from categories where category_name = '",
                     category,
                     "') insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a),'",
-                    short_title,
+                    short'_title,
                     "',now(),(select category_id from get_c),'",
                     text,
                     "') returning draft_id"]
@@ -837,14 +873,15 @@ createDraftOnDb' hLogger (Just token) (Just category) (Just tags) (Just short_ti
         return $ Left "Draft not created"
     else do
         --loadImagesForDraft'
-        result <- loadImagesForDraft' hLogger (fromOnly $ Prelude.head d_rows) main_image images_list
+        result <- loadImagesForDraft' hLogger (fromOnly $ Prelude.head d_rows) main'_image images_list
         close conn
         case result of
             Left bs -> do
                 logError hLogger "Images not loaded"
                 -- delete draft
                 return $ Left bs
-            Right bs -> do
+            --Right bs -> do
+            Right _ -> do
                 logInfo hLogger "Images  loaded"
                 -- delete draft
                 return $ Right $ fromOnly $ Prelude.head d_rows
@@ -1001,8 +1038,8 @@ loadImageAndCreateDraftConnectionOn hLogger d_id iml = catch (do
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
 
-tstMegaQ :: IO (Either LBS.ByteString Int)
-tstMegaQ = loadImageAndCreateDraftConnectionOn (Handle Debug printLog) 16 [(Image''' "5" "6" (Binary "7"))]
+{-tstMegaQ :: IO (Either LBS.ByteString Int)
+tstMegaQ = loadImageAndCreateDraftConnectionOn (Handle Debug printLog) 16 [(Image''' "5" "6" (Binary "7"))]-}
 
 {-toImage'''' :: Int -> Image''' -> Image''''
 toImage'''' d_id image = Image'''' (f_name'' image) (content_type'' image) (content'' image) d_id-}
@@ -1011,14 +1048,18 @@ loadImagesForDraft' :: Handle -> Int -> Maybe Image''' -> Maybe [Image'''] -> IO
 loadImagesForDraft' hLogger draft_id Nothing (Just image) = catch (do
     result <- loadImageAndCreateDraftConnectionOn hLogger draft_id image
     case result of
-      Left bs -> return $ Left bs
-      Right n -> return $ Right "Draft created") $ \e -> do
+        Left bs -> return $ Left bs
+        --Right n -> do 
+        Right _ -> do 
+            logInfo hLogger "Draft created"
+            return $ Right "Draft created") $ \e -> do
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
                                         let errState = sqlState e
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
-loadImagesForDraft' hLogger draft_id Nothing Nothing = do
+loadImagesForDraft' hLogger _ Nothing Nothing = do
+    logInfo hLogger "Draft created"
     return $ Right "Draft created"
 loadImagesForDraft' hLogger draft_id (Just i) Nothing = catch (do
     result <- loadImageAndCreateDraftConnectionOn hLogger draft_id [i]
@@ -1029,6 +1070,7 @@ loadImagesForDraft' hLogger draft_id (Just i) Nothing = catch (do
             let q = "update drafts set main_image = ? where draft_id = ?"
             k <- execute conn q (n,draft_id)
             if k > 0 then do
+                logInfo hLogger "Draft created"
                 return $ Right "Draft created"
             else return $ Left "Draft not created") $ \e -> do
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
@@ -1057,7 +1099,7 @@ deleteDraftFromDb :: Handle -> Int -> Maybe ByteString -> IO (Either LBS.ByteStr
 deleteDraftFromDb hLogger _ Nothing = do
     logError hLogger "No draft_id parameter"
     return $ Left "No draft_id parameter"
-deleteDraftFromDb hLogger author_id (Just draft_id) = catch (do
+deleteDraftFromDb hLogger author'_id (Just draft_id) = catch (do
     let draft_id_int = readByteStringToInt draft_id
     case draft_id_int of
         Nothing -> do
@@ -1066,7 +1108,7 @@ deleteDraftFromDb hLogger author_id (Just draft_id) = catch (do
         Just n -> do
             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
             let q = "delete from drafts where draft_id = ? and author_id = ?"
-            ne <- execute conn q (n,author_id)
+            ne <- execute conn q (n,author'_id)
             close conn
             if ne > 0 then do
                 logInfo hLogger $ T.concat ["Draft ", T.pack $ show n, " deleted"]
@@ -1082,11 +1124,11 @@ deleteDraftFromDb hLogger author_id (Just draft_id) = catch (do
 
 
 getDraftByIdFromDb :: Handle -> Int -> Int -> IO (Either LBS.ByteString Draft')
-getDraftByIdFromDb hLogger author_id draft_id = catch (do
+getDraftByIdFromDb hLogger author'_id draft_id = catch (do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     --let q = "select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) from drafts join drafts_images using (draft_id) where author_id = ? and draft_id = ? group by draft_id"
     let q = "with image_arr as (select array_agg(image_id) from drafts_images where draft_id = ?) select short_title, date_of_changes, category_id, draft_text, main_image, (select * from image_arr) from drafts where author_id = ? and draft_id = ?"
-    rows <- query conn q (draft_id,author_id,draft_id) :: IO [Draft']
+    rows <- query conn q (draft_id,author'_id,draft_id) :: IO [Draft']
     close conn
     if Prelude.null rows then do
             logError hLogger "Wrong draft id or draft not exist"
@@ -1103,10 +1145,11 @@ tstGetD :: IO (Either LBS.ByteString Draft')
 tstGetD = getDraftByIdFromDb (Handle Debug printLog) 12 22
 
 getDraftIdsByAuthor :: Handle -> Int -> IO (Either LBS.ByteString  [Int])
-getDraftIdsByAuthor hLogger author_id = do
+getDraftIdsByAuthor hLogger author'_id = do
+    logInfo hLogger "Getting drafts"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let q = "select draft_id from drafts where author_id = ?"
-    rows <- query conn q [author_id] :: IO [Only Int]
+    rows <- query conn q [author'_id] :: IO [Only Int]
     if Prelude.null rows then
         return $ Left "No drafts"
     else
@@ -1130,16 +1173,17 @@ updateDraftInDb' hLogger _ _ _ Nothing _ _ _ _ _ = do
 updateDraftInDb' hLogger _ _ _ _ Nothing _ _ _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
-updateDraftInDb' hLogger (Just token) (Just category) (Just tags) (Just short_title) (Just text) main_image images_list draft_id author_id  = catch (do
-    new_rows <- createDraftOnDb' hLogger (Just token) (Just category) (Just tags) (Just short_title) (Just text) main_image images_list
+updateDraftInDb' hLogger (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list draft_id author'_id  = catch (do
+    new_rows <- createDraftOnDb' hLogger (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list
     case new_rows of
-        Left bs -> do
+        --Left bs -> do
+        Left _ -> do
             logError hLogger "Draft not updated"
             return $ Left "Draft not updated"
         Right n -> do
             let q_update_id = "with dr_i as (delete from drafts where draft_id = ? and author_id = ? returning draft_id) update drafts set draft_id = (select draft_id from dr_i) where draft_id = ?"
             conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-            nu <- execute conn q_update_id (draft_id,author_id,n)
+            nu <- execute conn q_update_id (draft_id,author'_id,n)
             close conn
             if nu > 0 then do
                 logInfo hLogger $ T.concat ["Draft ",T.pack $ show draft_id, " updated"]
@@ -1158,7 +1202,7 @@ updateDraftInDb' hLogger (Just token) (Just category) (Just tags) (Just short_ti
 
 
 publicNewsOnDb :: Handle -> Int -> Int -> IO (Either LBS.ByteString Int)
-publicNewsOnDb hLogger author_id draft_id = do
+publicNewsOnDb hLogger author'_id draft_id = catch( do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let q = toQuery $ BC.concat ["with draft_s as (delete from drafts where draft_id = ? returning short_title,author_id,category_id,draft_text,main_image))",
                                 "insert into news (short_title,author_id,category_id,news_text,main_image,date_creation)", 
@@ -1169,27 +1213,67 @@ publicNewsOnDb hLogger author_id draft_id = do
                                 "(select main_image from draft_s),",
                                 "?) returning news_id"]
     now <- getCurrentTime 
-    n_id <- query conn q (draft_id,author_id,now) :: IO [Only Int]
+    n_id <- query conn q (draft_id,author'_id,now) :: IO [Only Int]
     if Prelude.null n_id then do
         close conn
         return $ Left "News not published"
     else do
         check <- createConnectionImagesNews (fromOnly $ Prelude.head n_id) draft_id
         case check of
-            Left bs -> do
+            --Left bs -> do
+            Left _ -> do
                 logError hLogger "News not published"
                 return $ Left "News not published"
-            Right bs -> do
+            --Right bs -> do
+            Right _ -> do
                 logInfo hLogger "News published"
-                return $ Right (fromOnly $ Prelude.head n_id)
+                return $ Right (fromOnly $ Prelude.head n_id)) $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"
 
 
 createConnectionImagesNews :: Int -> Int -> IO (Either LBS.ByteString LBS.ByteString)
-createConnectionImagesNews news_id draft_id = do
+createConnectionImagesNews news'_id draft_id = do
     let q = "with d_s as (select image_id from drafts_images where draft_id = ?) insert into news_image (news_id,image_id) values (?, (select image_id from d_s))"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    n <- execute conn q (draft_id,news_id)
+    n <- execute conn q (draft_id,news'_id)
     if n > 0 then do
         return $ Right ""
     else
         return $ Left ""
+
+
+
+catchSqlError :: Handle -> SqlError -> IO (Either LBS.ByteString a)
+catchSqlError hLogger e = do
+    let err = E.decodeUtf8 $ sqlErrorMsg e
+    let errStateInt = fromMaybe 0 (readByteStringToInt $ sqlState e)
+    logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+    return $ Left "Database error"
+
+
+
+
+
+getDraftByIdFromDb' :: Handle -> Int -> Int -> IO (Either LBS.ByteString Draft')
+getDraftByIdFromDb' hLogger author'_id draft_id = catches (do
+    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --let q = "select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) from drafts join drafts_images using (draft_id) where author_id = ? and draft_id = ? group by draft_id"
+    let q = "with image_arr as (select array_agg(image_id) from drafts_images where draft_id = ?) select short_title, date_of_changes, category_id, draft_text, main_image, (select * from image_arr) from drafts where author_id = ? and draft_id = ?"
+    rows <- query conn q (draft_id,author'_id,draft_id) :: IO [Draft']
+    close conn
+    if Prelude.null rows then do
+            logError hLogger "Wrong draft id or draft not exist"
+            return $ Left "Wrong draft id or draft not exist"
+    else do
+        logInfo hLogger "Sending draft to user"
+        return $ Right $ Prelude.head rows) [Handler (\ (e :: SqlError) -> catchSqlError hLogger e)]
+                                    {-\e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"-}

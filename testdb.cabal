@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6c4f2f79baee4bd0a4fa96eb83706ac8d2a2cb83d383e38291718acc46bf6a55
+-- hash: 47e2d59e19185fa262fbc968757ae2ffb231d808bbe6daa51b9d57e99b6d9660
 
 name:           testdb
 version:        0.1.0.0
@@ -72,7 +72,7 @@ executable testdb-exe
       Paths_testdb
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
   build-depends:
       base >=4.7 && <5
     , testdb
@@ -85,7 +85,7 @@ test-suite testdb-test
       Paths_testdb
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
   build-depends:
       base >=4.7 && <5
     , testdb

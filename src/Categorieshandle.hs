@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
 module Categorieshandle where
 import Network.Wai
 --import Network.Wai.Handler.Warp
@@ -90,8 +89,8 @@ editCategory hLogger req = do
                       Right bs -> return $ responseOk bs
 
 
-categoriesBlock :: Handle -> BC.ByteString -> [BC.ByteString] -> Request -> IO Response
-categoriesBlock hLogger path pathElems req | pathElemsC == 1 = sendCategoriesList hLogger req
+categoriesBlock :: Handle  -> [BC.ByteString] -> Request -> IO Response
+categoriesBlock hLogger  pathElems req | pathElemsC == 1 = sendCategoriesList hLogger req
                                    | pathElemsC == 2 =
                                        case last pathElems of
                                            "delete_category" -> deleteCategory hLogger req

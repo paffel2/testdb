@@ -4,17 +4,17 @@
 module Types where
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.Types
-import Control.Monad
-import Control.Applicative
+--import Control.Monad
+--import Control.Applicative
 import Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+--import qualified Data.Text.IO as TIO
 import GHC.Generics
 import Data.Time
 import Data.Aeson
-import Database.PostgreSQL.Simple.Time
+--import Database.PostgreSQL.Simple.Time
 
 data User = User { first_name :: Maybe String,
                    last_name :: Maybe String,
@@ -161,10 +161,10 @@ instance ToJSON CommentArray where
     toJSON = genericToJSON defaultOptions
 
                           
-daytst = 
+{-daytst = 
     do 
         now <- getCurrentTime 
-        print $ utctDay now
+        print $ utctDay now-}
 
 
 --newtype Myid' = Myid' {}

@@ -1,7 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
+
 module Drafts where
-import Network.Wai
+{-import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Parse
 import Network.HTTP.Types
@@ -196,3 +195,4 @@ draftsBlock pathElems req | pathElemsC == 1 = sendDrafts req
         where pathElemsC = length pathElems
 
   
+-}

@@ -1,7 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+
 module Testdatabase where
-import Database.PostgreSQL.Simple
+{-import Database.PostgreSQL.Simple
 --import Database.PostgreSQL.Simple.FromField
 --import Control.Monad
 --import Control.Applicative
@@ -1210,3 +1209,4 @@ publicNewsOnDb author_id draft_id = do
                                                     return $ Right ""  -}
 --createDraftOnDb :: (String,String,LBS.ByteString) -> [(String,String,LBS.ByteString )] -> Int -> Int -> [Int] -> T.Text -> T.Text -> IO (Either LBS.ByteString Int)
 --createDraftOnDb main_image_triple images_list author_id' category_id' tags_ids text sh_title= do
+    -}

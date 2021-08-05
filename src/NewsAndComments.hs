@@ -1,7 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric  #-}
+
 module NewsAndComments where
-import Network.Wai
+{-import Network.Wai
 --import Network.Wai.Handler.Warp
 import Network.Wai.Parse
 --import Network.HTTP.Types
@@ -189,3 +188,4 @@ deleteCommentById req  = do
                     Nothing -> return $ Left "no comment_id field"
                     Just bs -> deleteComment bs
         (False, bs) -> return $ Left bs
+        -}
