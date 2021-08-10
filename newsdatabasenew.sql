@@ -145,6 +145,29 @@ create function take_categories_list(cat_id int) returns text as $$
     IMMUTABLE
 	STRICT;
 
+create function check_token (token_in varchar(50),interval_in int ) returns int $$
+    select user_id from tokens where token = token_in and (current_timestamp - tokens.creation_date < make_interval(secs => interval_in)) $$
+    LANGUAGE SQL
+    IMMUTABLE
+	STRICT;
+
+create function isAdmin (token_in varchar(50), interval_in int) 
+returns BOOLEAN AS $$ 
+declare admin_token boolean;
+BEGIN
+	select admin_mark into admin_token from users join tokens using (user_id) where token = token_in
+	and ((current_timestamp - tokens.creation_date) < make_interval(secs => interval_in));
+	if admin_token is null then 
+		return False;
+	else 
+		return admin_token;
+	end if;
+END; $$
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT;
+
+
  /*
 select news_id, title, array_agg(image_b) as images_b from images right join news USING(news_id)
 group by 1

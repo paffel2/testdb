@@ -39,6 +39,7 @@ library:
     - wai-extra
     - configurator
     - directory
+    - resource-pool
   exposed-modules:  Lib
 executables:
   testdb-exe:

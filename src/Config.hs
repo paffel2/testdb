@@ -25,6 +25,7 @@ import qualified Data.Text as T
 --import Control.Monad
 import Logger
 import qualified Data.Configurator as C
+import qualified Data.ByteString.Char8 as BC
 
 data Modules = TK | DB | LG | SR
 {-data ConfigModules = 
@@ -41,6 +42,18 @@ data Modules = TK | DB | LG | SR
     deriving (Show)-}
 data ConfigModules = 
     Token { lifeTime :: Int }
+    | Database { db_host :: BC.ByteString,
+                 db_port :: BC.ByteString,
+                 db_login :: BC.ByteString,
+                 db_password :: BC.ByteString,
+                 db_name :: BC.ByteString 
+                 }
+    | Log { log_priority :: Priority }
+    | Server { server_port :: Int,
+               server_maximum_body_flush :: Maybe Int }
+    deriving (Show)
+{-data ConfigModules = 
+    Token { lifeTime :: Int }
     | Database { db_host :: String,
                  db_port :: String,
                  db_login :: String,
@@ -50,7 +63,7 @@ data ConfigModules =
     | Log { log_priority :: Priority }
     | Server { server_port :: Int,
                server_maximum_body_flush :: Maybe Int }
-    deriving (Show)
+    deriving (Show)-}
 
 newtype ConfigHandle = ConfigHandle { getConfig :: Modules -> IO ConfigModules} 
 
@@ -72,29 +85,38 @@ getconfig module' = do
     --C.display conf
     --print "1"
     case module' of
-      TK -> do
-          life <- C.lookupDefault 86400 conf (T.pack "token.lifetime") :: IO Int
-          return $ Token life
-      DB -> do
+        TK -> do
+            life <- C.lookupDefault 86400 conf (T.pack "token.lifetime") :: IO Int
+            return $ Token life
+        
+      {-DB -> do
           host <- C.lookupDefault "" conf (T.pack "database.host") :: IO String
           port <- C.lookupDefault "" conf (T.pack "database.port") :: IO String
           login <- C.lookupDefault "" conf (T.pack "database.login") :: IO String
           --port <- C.lookupDefault "" conf (T.pack "db_port") :: IO BC.ByteString
           password <- C.lookupDefault "" conf (T.pack "database.password") :: IO String
           name <- C.lookupDefault "" conf (T.pack "database.name") :: IO String
-          return $ Database host port login password name
-      LG -> do
-          log' <- C.lookupDefault "Info" conf (T.pack "logger.priority") :: IO String 
-          case log' of
-              "Debug" -> return $ Log Debug
-              "Info" -> return $ Log Info 
-              "Warning" -> return $ Log Warning
-              "Error" -> return $ Log Logger.Error
-              _ -> return $ Log Info
-      SR -> do
-          port <- C.lookupDefault 8000 conf (T.pack "server.port") :: IO Int
-          smbf <- C.lookupDefault 1048576 conf (T.pack "server.maximum_body_flush") :: IO Int
-          return $ Server port (Just smbf)
+          return $ Database host port login password name-}
+        DB -> do
+            host <- C.lookupDefault "" conf (T.pack "database.host") :: IO BC.ByteString
+            port <- C.lookupDefault "" conf (T.pack "database.port") :: IO BC.ByteString
+            login <- C.lookupDefault "" conf (T.pack "database.login") :: IO BC.ByteString
+          --port <- C.lookupDefault "" conf (T.pack "db_port") :: IO BC.ByteString
+            password <- C.lookupDefault "" conf (T.pack "database.password") :: IO BC.ByteString
+            name <- C.lookupDefault "" conf (T.pack "database.name") :: IO BC.ByteString
+            return $ Database host port login password name
+        LG -> do
+            log' <- C.lookupDefault "Info" conf (T.pack "logger.priority") :: IO String 
+            case log' of
+                "Debug" -> return $ Log Debug
+                "Info" -> return $ Log Info 
+                "Warning" -> return $ Log Warning
+                "Error" -> return $ Log Logger.Error
+                _ -> return $ Log Info
+        SR -> do
+            port <- C.lookupDefault 8000 conf (T.pack "server.port") :: IO Int
+            smbf <- C.lookupDefault 1048576 conf (T.pack "server.maximum_body_flush") :: IO Int
+            return $ Server port (Just smbf)
       
 
 newLogHandle :: ConfigModules -> Logger.Handle 

@@ -16,7 +16,7 @@ import qualified Data.Text.Encoding as E
 --import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BC
---import Types
+import Types
 import Data.Maybe
 --import Text.Read
 --import Control.Applicative
@@ -28,6 +28,8 @@ import Responses
 import Logger
 import FromRequest
 import Databaseoperations
+import Data.Pool
+import Database.PostgreSQL.Simple
 --import Database.PostgreSQL.Simple
 
 {-sendDrafts :: Handle -> Request -> IO Response
@@ -97,8 +99,8 @@ createDraft' req = do
                                                                                 case result of
                                                                                     Left bs -> return $ responseBadRequest bs
                                                                                     Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n-}
-createDraft :: Handle -> Request -> IO Response
-createDraft hLogger req = do
+createDraft :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+createDraft hLogger pool token_lifetime req = do
     (i,f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
     let main'_image = foundParametr "main_image" f
     let images = foundParametr "images" f
@@ -235,12 +237,13 @@ publicNews hLogger draft_id req = do
                       Left bs -> return $ responseBadRequest bs
                       Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
 
-draftsBlock :: Handle -> [BC.ByteString] -> Request -> IO Response 
-draftsBlock hLogger pathElems req   | pathElemsC == 1 = sendDrafts hLogger req
+draftsBlock :: Handle -> Pool Connection -> TokenLifeTime -> [BC.ByteString] -> Request -> IO Response 
+draftsBlock hLogger pool token_lifetime pathElems req   
+                                    | pathElemsC == 1 = sendDrafts hLogger req
                                     | pathElemsC == 2 = case readByteStringToInt $ last pathElems of
                                               Just n -> getDraftById hLogger n req--return $ responseOk "draft)by)id"
                                               Nothing -> case last pathElems of
-                                                              "create_draft" -> Draftshandle.createDraft hLogger req
+                                                              --"create_draft" -> Draftshandle.createDraft hLogger req
                                                               "delete_draft" -> deleteDraft hLogger req
                                                               _ -> return $ responseBadRequest "bad request"
                                     | pathElemsC == 3 = case readByteStringToInt $ head $ tail pathElems of
@@ -250,7 +253,7 @@ draftsBlock hLogger pathElems req   | pathElemsC == 1 = sendDrafts hLogger req
                                                               "public_news" -> publicNews hLogger n req
                                                               _ -> return $ responseBadRequest "bad request"
                                            
-                          | otherwise = return $ responseBadRequest "bad request"
+                                    | otherwise = return $ responseBadRequest "bad request"
         where pathElemsC = length pathElems
 
   

@@ -16,7 +16,7 @@ import qualified Data.Text as T
 --import qualified Data.ByteString as B
 --import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BC
---import Types
+import Types
 import Data.Maybe
 --import Text.Read
 --import Control.Applicative
@@ -27,6 +27,8 @@ import Logger
 import Databaseoperations
 {-import qualified Data.Text.Lazy as T
 import qualified Data.Char as T-}
+import Data.Pool
+import Database.PostgreSQL.Simple
 
 
 sendCategoriesList :: Handle -> Request -> IO Response
@@ -89,15 +91,16 @@ editCategory hLogger req = do
                       Right bs -> return $ responseOk bs
 
 
-categoriesBlock :: Handle  -> [BC.ByteString] -> Request -> IO Response
-categoriesBlock hLogger  pathElems req | pathElemsC == 1 = sendCategoriesList hLogger req
-                                   | pathElemsC == 2 =
+categoriesBlock :: Handle  -> Pool Connection -> TokenLifeTime -> [BC.ByteString] -> Request -> IO Response
+categoriesBlock hLogger  pool token_lifetime pathElems req 
+                                    | pathElemsC == 1 = sendCategoriesList hLogger req
+                                    | pathElemsC == 2 =
                                        case last pathElems of
                                            "delete_category" -> deleteCategory hLogger req
                                            "create_category" -> createCategory hLogger req
                                            "edit_category" -> editCategory hLogger req
                                            _ -> return $ responseBadRequest "bad request"
-                                   | otherwise = return $ responseBadRequest "bad request"
+                                    | otherwise = return $ responseBadRequest "bad request"
 
 
     where pathElemsC = length pathElems

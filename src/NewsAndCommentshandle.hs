@@ -25,18 +25,21 @@ import HelpFunction
 import Logger
 import Databaseoperations
 import FromRequest
+import Data.Pool
+import Database.PostgreSQL.Simple
 
 
-newsMethodBlock :: Handle  -> [BC.ByteString] -> Request -> IO Response
-newsMethodBlock hLogger pathElems req
+
+newsMethodBlock :: Handle -> Pool Connection -> TokenLifeTime -> [BC.ByteString] -> Request -> IO Response
+newsMethodBlock hLogger pool token_lifetime pathElems req
     | pathElemC == 1 = do
-        result <- sendNews hLogger req
+        result <- sendNews hLogger pool req
         case result of
           Left bs ->  return $ responseBadRequest bs
           Right na -> return $ responseOk $ encode na
     | pathElemC == 2 = do
         let newsId = readMaybe $ BC.unpack $ last pathElems :: Maybe Int
-        result <- sendNewsById hLogger req newsId
+        result <- sendNewsById hLogger pool req newsId
         case result of
             Left bs -> return $ responseBadRequest bs
             Right na -> return $ responseOk $ encode na
@@ -44,7 +47,7 @@ newsMethodBlock hLogger pathElems req
         let newsId = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
         if last pathElems == "comments"
                   then do
-                      result <- sendCommentsByNewsId hLogger req newsId
+                      result <- sendCommentsByNewsId hLogger pool req newsId
                       case result of
                         Left bs -> return $ responseBadRequest bs
                         Right ca -> return $ responseOk $ encode ca
@@ -55,7 +58,7 @@ newsMethodBlock hLogger pathElems req
         case last pathElems of
             "add_comment" -> do
                 let news'_id = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
-                result <- addCommentByNewsId hLogger req news'_id
+                result <- addCommentByNewsId hLogger pool token_lifetime req news'_id
                 case result of
                     Left bs -> return $ responseBadRequest bs
                     Right bs -> return $ responseOk bs
@@ -68,7 +71,7 @@ newsMethodBlock hLogger pathElems req
                         return $ responseBadRequest "bad comment id"
                     --Just n -> do
                     Just _ -> do
-                        result <- deleteCommentById hLogger req
+                        result <- deleteCommentById hLogger pool token_lifetime req
                         case result of
                             Left bs ->  return $ responseBadRequest bs
                             Right bs ->  return $ responseOk bs
@@ -81,23 +84,23 @@ newsMethodBlock hLogger pathElems req
     where
         pathElemC = length pathElems
 
-sendNews :: Handle -> Request -> IO (Either LBS.ByteString NewsArray')
-sendNews hLogger req = do
+sendNews :: Handle -> Pool Connection -> Request -> IO (Either LBS.ByteString NewsArray')
+sendNews hLogger pool req = do
         case filterParamName of
-            Just "tag_in" -> getNewsFilterByTagInFromDb hLogger filterParam pageParam
-            Just "category" -> getNewsFilterByCategoryIdFromDb hLogger filterParam pageParam sortParam'
-            Just "title" -> getNewsFilterByTitleFromDb hLogger filterParam pageParam sortParam'
-            Just "author" -> getNewsFilterByAuthorNameFromDb hLogger filterParam pageParam sortParam'
-            Just "date" -> getNewsFilterByDateFromDb hLogger filterParam pageParam sortParam'
-            Just "tag_all" -> getNewsFilterByTagAllFromDb hLogger filterParam pageParam sortParam'
-            Just "content" -> getNewsFilterByContentFromDb hLogger filterParam pageParam sortParam'
-            Just "after_date" -> getNewsFilterByAfterDateFromDb hLogger filterParam pageParam sortParam'
-            Just "before_date" -> getNewsFilterByBeforeDateFromDb hLogger filterParam pageParam sortParam'
-            Just "tag" -> getNewsFilterByTagIdFromDb hLogger fstParam pageParam sortParam'
+            Just "tag_in" -> getNewsFilterByTagInFromDb hLogger pool filterParam pageParam
+            Just "category" -> getNewsFilterByCategoryIdFromDb hLogger pool filterParam pageParam sortParam'
+            Just "title" -> getNewsFilterByTitleFromDb hLogger pool filterParam pageParam sortParam'
+            Just "author" -> getNewsFilterByAuthorNameFromDb hLogger pool filterParam pageParam sortParam'
+            Just "date" -> getNewsFilterByDateFromDb hLogger pool filterParam pageParam sortParam'
+            Just "tag_all" -> getNewsFilterByTagAllFromDb hLogger pool filterParam pageParam sortParam'
+            Just "content" -> getNewsFilterByContentFromDb hLogger pool filterParam pageParam sortParam'
+            Just "after_date" -> getNewsFilterByAfterDateFromDb hLogger pool filterParam pageParam sortParam'
+            Just "before_date" -> getNewsFilterByBeforeDateFromDb hLogger pool filterParam pageParam sortParam'
+            Just "tag" -> getNewsFilterByTagIdFromDb hLogger pool fstParam pageParam sortParam'
             Just _ -> do
                 logError hLogger "Bad request"
                 return $ Left "Bad request"
-            Nothing -> getNewsFromDb' hLogger sortParam' pageParam
+            Nothing -> getNewsFromDb hLogger pool sortParam' pageParam
 
             --Nothing -> getNewsFromDb hLogger sortParam' pageParam
 
@@ -123,43 +126,37 @@ sendNews hLogger req = do
                         Just _ -> ""
 
 
-sendNewsById :: Handle -> Request -> Maybe Int -> IO (Either LBS.ByteString NewsArray')
-sendNewsById hLogger req newsId = do
+sendNewsById :: Handle -> Pool Connection ->  Request -> Maybe Int -> IO (Either LBS.ByteString NewsArray')
+sendNewsById hLogger pool req newsId = do
     let queryParams = rawQueryString req
     if queryParams == "" then
-            getNewsByIdFromDb hLogger newsId
+            getNewsByIdFromDb hLogger pool newsId
         else
             return $ Left "unexpected params"
 
 
-sendCommentsByNewsId :: Handle -> Request -> Maybe Int -> IO (Either LBS.ByteString CommentArray)
-sendCommentsByNewsId hLogger req news'_id = do
+sendCommentsByNewsId :: Handle -> Pool Connection -> Request -> Maybe Int -> IO (Either LBS.ByteString CommentArray)
+sendCommentsByNewsId hLogger pool req news'_id = do
     let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
-    getCommentsByNewsIdFromDb hLogger news'_id pageParam
+    getCommentsByNewsIdFromDb hLogger pool news'_id pageParam
 
 
 
 
-addCommentByNewsId :: Handle -> Request -> Maybe Int -> IO (Either LBS.ByteString LBS.ByteString)
-addCommentByNewsId hLogger req news'_id = do
+addCommentByNewsId :: Handle -> Pool Connection -> TokenLifeTime ->  Request -> Maybe Int -> IO (Either LBS.ByteString LBS.ByteString)
+addCommentByNewsId hLogger pool token_lifetime req news'_id = do
     (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-    let token' = fromMaybe Nothing (lookup "token" $ queryString req)
+    let token' = takeToken req
     let comment = lookup "comment_text" i
-    case comment of
-        Nothing -> do
-            logError hLogger "Someone try add comment without comment parametr"
-            return $ Left "No comment field"
-        --Just bs' -> do
-        Just _ -> do
-                addCommentToDb hLogger (E.decodeUtf8 $ fromMaybe "" token') news'_id (E.decodeUtf8 $ fromMaybe "" comment)
+    addCommentToDb hLogger pool token_lifetime (E.decodeUtf8 $ fromMaybe "" token') news'_id (E.decodeUtf8 <$> comment)
 
 
 
-deleteCommentById :: Handle -> Request -> IO (Either LBS.ByteString LBS.ByteString)
-deleteCommentById hLogger req  = do
+deleteCommentById :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO (Either LBS.ByteString LBS.ByteString)
+deleteCommentById hLogger pool token_lifetime req  = do
     let token' = takeToken req
     --(i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
     let comment_id = fromMaybe Nothing (lookup "comment_id" $ queryString req)
     let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
-    deleteCommentFromDb hLogger (E.decodeUtf8 $ fromMaybe "" token') c_id'
+    deleteCommentFromDb hLogger pool token_lifetime (E.decodeUtf8 $ fromMaybe "" token') c_id'
    

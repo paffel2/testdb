@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 47e2d59e19185fa262fbc968757ae2ffb231d808bbe6daa51b9d57e99b6d9660
+-- hash: 2e6df393ecad9db413ec05b8cd91de2f0e932fa6ac6330f4d80f35aa36bc2961
 
 name:           testdb
 version:        0.1.0.0
@@ -41,8 +41,10 @@ library
       NewsAndComments
       NewsAndCommentshandle
       Patternproto
+      PostgreSqlWithPool
       Responses
       Server
+      Simpleservwithpool
       Testdatabase
       Types
       Users
@@ -59,6 +61,7 @@ library
     , http-client
     , http-types
     , postgresql-simple
+    , resource-pool
     , text
     , time
     , wai
