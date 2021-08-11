@@ -316,7 +316,7 @@ deleteCommentFromDb hLogger token' (Just comment_id) = do
                                                 return $ Left "Database error"-}
 
 
-deleteCommentFromDb :: Handle -> Pool Connection -> TokenLifeTime -> T.Text -> Maybe Int -> IO (Either LBS.ByteString LBS.ByteString)
+deleteCommentFromDb :: Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text -> Maybe Int -> IO (Either LBS.ByteString LBS.ByteString)
 deleteCommentFromDb hLogger _ _ _ Nothing = do
     logError hLogger "Bad comment id"
     return $ Left "Bad comment id"
@@ -355,8 +355,11 @@ checkAdmin hLogger token' = catch (do
                                                 logError hLogger err
                                                 return (False,"Database error")
 
-checkAdmin' :: Handle -> Pool Connection -> TokenLifeTime -> T.Text -> IO (Bool, LBS.ByteString)
-checkAdmin' hLogger pool token_liferime token' = catch (do
+checkAdmin' :: Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text -> IO (Bool, LBS.ByteString)
+checkAdmin' hLogger _ _ Nothing = do
+    logError hLogger "No token parameter"
+    return (False, "No token parameter")
+checkAdmin' hLogger pool token_liferime (Just token') = catch (do
     --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     --rows <- query conn "select admin_mark from users join tokens using (user_id) where token = ? and (current_timestamp - tokens.creation_date < interval '1 day')" [token'] :: IO [Only Bool]
     --close conn
@@ -917,6 +920,7 @@ generateToken login = do
     let token' = Prelude.filter (`Prelude.notElem` filt ) (show now)
     return (BC.concat [login,BC.pack token'],now)
         where filt = " :.-UTC" :: String
+
 generateToken' :: T.Text -> IO (T.Text, UTCTime)
 generateToken' login = do
     now <- getCurrentTime
@@ -1064,10 +1068,11 @@ deleteUserFromDb hLogger login = catch (do
 deleteUserFromDb' :: Handle -> Pool Connection -> ByteString -> IO (Either LBS.ByteString LBS.ByteString)
 deleteUserFromDb' hLogger pool login = catch (do
     logInfo hLogger $ T.concat ["Trying delete user ", E.decodeUtf8 login]
-    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    let q = "delete from users where login = ?"
-    n <- execute conn q [login]
-    close conn
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --let q = "delete from users where login = ?"
+    --n <- execute conn q [login]
+    --close conn
+    n <- executeWithPool pool "dlete from users where login = ?" [login]
     if n > 0 then do
         logInfo hLogger $ T.concat ["User ", E.decodeUtf8 login, " deleted"]
         return $ Right $ LBS.concat ["User ", LBS.fromStrict login, " deleted"]
@@ -1101,7 +1106,7 @@ firstToken hLogger pool login password = catch (do
                                              "insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"]
 
 
-profileOnDb :: Handle -> T.Text -> IO (Either LBS.ByteString Profile)
+{-profileOnDb :: Handle -> T.Text -> IO (Either LBS.ByteString Profile)
 profileOnDb hLogger token' = catch (do
     logInfo hLogger "Sending profile information"
     let q = "select first_name, last_name, avatar from users join tokens using (user_id) where  token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
@@ -1120,12 +1125,39 @@ profileOnDb hLogger token' = catch (do
                                         logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
                                         case errStateInt of
                                             23505 -> return $ Left "Category already exist"
+                                            _ -> return $ Left "Database error"-}
+
+profileOnDb :: Handle -> Pool Connection -> TokenLifeTime ->  Maybe T.Text -> IO (Either LBS.ByteString Profile)
+profileOnDb hLogger _ _ Nothing = do
+    logError hLogger "No token parameter"
+    return $ Left "No token parameter"
+profileOnDb hLogger pool token_lifetime (Just token') = catch (do
+    logInfo hLogger "Sending profile information"
+    --let q = "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
+    --close conn
+    if Prelude.null rows then do
+        logError hLogger "Bad token"
+        return $ Left "Bad token"
+    else do
+        logInfo hLogger "Profile information sended"
+        return $ Right $ Prelude.head rows) $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+                                        case errStateInt of
+                                            23505 -> return $ Left "Category already exist"
                                             _ -> return $ Left "Database error"
+    where
+        q = "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
+
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------Categories block---------------------------------------------------------------------------------
 
-getCategoriesListFromDb :: Handle -> Maybe BC.ByteString -> IO (Either LBS.ByteString ListOfCategories)
+{-getCategoriesListFromDb :: Handle -> Maybe BC.ByteString -> IO (Either LBS.ByteString ListOfCategories)
 getCategoriesListFromDb hLogger pageParam = catch (do
     logInfo hLogger "Someone try get list of categories"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
@@ -1138,10 +1170,24 @@ getCategoriesListFromDb hLogger pageParam = catch (do
     return $ Right (ListOfCategories rows)) $ \e -> do
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
                                         logError hLogger err
+                                        return $ Left "Database error"-}
+
+getCategoriesListFromDb :: Handle -> Pool Connection -> Maybe BC.ByteString -> IO (Either LBS.ByteString ListOfCategories)
+getCategoriesListFromDb hLogger pool pageParam = catch (do
+    logInfo hLogger "Someone try get list of categories"
+    rows <- query_WithPool pool q
+    return $ Right (ListOfCategories rows)) $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        logError hLogger err
                                         return $ Left "Database error"
+    where
+        pg = if isNothing pageParam then " limit 10 offset 0"
+                else
+                    BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" pageParam)) - 1)*10 ]
+        q = toQuery $ BC.concat ["select category_name from categories",pg]
 
 
-createCategoryOnDb :: Handle -> Maybe T.Text -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString)
+{-createCategoryOnDb :: Handle -> Maybe T.Text -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString)
 createCategoryOnDb hLogger Nothing _ = do
     logError hLogger "No category_name field"
     return $ Left "No category_name field"
@@ -1180,9 +1226,46 @@ createCategoryOnDb hLogger (Just category'_name) (Just maternal_name) = catch (d
                                         logError hLogger err
                                         case errStateInt of
                                             23505 -> return $ Left "Category already exist"
-                                            _ -> return $ Left "Database error"
+                                            _ -> return $ Left "Database error"-}
 
-deleteCategoryFromDb :: Handle -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString)
+createCategoryOnDb :: Handle -> Pool Connection -> Maybe T.Text -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString)
+createCategoryOnDb hLogger _ Nothing _ = do
+    logError hLogger "No category_name field"
+    return $ Left "No category_name field"
+
+createCategoryOnDb hLogger _ _ Nothing = do
+    logError hLogger "No maternal_category_name field"
+    return $ Left "No maternal_category_name field"
+
+createCategoryOnDb hLogger pool (Just category'_name) (Just maternal_name) = catch (do
+    logInfo hLogger "Creating new category"              
+    if maternal_name == "" then do
+        logInfo hLogger "Maternal category is null"
+        rows <- returningWithPool pool q [(category'_name, Nothing :: Maybe T.Text)] :: IO [Only Int]
+        logInfo hLogger "Category created"
+        return $ Right $ LBS.fromStrict $ BC.pack $ show (fromOnly $ Prelude.head rows)
+    else do
+        c'_id <- queryWithPool pool check_maternal [maternal_name] :: IO [Only Int]
+        if Prelude.null c'_id then do
+            logError hLogger "Maternal category not exist"
+            return $ Left "Maternal category not exist"
+            else do
+                rows <- returningWithPool pool q [(category'_name, fromOnly $ Prelude.head c'_id)] :: IO [Only Int]
+                logInfo hLogger "Category created"
+                return $ Right $ LBS.fromStrict $ BC.pack $ show (fromOnly $ Prelude.head rows)) $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger err
+                                        case errStateInt of
+                                            23505 -> return $ Left "Category already exist"
+                                            _ -> return $ Left "Database error"
+    where
+        q = "insert into categories (category_name, maternal_category) values (?,?) returning category_id"
+        check_maternal = "select category_id from categories where category_name = ?"
+    
+
+{-deleteCategoryFromDb :: Handle -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString)
 deleteCategoryFromDb hLogger Nothing = do
     logError hLogger "No category_name parametr"
     return $ Left "No category_name parametr"
@@ -1199,9 +1282,26 @@ deleteCategoryFromDb hLogger (Just categoryName) = catch (do
                                 ) $  \e -> do
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
                                         logError hLogger err
+                                        return $ Left "Database error"-}
+
+deleteCategoryFromDb :: Handle -> Pool Connection -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString)
+deleteCategoryFromDb hLogger _ Nothing = do
+    logError hLogger "No category_name parametr"
+    return $ Left "No category_name parametr"
+deleteCategoryFromDb hLogger pool (Just categoryName) = catch (do
+    n <- executeWithPool pool "delete from categories where category_name = ?" [categoryName]
+    if n > 0 then do
+        logInfo hLogger $ T.concat ["Category ", categoryName, " deleted"]
+        return $ Right "Category deleted"
+    else do
+        logError hLogger $ T.concat ["Category ", categoryName, " not exist"]
+        return $ Right "Category not exist"
+                                ) $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        logError hLogger err
                                         return $ Left "Database error"
 
-editCategoryOnDb :: Handle -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString )
+{-editCategoryOnDb :: Handle -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString )
 editCategoryOnDb hLogger Nothing _ _ = do
     logError hLogger "No old_name parametr"
     return $ Left "No old_name parametr"
@@ -1275,12 +1375,94 @@ editCategoryOnDb hLogger (Just old_name) (Just new'_name) (Just new'_maternal) =
                                             _ -> return $ Left "Database error"
 editCategoryOnDb hLogger _ _ _ = do
     logError hLogger "No update parameters"
+    return $ Left "No update parameters"-}
+
+
+
+editCategoryOnDb :: Handle -> Pool Connection -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString )
+editCategoryOnDb hLogger _ Nothing _ _ = do
+    logError hLogger "No old_name parametr"
+    return $ Left "No old_name parametr"
+editCategoryOnDb hLogger pool (Just old_name) (Just new'_name) (Just "") = catch (do
+    logInfo hLogger $ T.concat ["Update category_name parameter on category ", old_name]
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --let q = "update categories set category_name = ? where category_name = ?"
+    --n <- execute conn q (new'_name,old_name)
+    --close conn
+    n <- executeWithPool pool "update categories set category_name = ? where category_name = ?" (new'_name,old_name)
+    if n > 0 then do
+        logInfo hLogger $ T.concat ["Category ", old_name, " edited"]
+        return $ Right "Category edited"
+    else do
+        logError hLogger $ T.concat ["Category ", old_name, " not exist"]
+        return $ Left "Category not exist") $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, T.pack $ show errStateInt]
+                                        case errStateInt of
+                                            23505 -> return $ Left "Category already exist"
+                                            _ -> return $ Left "Database error"
+
+editCategoryOnDb hLogger pool (Just old_name) (Just "") (Just new'_maternal) = catch (do
+    logInfo hLogger $ T.concat ["Update maternal_category parameter on category ", old_name]
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --let check_maternal = "select category_id from categories where category_name = ?"
+    --m_id <- query conn check_maternal [new'_maternal] :: IO [Only Int]
+    m_id <- queryWithPool pool "select category_id from categories where category_name = ?" [new'_maternal] :: IO [Only Int]
+    if Prelude.null m_id then do
+        --close conn
+        logError hLogger $ T.concat ["Maternal category ", new'_maternal, " not exist" ]
+        return $ Left "Maternal category not exist"
+    else do
+        --let q = "update categories set maternal_category = ? where category_name = ?"
+        --n <- execute conn q (fromOnly $ Prelude.head m_id, old_name)
+        --close conn
+        n <- executeWithPool pool "update categories set maternal_category = ? where category_name = ?" (fromOnly $ Prelude.head m_id, old_name)
+        if n > 0 then do
+            logInfo hLogger $ T.concat ["Category ", old_name, " edited"]
+            return $ Right "Category edited"
+        else do
+            logError hLogger $ T.concat ["Category ", old_name, " not exist"]
+            return $ Left "Category not exist") $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        logError hLogger err
+                                        return $ Left "Database error"
+editCategoryOnDb hLogger pool (Just old_name) (Just new'_name) (Just new'_maternal) = catch (do
+    logInfo hLogger $ T.concat ["Update all parameters on category ", old_name]
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --let check_maternal = "select category_id from categories where category_name = ?"
+    m_id <- queryWithPool pool "select category_id from categories where category_name = ?" [new'_maternal] :: IO [Only Int]
+    if Prelude.null m_id then do
+        --close conn
+        logError hLogger $ T.concat ["Maternal category ", new'_maternal, " not exist" ]
+        return $ Left "Maternal category not exist"
+    else do
+        let q = "update categories set category_name = ?, maternal_category = ? where category_name = ?"
+        n <- executeWithPool pool q (new'_name,fromOnly $ Prelude.head m_id, old_name)
+        --close conn
+        if n > 0 then do
+            logInfo hLogger $ T.concat ["Category ", old_name, " edited"]
+            return $ Right "Category edited"
+        else do
+            logError hLogger $ T.concat ["Category ", old_name, " not exist"]
+            return $ Left "Category not exist") $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, T.pack $ show errStateInt]
+                                        case errStateInt of
+                                            23505 -> return $ Left "Category already exist"
+                                            _ -> return $ Left "Database error"
+editCategoryOnDb hLogger _ _ _ _ = do
+    logError hLogger "No update parameters"
     return $ Left "No update parameters"
 
 
 
-tstCategory :: IO (Either LBS.ByteString LBS.ByteString)
-tstCategory = deleteCategoryFromDb (Handle Debug printLog) (Just "селебрети")
+
+{-tstCategory :: IO (Either LBS.ByteString LBS.ByteString)
+tstCategory = deleteCategoryFromDb (Handle Debug printLog) (Just "селебрети")-}
 
 
 
@@ -1307,6 +1489,28 @@ checkAuthor hLogger (Just token') = catch (do
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
 
+
+checkAuthor' :: Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text -> IO (Either LBS.ByteString Int)
+checkAuthor' hLogger _ _ Nothing = do
+    logError hLogger "No token parameter"
+    return $ Left "No token parameter"
+checkAuthor' hLogger pool token_lifetime (Just token') = catch (do
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    --TIO.putStrLn token
+    rows <- queryWithPool pool q [token']
+    if  Prelude.null rows then do
+        --logError hLogger "User try get drafts without author's rights"
+        return $ Left "You are not author"
+    else
+        return $ Right (fromOnly $ Prelude.head rows)) $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"
+    where q = toQuery $ BC.concat ["select author_id from authors join users using (user_id) join tokens using (user_id) where token = ? ",
+                                    "and (now()- tokens.creation_date) < make_interval(secs => ",BC.pack $ show token_lifetime,")"]
+
 {-getDraftsByAuthorId :: Int -> IO DraftArray 
 getDraftsByAuthorId a_id = do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
@@ -1314,7 +1518,7 @@ getDraftsByAuthorId a_id = do
     let q = "select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) from drafts join drafts_images using (draft_id) where author_id = ? group by draft_id"
     rows <- query conn q [a_id] :: IO [Draft']
     return $ DraftArray rows-}
-getDraftsByAuthorToken :: Handle -> T.Text -> IO (Either LBS.ByteString DraftArray)
+{-getDraftsByAuthorToken :: Handle -> T.Text -> IO (Either LBS.ByteString DraftArray)
 getDraftsByAuthorToken hLogger token' = catch (do
     logInfo hLogger "Someone try get drafts list"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
@@ -1330,15 +1534,38 @@ getDraftsByAuthorToken hLogger token' = catch (do
                                         let errState = sqlState e
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"-}
+getDraftsByAuthorToken :: Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text -> IO (Either LBS.ByteString DraftArray)
+getDraftsByAuthorToken hLogger _ _ Nothing = do
+    logError hLogger "No token parameter"
+    return $ Left "No token parameter"
+getDraftsByAuthorToken hLogger pool token_lifetime (Just token') = catch (do
+    logInfo hLogger "Someone try get drafts list"
+    rows <- queryWithPool pool q  (TokenProfile token' token_lifetime) :: IO [Draft']
+    if Prelude.null rows then do
+        logError hLogger "User use bad token or haven't drafts"
+        return $ Left "You are not author or don't have drafts "
+    else return $ Right $ DraftArray rows) $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
+    where
+        q = toQuery $ BC.concat ["select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) ",
+                                 "from drafts join drafts_images using (draft_id) join authors using (author_id) join tokens using (user_id) ",
+                                 "where token = ? and (now() - tokens.creation_date) < make_interval(secs => ?) group by draft_id"]
+    
 
 
-tstDrafts :: IO (Either LBS.ByteString DraftArray)
-tstDrafts = getDraftsByAuthorToken (Handle Debug printLog) "dahaku202108020903181300795"
+
+
+{-tstDrafts :: IO (Either LBS.ByteString DraftArray)
+tstDrafts = getDraftsByAuthorToken (Handle Debug printLog) "dahaku202108020903181300795"-}
 
 
 
-createDraftOnDb' :: Handle -> Maybe BC.ByteString  -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe Image''' -> Maybe [Image'''] -> IO (Either LBS.ByteString Int)
+{-createDraftOnDb' :: Handle -> Maybe BC.ByteString  -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe Image''' -> Maybe [Image'''] -> IO (Either LBS.ByteString Int)
 --createDraftOnDb' hLogger Nothing category tags short_title text main_image images_list = do
 createDraftOnDb' hLogger Nothing _ _ _ _ _ _ = do
     logError hLogger "No token param"
@@ -1392,7 +1619,7 @@ createDraftOnDb' hLogger (Just token') (Just category) (Just tags) (Just short'_
             Right _ -> do
                 logInfo hLogger "Images  loaded"
                 -- delete draft
-                return $ Right $ fromOnly $ Prelude.head d_rows
+                return $ Right $ fromOnly $ Prelude.head d_rows-}
 
         {---close conn
         images_ids <- loadImagesForDraft hLogger main_image images_list
@@ -1425,8 +1652,8 @@ createDraftOnDb' hLogger (Just token') (Just category) (Just tags) (Just short'_
         --close conn
         --return $ Right draft_id
 
-tstCDrfats :: IO (Either LBS.ByteString Int)
-tstCDrfats = createDraftOnDb' (Handle Debug printLog) (Just "dahaku202108020903181300795") (Just "наука") (Just "") (Just "test_serv") (Just "test text") (Just $ Image''' "5" "6" (Binary "7")) (Just [])
+{-tstCDrfats :: IO (Either LBS.ByteString Int)
+tstCDrfats = createDraftOnDb' (Handle Debug printLog) (Just "dahaku202108020903181300795") (Just "наука") (Just "") (Just "test_serv") (Just "test text") (Just $ Image''' "5" "6" (Binary "7")) (Just [])-}
 
 
 
@@ -1528,14 +1755,69 @@ megaQ hLogger iml = do
         return $ Left ""-}
     --else
      --   return $ Right $ fromOnly $ Prelude.head n
-loadImageAndCreateDraftConnectionOn :: Handle -> Int-> [Image'''] -> IO (Either LBS.ByteString Int)
-loadImageAndCreateDraftConnectionOn hLogger d_id iml = catch (do
+createDraftOnDb :: Handle -> Pool Connection -> TokenLifeTime -> Maybe BC.ByteString  -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe Image''' -> Maybe [Image'''] -> IO (Either LBS.ByteString Int)
+createDraftOnDb hLogger _ _ Nothing _ _ _ _ _ _ = do
+    logError hLogger "No token param"
+    return $ Left "No token param"
+createDraftOnDb hLogger _ _ _ Nothing _ _ _ _ _ = do
+    logError hLogger "No category field"
+    return $ Left "No category field"
+createDraftOnDb hLogger _ _ _ _ Nothing _ _ _ _ = do
+    logError hLogger "No tags field"
+    return $ Left "No tags field"
+createDraftOnDb hLogger _ _ _ _ _ Nothing _ _ _ = do
+    logError hLogger "No short_title field"
+    return $ Left "No short_title field"
+createDraftOnDb hLogger _ _ _ _ _ _ Nothing _ _ = do
+    logError hLogger "No text field"
+    return $ Left "No text field"
+createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list = do
+    logInfo hLogger "Someone try add new draft"
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let q =  toQuery $ BC.concat ["with get_a as (select author_id from authors join tokens using (user_id) where token = '",
+                    token', "' and (now() - tokens.creation_date) < make_interval(secs => ", BC.pack $ show token_lifetime,
+                    ")), get_c as (select category_id from categories where category_name = '",
+                    category,
+                    "') insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a),'",
+                    short'_title,
+                    "',now(),(select category_id from get_c),'",
+                    text,
+                    "') returning draft_id"]
+    d_rows <- query_WithPool pool q  :: IO [Only Int]
+    if Prelude.null d_rows then do
+        --close conn
+        logError hLogger "Draft not created"
+        return $ Left "Draft not created"
+    else do
+        result <- loadImagesForDraft' hLogger pool (fromOnly $ Prelude.head d_rows) main'_image images_list
+        --close conn
+        case result of
+            Left bs -> do
+                logError hLogger "Images not loaded"
+                simpleDeleteDraft hLogger pool (fromOnly $ Prelude.head d_rows) "Draft not created"
+                return $ Left bs
+            Right _ -> do
+                logInfo hLogger "Images  loaded"
+                return $ Right $ fromOnly $ Prelude.head d_rows
+
+--simpleDeleteDraft :: Pool Connection -> Int 
+simpleDeleteDraft :: Handle -> Pool Connection -> Int -> T.Text -> IO ()
+simpleDeleteDraft hLogger pool draft_id mes= do
+    n <- executeWithPool pool "delete from drafts where draft_id = ?" [draft_id]
+    if n > 0 then
+        logError hLogger mes
+    else
+        logError hLogger "draft not deleted"
+
+
+loadImageAndCreateDraftConnectionOn :: Handle -> Pool Connection -> Int-> [Image'''] -> IO (Either LBS.ByteString Int)
+loadImageAndCreateDraftConnectionOn hLogger pool d_id iml = catch (do
     --let im = Image'''' "123" "123" (Binary "123") 15
     --let imm = [] :: [Image'''']
     --let i = Image''' "5" "6" (Binary "7") 
-    let q = toQuery $ BC.concat["with add_image as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) insert into drafts_images (draft_id, image_id) values ( ",BC.pack $ show d_id," , (select image_id from add_image)) returning image_id"]
-    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    n <- returning conn q iml :: IO [Only Int]
+    --let q = toQuery $ BC.concat["with add_image as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) insert into drafts_images (draft_id, image_id) values ( ",BC.pack $ show d_id," , (select image_id from add_image)) returning image_id"]
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    n <- returningWithPool pool q iml :: IO [Only Int]
     if Prelude.null n then
         return $ Left ""
     else
@@ -1545,6 +1827,12 @@ loadImageAndCreateDraftConnectionOn hLogger d_id iml = catch (do
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
+    where
+        q = toQuery $ BC.concat["with add_image as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) ",
+                                "insert into drafts_images (draft_id, image_id) values ( ",BC.pack $ show d_id," , (select image_id from add_image)) ",
+                                "returning image_id"]
+
+
 
 {-tstMegaQ :: IO (Either LBS.ByteString Int)
 tstMegaQ = loadImageAndCreateDraftConnectionOn (Handle Debug printLog) 16 [(Image''' "5" "6" (Binary "7"))]-}
@@ -1552,9 +1840,9 @@ tstMegaQ = loadImageAndCreateDraftConnectionOn (Handle Debug printLog) 16 [(Imag
 {-toImage'''' :: Int -> Image''' -> Image''''
 toImage'''' d_id image = Image'''' (f_name'' image) (content_type'' image) (content'' image) d_id-}
 
-loadImagesForDraft' :: Handle -> Int -> Maybe Image''' -> Maybe [Image'''] -> IO (Either LBS.ByteString LBS.ByteString)
-loadImagesForDraft' hLogger draft_id Nothing (Just image) = catch (do
-    result <- loadImageAndCreateDraftConnectionOn hLogger draft_id image
+loadImagesForDraft' :: Handle -> Pool Connection -> Int -> Maybe Image''' -> Maybe [Image'''] -> IO (Either LBS.ByteString LBS.ByteString)
+loadImagesForDraft' hLogger pool draft_id Nothing (Just image) = catch (do
+    result <- loadImageAndCreateDraftConnectionOn hLogger pool draft_id image
     case result of
         Left bs -> return $ Left bs
         --Right n -> do 
@@ -1566,17 +1854,17 @@ loadImagesForDraft' hLogger draft_id Nothing (Just image) = catch (do
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
-loadImagesForDraft' hLogger _ Nothing Nothing = do
+loadImagesForDraft' hLogger _ _ Nothing Nothing = do
     logInfo hLogger "Draft created"
     return $ Right "Draft created"
-loadImagesForDraft' hLogger draft_id (Just i) Nothing = catch (do
-    result <- loadImageAndCreateDraftConnectionOn hLogger draft_id [i]
+loadImagesForDraft' hLogger pool draft_id (Just i) Nothing = catch (do
+    result <- loadImageAndCreateDraftConnectionOn hLogger pool draft_id [i]
     case result of
       Left bs -> return $ Left bs
       Right n -> do
-            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-            let q = "update drafts set main_image = ? where draft_id = ?"
-            k <- execute conn q (n,draft_id)
+            --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            --let q = "update drafts set main_image = ? where draft_id = ?"
+            k <- executeWithPool pool "update drafts set main_image = ? where draft_id = ?" (n,draft_id)
             if k > 0 then do
                 logInfo hLogger "Draft created"
                 return $ Right "Draft created"
@@ -1586,14 +1874,14 @@ loadImagesForDraft' hLogger draft_id (Just i) Nothing = catch (do
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
-loadImagesForDraft' hLogger draft_id (Just i) (Just ii) = catch (do
-    result <- loadImageAndCreateDraftConnectionOn hLogger draft_id (i:ii)
+loadImagesForDraft' hLogger pool draft_id (Just i) (Just ii) = catch (do
+    result <- loadImageAndCreateDraftConnectionOn hLogger pool draft_id (i:ii)
     case result of
       Left bs -> return $ Left bs
       Right n -> do
-            conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-            let q = "update  drafts set main_image = ? where draft_id = ?"
-            k <- execute conn q (n,draft_id)
+            --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+            --let q = "update  drafts set main_image = ? where draft_id = ?"
+            k <- executeWithPool pool "update  drafts set main_image = ? where draft_id = ?" (n,draft_id)
             if k > 0 then do
                 return $ Right "Draft created"
             else return $ Left "Draft not created") $ \e -> do
@@ -1631,7 +1919,7 @@ deleteDraftFromDb hLogger author'_id (Just draft_id) = catch (do
                                         return $ Left "Database error"
 
 
-getDraftByIdFromDb :: Handle -> Int -> Int -> IO (Either LBS.ByteString Draft')
+{-getDraftByIdFromDb :: Handle -> Int -> Int -> IO (Either LBS.ByteString Draft')
 getDraftByIdFromDb hLogger author'_id draft_id = catch (do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     --let q = "select short_title, date_of_changes, category_id, draft_text, main_image, array_agg(image_id) from drafts join drafts_images using (draft_id) where author_id = ? and draft_id = ? group by draft_id"
@@ -1648,11 +1936,33 @@ getDraftByIdFromDb hLogger author'_id draft_id = catch (do
                                         let errState = sqlState e
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"-}
+getDraftByIdFromDb :: Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text -> Int -> IO (Either LBS.ByteString Draft')
+getDraftByIdFromDb hLogger _ _ Nothing _ = do
+    logError hLogger "No token parameter"
+    return $ Left "No Token parameter"
+getDraftByIdFromDb hLogger pool token_lifetime token draft_id = do
+    ch_author <- checkAuthor' hLogger pool token_lifetime token
+    case ch_author of
+        Left bs -> return $ Left bs
+        Right author_id -> catch (do
+        let q = "with image_arr as (select array_agg(image_id) from drafts_images where draft_id = ?) select short_title, date_of_changes, category_id, draft_text, main_image, (select * from image_arr) from drafts where author_id = ? and draft_id = ?"
+        rows <- queryWithPool pool q (draft_id,author_id,draft_id) :: IO [Draft']
+        if Prelude.null rows then do
+            logError hLogger "Wrong draft id or draft not exist"
+            return $ Left "Wrong draft id or draft not exist"
+        else do
+            logInfo hLogger "Sending draft to user"
+            return $ Right $ Prelude.head rows) $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
-tstGetD :: IO (Either LBS.ByteString Draft')
-tstGetD = getDraftByIdFromDb (Handle Debug printLog) 12 22
+{-tstGetD :: IO (Either LBS.ByteString Draft')
+tstGetD = getDraftByIdFromDb (Handle Debug printLog) 12 22-}
 
-getDraftIdsByAuthor :: Handle -> Int -> IO (Either LBS.ByteString  [Int])
+{-getDraftIdsByAuthor :: Handle -> Int -> IO (Either LBS.ByteString  [Int])
 getDraftIdsByAuthor hLogger author'_id = do
     logInfo hLogger "Getting drafts"
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
@@ -1661,10 +1971,10 @@ getDraftIdsByAuthor hLogger author'_id = do
     if Prelude.null rows then
         return $ Left "No drafts"
     else
-        return $ Right (fromOnly <$> rows)
+        return $ Right (fromOnly <$> rows)-}
 
 
---updateDraftInDb'hLogger token category tags short_title text main_image images_list draft_id
+{--updateDraftInDb'hLogger token category tags short_title text main_image images_list draft_id
 updateDraftInDb' :: Handle -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe Image''' -> Maybe [Image'''] -> Int -> Int -> IO (Either LBS.ByteString LBS.ByteString)
 updateDraftInDb' hLogger Nothing _ _ _ _ _ _ _ _ = do
     logError hLogger "No token param"
@@ -1682,7 +1992,8 @@ updateDraftInDb' hLogger _ _ _ _ Nothing _ _ _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
 updateDraftInDb' hLogger (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list draft_id author'_id  = catch (do
-    new_rows <- createDraftOnDb' hLogger (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list
+    pool <- tstPool --переработать
+    new_rows <- createDraftOnDb hLogger pool 8 (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list -- перерабботать
     case new_rows of
         --Left bs -> do
         Left _ -> do
@@ -1704,12 +2015,55 @@ updateDraftInDb' hLogger (Just token') (Just category) (Just tags) (Just short'_
                                         let errState = sqlState e
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
-                                        return $ Left "Database error"
+                                        return $ Left "Database error"-}
+
+
+updateDraftInDb :: Handle -> Pool Connection -> TokenLifeTime -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe Image''' -> Maybe [Image'''] -> Int -> IO (Either LBS.ByteString LBS.ByteString)
+updateDraftInDb hLogger _ _ Nothing _ _ _ _ _ _ _  = do
+    logError hLogger "No token param"
+    return $ Left "No token param"
+updateDraftInDb hLogger _ _ _ Nothing _ _ _ _ _ _ = do
+    logError hLogger "No category field"
+    return $ Left "No category field"
+updateDraftInDb hLogger _ _ _ _ Nothing _ _ _ _ _  = do
+    logError hLogger "No tags field"
+    return $ Left "No tags field"
+updateDraftInDb hLogger _ _ _ _ _ Nothing _ _ _ _ = do
+    logError hLogger "No short_title field"
+    return $ Left "No short_title field"
+updateDraftInDb hLogger _ _ _ _ _ _ Nothing _ _ _ = do
+    logError hLogger "No text field"
+    return $ Left "No text field"
+updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list draft_id = catch (do
+    new_rows <- createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list
+    case new_rows of
+        Left _ -> do
+            logError hLogger "Draft not updated"
+            return $ Left "Draft not updated"
+        Right n -> do
+            let q_update = toQuery $ BC.concat ["with a_id as (select author_id from authors join users using(user_id) join tokens using(user_id) ",
+                                           "where token = '",token',"' and (now() - tokens.creation_date) < make_interval(secs => ", 
+                                           BC.pack $ show token_lifetime,")), ",
+                                           "with dr_i as (delete from drafts where draft_id = ",BC.pack $ show draft_id,
+                                           " and author_id = (select author_id from a_id) returning draft_id) ",
+                                           "update drafts set draft_id = (select draft_id from dr_i) where draft_id = ",BC.pack $ show n]
+            nu <- execute_WithPool pool q_update
+            if nu > 0 then do
+                logInfo hLogger $ T.concat ["Draft ",T.pack $ show draft_id, " updated"]
+                return $ Right "Draft updated"
+            else do
+                c <- simpleDeleteDraft hLogger pool n "update deleted"
+                logError hLogger $ T.concat ["Draft ",T.pack $ show draft_id, "not updated"]
+                return $ Left "Draft not updated") $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"                          
 
 
 
-
-publicNewsOnDb :: Handle -> Int -> Int -> IO (Either LBS.ByteString Int)
+{-publicNewsOnDb :: Handle -> Int -> Int -> IO (Either LBS.ByteString Int)
 publicNewsOnDb hLogger author'_id draft_id = catch( do
     conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let q = toQuery $ BC.concat ["with draft_s as (delete from drafts where draft_id = ? returning short_title,author_id,category_id,draft_text,main_image))",
@@ -1740,18 +2094,59 @@ publicNewsOnDb hLogger author'_id draft_id = catch( do
                                         let errState = sqlState e
                                         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"-}
+
+
+publicNewsOnDb :: Handle -> Pool Connection -> Int -> Int -> IO (Either LBS.ByteString Int)
+publicNewsOnDb hLogger pool author'_id draft_id = catch( do
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    let q = toQuery $ BC.concat ["with draft_s as (delete from drafts where draft_id = ? returning short_title,author_id,category_id,draft_text,main_image))",
+                                "insert into news (short_title,author_id,category_id,news_text,main_image,date_creation)", 
+                                "values ((select short_title from draft_s),",
+                                "(select author_id from draft_s),",
+                                "(select category_id from draft_s),",
+                                "(select draft_text from draft_s),",
+                                "(select main_image from draft_s),",
+                                "?) returning news_id"]
+    now <- getCurrentTime 
+    n_id <- queryWithPool pool q (draft_id,author'_id,now) :: IO [Only Int]
+    if Prelude.null n_id then do
+        --close conn
+        return $ Left "News not published"
+    else do
+        check <- createConnectionImagesNews pool (fromOnly $ Prelude.head n_id) draft_id
+        case check of
+            --Left bs -> do
+            Left _ -> do
+                logError hLogger "News not published"
+                deletingNewsById hLogger pool (fromOnly $ Prelude.head n_id)
+                return $ Left "News not published"
+            --Right bs -> do
+            Right _ -> do
+                logInfo hLogger "News published"
+                return $ Right (fromOnly $ Prelude.head n_id)) $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"
 
 
-createConnectionImagesNews :: Int -> Int -> IO (Either LBS.ByteString LBS.ByteString)
-createConnectionImagesNews news'_id draft_id = do
+createConnectionImagesNews :: Pool Connection -> Int -> Int -> IO (Either LBS.ByteString LBS.ByteString)
+createConnectionImagesNews pool news'_id draft_id = do
     let q = "with d_s as (select image_id from drafts_images where draft_id = ?) insert into news_image (news_id,image_id) values (?, (select image_id from d_s))"
-    conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-    n <- execute conn q (draft_id,news'_id)
+    --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
+    n <- executeWithPool pool q (draft_id,news'_id)
     if n > 0 then do
         return $ Right ""
     else
         return $ Left ""
+deletingNewsById :: Handle -> Pool Connection -> Int -> IO ()
+deletingNewsById hLogger pool news_id = do
+    let q = "delete from news where news_id = ?"
+    executeWithPool pool q [news_id]
+    logInfo hLogger "news proto deleted"
+
 
 
 

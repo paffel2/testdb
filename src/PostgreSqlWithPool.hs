@@ -21,3 +21,6 @@ returningWithPool pool q inf =
 query_WithPool :: FromRow r => Pool Connection -> Query -> IO [r]
 query_WithPool pool q =
     withResource pool $ \conn -> query_ conn q
+
+execute_WithPool :: Pool Connection -> Query -> IO Int64
+execute_WithPool pool q = withResource pool $ \conn -> execute_ conn q

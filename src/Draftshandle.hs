@@ -41,10 +41,10 @@ sendDrafts hLogger req = do
       Right n -> do
             drafts <- getDraftsByAuthorId n
             return $ responseOk (encode drafts)-}
-sendDrafts :: Handle -> Request -> IO Response
-sendDrafts hLogger req = do
-    let token' = takeToken req--fromMaybe Nothing (lookup "token" $ queryString req)
-    drafts' <- Databaseoperations.getDraftsByAuthorToken hLogger $ E.decodeUtf8 $ fromMaybe "" token'
+sendDrafts :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+sendDrafts hLogger pool token_liferime req = do
+    let token' = E.decodeUtf8 <$> takeToken req--fromMaybe Nothing (lookup "token" $ queryString req)
+    drafts' <- getDraftsByAuthorToken hLogger pool token_liferime token'
     case drafts' of
       Left bs -> return $ responseBadRequest bs
       Right draftsA -> do
@@ -123,7 +123,7 @@ createDraft hLogger pool token_lifetime req = do
                     let tags = lookup "tags" i
                     let short'_title = lookup "short_title" i
                     let text = lookup "news_text" i
-                    result <- createDraftOnDb' hLogger token' category tags short'_title text main_image_triple' images_list'
+                    result <- createDraftOnDb hLogger pool token_lifetime token' category tags short'_title text main_image_triple' images_list'
                     case result of
                       Left bs -> return $ responseBadRequest bs
                       Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
@@ -143,43 +143,39 @@ deleteDraft hLogger req = do
                 Right bs -> return $ responseOk bs
 
 
-getDraftById :: Handle -> Int -> Request -> IO Response
-getDraftById hLogger draft_id req = do
+getDraftById :: Handle -> Pool Connection -> TokenLifeTime -> Int -> Request -> IO Response
+getDraftById hLogger pool token_lifetime draft_id req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger token'
-    case ca of
-      Left bs -> return $ responseBadRequest bs
-      Right author'_id -> do
-        result <- getDraftByIdFromDb hLogger author'_id draft_id
-        case result of
-            Left bs -> return $ responseBadRequest bs
-            Right draft -> return $ responseOk $ encode draft
-
-
-updateDraft :: Handle -> Int -> Request -> IO Response 
-updateDraft hLogger draft_id req = do
-    let token' = takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger $ E.decodeUtf8 <$> token'
-    case ca of
+    result <- getDraftByIdFromDb hLogger pool token_lifetime token' draft_id
+    case result of
         Left bs -> return $ responseBadRequest bs
-        Right author'_id -> do
-            (i,f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-            let main'_image = foundParametr "main_image" f
-            let images = foundParametr "images" f
-            let main_image_triple = if fileContent (Prelude.head main'_image) == "" then Nothing 
-                                    else Just $ toImage $ Prelude.head main'_image
-            let images_list = if fileContent (Prelude.head images) == "" then Nothing
+        Right draft -> return $ responseOk $ encode draft
+
+
+updateDraft :: Handle -> Pool Connection -> TokenLifeTime -> Int -> Request -> IO Response 
+updateDraft hLogger pool token_lifetime draft_id req = do
+    let token' = takeToken req
+    --ca <- Databaseoperations.checkAuthor hLogger $ E.decodeUtf8 <$> token'
+    --case ca of
+    --    Left bs -> return $ responseBadRequest bs
+    --    Right author'_id -> do
+    (i,f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+    let main'_image = foundParametr "main_image" f
+    let images = foundParametr "images" f
+    let main_image_triple = if fileContent (Prelude.head main'_image) == "" then Nothing 
+                                else Just $ toImage $ Prelude.head main'_image
+    let images_list = if fileContent (Prelude.head images) == "" then Nothing
                                 else Just $ toImage <$> images
             --let con_type = any (/= "image") (take 5 . sndTriple <$> images_list)
-            let category = lookup "category" i
-            let tags = lookup "tags" i
-            let short'_title = lookup "short_title" i
-            let text = lookup "news_text" i
-            result <- updateDraftInDb' hLogger token' category tags short'_title text main_image_triple images_list draft_id author'_id
+    let category = lookup "category" i
+    let tags = lookup "tags" i
+    let short'_title = lookup "short_title" i
+    let text = lookup "news_text" i
+    result <- updateDraftInDb hLogger pool token_lifetime token' category tags short'_title text main_image_triple images_list draft_id
             --let result = Left ""
-            case result of
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+    case result of
+        Left bs -> return $ responseBadRequest bs
+        Right bs -> return $ responseOk bs
 
 
                     {-let cat = lookup "category" i
@@ -225,23 +221,23 @@ publicNews draft_id req = do
                       Left bs -> return $ responseBadRequest bs
                       Right bs -> return $ responseOk bs-}
 
-publicNews :: Handle -> Int -> Request -> IO Response
-publicNews hLogger draft_id req = do
-    let token' = takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger $ E.decodeUtf8 <$> token'
+publicNews :: Handle ->Pool Connection -> TokenLifeTime -> Int -> Request -> IO Response
+publicNews hLogger pool token_lifetime draft_id req = do
+    let token' = E.decodeUtf8 <$> takeToken req
+    ca <- checkAuthor' hLogger pool token_lifetime token'
     case ca of
         Left bs -> return $ responseBadRequest bs
         Right author'_id -> do
-                    result <- Databaseoperations.publicNewsOnDb hLogger author'_id draft_id
+                    result <- publicNewsOnDb hLogger pool author'_id draft_id
                     case result of
                       Left bs -> return $ responseBadRequest bs
                       Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
 
 draftsBlock :: Handle -> Pool Connection -> TokenLifeTime -> [BC.ByteString] -> Request -> IO Response 
 draftsBlock hLogger pool token_lifetime pathElems req   
-                                    | pathElemsC == 1 = sendDrafts hLogger req
+                                    | pathElemsC == 1 = sendDrafts hLogger pool token_lifetime req
                                     | pathElemsC == 2 = case readByteStringToInt $ last pathElems of
-                                              Just n -> getDraftById hLogger n req--return $ responseOk "draft)by)id"
+                                              Just n -> getDraftById hLogger pool token_lifetime n req--return $ responseOk "draft)by)id"
                                               Nothing -> case last pathElems of
                                                               --"create_draft" -> Draftshandle.createDraft hLogger req
                                                               "delete_draft" -> deleteDraft hLogger req
@@ -249,8 +245,8 @@ draftsBlock hLogger pool token_lifetime pathElems req
                                     | pathElemsC == 3 = case readByteStringToInt $ head $ tail pathElems of
                                               Nothing -> return $ responseBadRequest "bad request"
                                               Just n -> case last pathElems of
-                                                              "update_draft" -> updateDraft hLogger n req
-                                                              "public_news" -> publicNews hLogger n req
+                                                              "update_draft" -> updateDraft hLogger pool token_lifetime n req
+                                                              "public_news" -> publicNews hLogger pool token_lifetime n req
                                                               _ -> return $ responseBadRequest "bad request"
                                            
                                     | otherwise = return $ responseBadRequest "bad request"

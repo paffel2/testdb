@@ -69,8 +69,9 @@ deleteUser :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Respon
 deleteUser hLogger pool token_lifetime req = do
     let login' = fromMaybe Nothing (lookup "login" $ queryString req)
     --let token = fromMaybe Nothing (lookup "token" $ queryString req)
-    let token = takeToken req
-    isAdmin <- checkAdmin hLogger $ E.decodeUtf8 $ fromMaybe "" token
+    let token = E.decodeUtf8 <$> takeToken req
+    --isAdmin <- checkAdmin hLogger $ E.decodeUtf8 $ fromMaybe "" token
+    isAdmin <- checkAdmin' hLogger pool token_lifetime token
     case isAdmin of
         (False,bs) -> return $ responseBadRequest bs
         (True,_) -> do
@@ -81,8 +82,8 @@ deleteUser hLogger pool token_lifetime req = do
 
 profile :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 profile hLogger pool token_lifetime req = do
-    let token = takeToken req
-    result <- profileOnDb hLogger $ E.decodeUtf8 $ fromMaybe "" token
+    let token = E.decodeUtf8 <$> takeToken req
+    result <- profileOnDb hLogger pool token_lifetime token
     case result of
         Left bs -> return $ responseBadRequest bs
         Right pro -> return $ responseOk $ encode pro

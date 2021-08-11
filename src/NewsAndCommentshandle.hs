@@ -154,9 +154,9 @@ addCommentByNewsId hLogger pool token_lifetime req news'_id = do
 
 deleteCommentById :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO (Either LBS.ByteString LBS.ByteString)
 deleteCommentById hLogger pool token_lifetime req  = do
-    let token' = takeToken req
+    let token' = E.decodeUtf8 <$> takeToken req
     --(i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
     let comment_id = fromMaybe Nothing (lookup "comment_id" $ queryString req)
     let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
-    deleteCommentFromDb hLogger pool token_lifetime (E.decodeUtf8 $ fromMaybe "" token') c_id'
+    deleteCommentFromDb hLogger pool token_lifetime token' {-(E.decodeUtf8 $ fromMaybe "" token')-} c_id'
    
