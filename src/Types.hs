@@ -120,3 +120,12 @@ data DeleteComment = DeleteComment {delc_token :: T.Text,
                                     delc_token_lifetime :: TokenLifeTime,
                                     delc_comment_id :: Int 
                                     } deriving (Show, Generic, ToRow, FromRow)
+
+newtype Tag = Tag { tag_name :: T.Text} deriving (Show, Generic, ToRow, FromRow)
+instance ToJSON Tag where
+    toJSON = genericToJSON defaultOptions
+
+newtype TagsList = TagsList { tags :: [Tag]} deriving (Show, Generic)
+instance ToJSON TagsList where
+    toJSON = genericToJSON defaultOptions
+

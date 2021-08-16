@@ -46,9 +46,9 @@ sendCategoriesList hLogger pool req = do
 createCategory :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 createCategory hLogger pool token_lifetime req = do
     --let token = fromMaybe Nothing (lookup "token" $ queryString req)
-    let token = E.decodeUtf8 <$> takeToken req
+    let token' = E.decodeUtf8 <$> takeToken req
     --ct <- checkAdmin' hLogger $ E.decodeUtf8 $ fromMaybe "" token
-    ct <- checkAdmin' hLogger pool token_lifetime token
+    ct <- checkAdmin' hLogger pool token_lifetime token'
     case ct of
         (False,bs) -> return $ responseBadRequest bs
         (True,_) -> do
@@ -65,9 +65,9 @@ createCategory hLogger pool token_lifetime req = do
 deleteCategory :: Handle -> Pool Connection -> TokenLifeTime ->  Request -> IO Response
 deleteCategory hLogger pool token_lifetime req = do
     --let token = fromMaybe Nothing (lookup "token" $ queryString req)
-    let token = E.decodeUtf8 <$> takeToken req
+    let token' = E.decodeUtf8 <$> takeToken req
     --ct <- checkAdmin hLogger $ E.decodeUtf8 $ fromMaybe "" token
-    ct <- checkAdmin' hLogger pool token_lifetime token
+    ct <- checkAdmin' hLogger pool token_lifetime token'
     case ct of
         (False,bs) -> return $ responseBadRequest bs
         (True,_) -> do
@@ -82,9 +82,9 @@ deleteCategory hLogger pool token_lifetime req = do
 editCategory :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 editCategory hLogger pool token_lifetime req = do
     --let token = fromMaybe Nothing (lookup "token" $ queryString req)
-    let token = E.decodeUtf8 <$> takeToken req
+    let token' = E.decodeUtf8 <$> takeToken req
     --ct <- checkAdmin hLogger $ E.decodeUtf8 $ fromMaybe "" token
-    ct <- checkAdmin' hLogger pool token_lifetime token
+    ct <- checkAdmin' hLogger pool token_lifetime token'
     case ct of
         (False,bs) -> return $ responseBadRequest bs
         (True,_) -> do

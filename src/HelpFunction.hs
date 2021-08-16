@@ -11,6 +11,9 @@ import Data.String
 import Types
 --import Database.PostgreSQL.Simple
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text.IO as TIO
+import qualified Data.Text.Encoding as E
+
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key []          =  Nothing
@@ -44,7 +47,7 @@ thrdTriple (_,_,c) = c
 
 
 splitOnPunctuationMark :: T.Text -> [T.Text]
-splitOnPunctuationMark  = T.splitOn " " 
+splitOnPunctuationMark  = T.splitOn " "
 
 
 readByteStringToInt :: BC.ByteString -> Maybe Int
@@ -63,5 +66,14 @@ readByteStringToDay bs = readMaybe $ BC.unpack bs
 
 
 
-toQuery :: BC.ByteString -> Query 
+toQuery :: BC.ByteString -> Query
 toQuery s = fromString $ BC.unpack s
+
+
+tagsToQueryTagList :: BC.ByteString -> BC.ByteString
+tagsToQueryTagList tagsString = BC.intercalate "," $ map (\ x -> BC.concat ["'", x, "'"]) tagBSList
+    where
+        tagBSList = BC.split ' ' tagsString
+--tstTags :: BC.ByteString
+tstTags :: IO ()
+tstTags = TIO.putStrLn $ E.decodeUtf8 $ tagsToQueryTagList "news science"

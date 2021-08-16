@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2e6df393ecad9db413ec05b8cd91de2f0e932fa6ac6330f4d80f35aa36bc2961
+-- hash: 76c10251f5950569071190684b6631ee7db4107980639736b25689743321b74e
 
 name:           testdb
 version:        0.1.0.0
@@ -45,6 +45,7 @@ library
       Responses
       Server
       Simpleservwithpool
+      Tags
       Testdatabase
       Types
       Users

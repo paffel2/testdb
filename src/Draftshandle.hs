@@ -30,6 +30,7 @@ import FromRequest
 import Databaseoperations
 import Data.Pool
 import Database.PostgreSQL.Simple
+import qualified Data.Text.IO as TIO
 --import Database.PostgreSQL.Simple
 
 {-sendDrafts :: Handle -> Request -> IO Response
@@ -120,10 +121,11 @@ createDraft hLogger pool token_lifetime req = do
                 else do
                     let token' = takeToken req
                     let category = lookup "category" i
-                    let tags = lookup "tags" i
+                    let tags_list = lookup "tags" i
+                    TIO.putStrLn $ E.decodeUtf8 $ fromMaybe "" tags_list
                     let short'_title = lookup "short_title" i
                     let text = lookup "news_text" i
-                    result <- createDraftOnDb hLogger pool token_lifetime token' category tags short'_title text main_image_triple' images_list'
+                    result <- createDraftOnDb hLogger pool token_lifetime token' category tags_list short'_title text main_image_triple' images_list'
                     case result of
                       Left bs -> return $ responseBadRequest bs
                       Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
@@ -168,10 +170,10 @@ updateDraft hLogger pool token_lifetime draft_id req = do
                                 else Just $ toImage <$> images
             --let con_type = any (/= "image") (take 5 . sndTriple <$> images_list)
     let category = lookup "category" i
-    let tags = lookup "tags" i
+    let tags_list = lookup "tags" i
     let short'_title = lookup "short_title" i
     let text = lookup "news_text" i
-    result <- updateDraftInDb hLogger pool token_lifetime token' category tags short'_title text main_image_triple images_list draft_id
+    result <- updateDraftInDb hLogger pool token_lifetime token' category tags_list short'_title text main_image_triple images_list draft_id
             --let result = Left ""
     case result of
         Left bs -> return $ responseBadRequest bs

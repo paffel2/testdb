@@ -26,17 +26,19 @@ import NewsAndCommentshandle
 --import Categories
 --import Users
 --import Drafts
-import qualified Logger as L
+--import qualified Logger as L
+import Logger
 import Config
 import Categorieshandle
 import Usershandle
 import Draftshandle
 import Data.Pool
 import Database.PostgreSQL.Simple
+import Tags
 
 
 
-----ДОБАВИТЬ POOL
+
 
 protoServ :: IO ()
 protoServ = do
@@ -48,8 +50,8 @@ protoServ = do
     let db_address = BC.concat ["host=", db_host confDb, " port=", db_port confDb, " user='", 
                                 db_login confDb,"' password='",db_password confDb,"' dbname='",db_name confDb,"'"]
     let token_lifetime = lifeTime confToken
-    let hLogger = L.Handle (log_priority confLogger) L.printLog
-    L.logInfo hLogger "Serving"
+    let hLogger = Handle (log_priority confLogger) printLog
+    logInfo hLogger "Serving"
     --runSettings  (setMaximumBodyFlush (Just 1048576) $ setPort 8000 defaultSettings) $ appProto hLogger
     --runSettings (setMaximumBodyFlush (server_maximum_body_flush confServer) $ setPort (server_port confServer) defaultSettings) $ appProto hLogger confToken confDb
     runSettings (setMaximumBodyFlush (server_maximum_body_flush confServer) $ setPort (server_port confServer) defaultSettings) $ app hLogger db_address token_lifetime
@@ -81,7 +83,7 @@ appProto hLogger confToken confDb req respond
             respond $ responseBadRequest "bad url"-}
 
 
-app :: L.Handle -> DatabaseAddress -> TokenLifeTime -> Application
+app :: Handle -> DatabaseAddress -> TokenLifeTime -> Application
 app hLogger db_address token_lifetime req respond = do
     pool <- createPool (connectPostgreSQL db_address) close 1 5 10
     case pathHead of
@@ -93,14 +95,14 @@ app hLogger db_address token_lifetime req respond = do
         "profile" -> profile hLogger pool token_lifetime req >>= respond
         "drafts" -> draftsBlock hLogger pool token_lifetime pathElems req >>= respond
         "new_draft" -> createDraft hLogger pool token_lifetime req >>= respond 
-        "tags" -> respond $ responseOk "in develop" --tagsBlock hLogger pool req >>= respond
+        "tags" -> tagsBlock hLogger pool token_lifetime pathElems req >>= respond
         _ -> badUrlRespond
     where
         path = BC.tail $ rawPathInfo req
         pathElems = BC.split '/' path
         pathHead = head pathElems
         badUrlRespond = do
-            L.logError hLogger "Bad url"
+            logError hLogger "Bad url"
             respond $ responseBadRequest "bad url"
 
 

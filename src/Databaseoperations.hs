@@ -23,10 +23,7 @@ import HelpFunction
 import Logger
 import Data.Pool
 import PostgreSqlWithPool
---import qualified System.Posix.Internals as TIO
---import qualified GHC.TypeLits as T
---import GHC.Stats (RTSStats(mutator_cpu_ns))
---import Network.HTTP.Types (QueryLike(toQuery))
+
 
 
 
@@ -426,6 +423,9 @@ getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
                                      "take_categories_list(category_id), news_text from news join authors using (author_id) ",
                                      "join users using (user_id) join news_tags using (news_id) where tag_id in ? ",
                                      "group by news_id,author_name order by 2 DESC",pg]
+
+
+
 
 
 {-tstTagin = do
@@ -1755,6 +1755,8 @@ megaQ hLogger iml = do
         return $ Left ""-}
     --else
      --   return $ Right $ fromOnly $ Prelude.head n
+
+--ДОБАВИТЬ ДОБАВЛЕНИЕ СПИСКА ТЕГОВ
 createDraftOnDb :: Handle -> Pool Connection -> TokenLifeTime -> Maybe BC.ByteString  -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe BC.ByteString -> Maybe Image''' -> Maybe [Image'''] -> IO (Either LBS.ByteString Int)
 createDraftOnDb hLogger _ _ Nothing _ _ _ _ _ _ = do
     logError hLogger "No token param"
@@ -1771,10 +1773,25 @@ createDraftOnDb hLogger _ _ _ _ _ Nothing _ _ _ = do
 createDraftOnDb hLogger _ _ _ _ _ _ Nothing _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
-createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just tags) (Just short'_title) (Just text) main'_image images_list = do
+createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just tags_list) (Just short'_title) (Just text) main'_image images_list = do
     logInfo hLogger "Someone try add new draft"
     --conn <- connectPostgreSQL "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
     let q =  toQuery $ BC.concat ["with get_a as (select author_id from authors join tokens using (user_id) where token = '",
+                    token', "' and (now() - tokens.creation_date) < make_interval(secs => ", BC.pack $ show token_lifetime,
+                    ")), get_c as (select category_id from categories where category_name = '",
+                    category,
+                    "'), d_id as (insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a),'",
+                    short'_title,
+                    "',now(),(select category_id from get_c),'",
+                    text,
+                    "') returning draft_id), ",
+                    "t_id as (select tag_id from tags where tag_name in (",
+                    tagsToQueryTagList tags_list,")), ",
+                    "d_t as (select * from d_id cross join t_id) ",
+                    "insert into draft_tags (draft_id, tag_id) select * from d_t"]
+                    --"d_t_in as (insert into draft_tags (draft_id, tag_id) select * from d_t returning 1) ",
+                    --"select * from d_id"]
+    {-let q =  toQuery $ BC.concat ["with get_a as (select author_id from authors join tokens using (user_id) where token = '",
                     token', "' and (now() - tokens.creation_date) < make_interval(secs => ", BC.pack $ show token_lifetime,
                     ")), get_c as (select category_id from categories where category_name = '",
                     category,
@@ -1782,7 +1799,15 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                     short'_title,
                     "',now(),(select category_id from get_c),'",
                     text,
-                    "') returning draft_id"]
+                    "') returning draft_id"]-}
+    {-with a_id as (select author_id from authors where user_id = 1),
+c_id as (select category_id from categories where category_name = 'музыка'),
+d_id as (insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text)
+		values ((select * from a_id),'testWith1',now(),(select * from c_id),'tsttext') returning draft_id),
+t_ids as (select tag_id from tags where tag_name in ('новости','наука')),
+d_t as (select * from d_id cross join t_ids)
+insert into draft_tags (draft_id,tag_id) select * from d_t;
+select * from drafts-}
     d_rows <- query_WithPool pool q  :: IO [Only Int]
     if Prelude.null d_rows then do
         --close conn
@@ -1829,7 +1854,7 @@ loadImageAndCreateDraftConnectionOn hLogger pool d_id iml = catch (do
                                         return $ Left "Database error"
     where
         q = toQuery $ BC.concat["with add_image as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) ",
-                                "insert into drafts_images (draft_id, image_id) values ( ",BC.pack $ show d_id," , (select image_id from add_image)) ",
+                                "insert into drafts_images (draft_id, image_id) select ",BC.pack $ show d_id," , image_id from add_image ",
                                 "returning image_id"]
 
 
@@ -1941,8 +1966,8 @@ getDraftByIdFromDb :: Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text
 getDraftByIdFromDb hLogger _ _ Nothing _ = do
     logError hLogger "No token parameter"
     return $ Left "No Token parameter"
-getDraftByIdFromDb hLogger pool token_lifetime token draft_id = do
-    ch_author <- checkAuthor' hLogger pool token_lifetime token
+getDraftByIdFromDb hLogger pool token_lifetime token' draft_id = do
+    ch_author <- checkAuthor' hLogger pool token_lifetime token'
     case ch_author of
         Left bs -> return $ Left bs
         Right author_id -> catch (do
@@ -2052,7 +2077,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                 logInfo hLogger $ T.concat ["Draft ",T.pack $ show draft_id, " updated"]
                 return $ Right "Draft updated"
             else do
-                c <- simpleDeleteDraft hLogger pool n "update deleted"
+                _ <- simpleDeleteDraft hLogger pool n "update deleted" --simpleDeleteDraft hLogger pool n "update deleted"
                 logError hLogger $ T.concat ["Draft ",T.pack $ show draft_id, "not updated"]
                 return $ Left "Draft not updated") $ \e -> do
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
@@ -2144,7 +2169,7 @@ createConnectionImagesNews pool news'_id draft_id = do
 deletingNewsById :: Handle -> Pool Connection -> Int -> IO ()
 deletingNewsById hLogger pool news_id = do
     let q = "delete from news where news_id = ?"
-    executeWithPool pool q [news_id]
+    _ <- executeWithPool pool q [news_id] --executeWithPool pool q [news_id]
     logInfo hLogger "news proto deleted"
 
 
@@ -2176,6 +2201,71 @@ getDraftByIdFromDb' hLogger author'_id draft_id = catches (do
                                         logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
                                         return $ Left "Database error"-}
 
+
+getTagsListFromDb :: Handle -> Pool Connection -> Maybe ByteString -> IO (Either LBS.ByteString TagsList)
+getTagsListFromDb hLogger pool maybe_page = catch (do
+    logInfo hLogger "Sending tags list"
+    rows <- query_WithPool pool q 
+    return $ Right $ TagsList rows) $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"
+    where 
+        pg = if isNothing maybe_page then " limit 10 offset 0"
+                else
+                    BC.concat [" limit 10 offset ", BC.pack $ show $ (fromMaybe 1  (readByteStringToInt (fromMaybe "" maybe_page)) - 1)*10 ]
+        q = toQuery $ BC.concat [ "select tag_name from tags order by tag_name",pg]
+
+
+createTagInDb :: Handle -> Pool Connection -> Maybe T.Text ->  IO (Either LBS.ByteString Int)
+createTagInDb hLogger _  Nothing = do
+    logError hLogger "No tag_name parameter"
+    return $ Left "No tag_name parameter"
+createTagInDb hLogger pool (Just tag_name') = catch (do 
+    logInfo hLogger "Creating new tag"
+    rows <- queryWithPool pool q [tag_name'] :: IO [Only Int]
+    if Prelude.null rows then do
+        logError hLogger "Tag not created"
+        return $ Left "Tag not created"
+    else do
+        logInfo hLogger "Tag created"
+        return $ Right $ fromOnly $ Prelude.head rows) $  \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, T.pack $ show errStateInt]
+                                        case errStateInt of
+                                            23505 -> return $ Left "Tag already exist"
+                                            _ -> return $ Left "Database error"
+    where 
+        q = toQuery $ BC.concat ["insert into tags (tag_name) values (?) returning tag_id"]
+
+
+deleteTagFromDb :: Handle -> Pool Connection -> Maybe T.Text -> IO (Either LBS.ByteString LBS.ByteString)
+deleteTagFromDb hLogger _  Nothing = do
+    logError hLogger "No tag_name parameter"
+    return $ Left "No tag_name parameter"
+deleteTagFromDb hLogger pool (Just tag_name') = catch (do 
+    logInfo hLogger $ T.concat ["Deleting tag ", tag_name']
+    n <- executeWithPool pool q [tag_name']
+    if n > 0 then do
+        logInfo hLogger $ T.concat ["Tag ", tag_name', " deleted"]
+        return $ Right "Tag deleted"
+    else do
+        logError hLogger $ T.concat ["Tag ", tag_name', " not deleted"]
+        return $ Right "Tag not deleted") $ \e -> do
+                                        let err = E.decodeUtf8 $ sqlErrorMsg e
+                                        let errState = sqlState e
+                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                                        logError hLogger $ T.concat [err, " ",T.pack $ show errStateInt]
+                                        return $ Left "Database error"
+    where 
+        q = toQuery $ BC.concat ["delete from tags where tag_name = ?"]
+
+    
+
 catchSqlError :: Handle -> SqlError -> IO (Either LBS.ByteString a)
 catchSqlError hLogger e = do
     let err = E.decodeUtf8 $ sqlErrorMsg e
@@ -2188,3 +2278,31 @@ dberrors hLogger = [Handler (\ (e :: SqlError) -> catchSqlError hLogger e)]
 
 tstNewErr :: IO (Either LBS.ByteString Draft')
 tstNewErr = getDraftByIdFromDb' (Handle Debug printLog) 12 155
+
+
+
+
+createDraftTagsConnections :: Handle -> Pool Connection -> Int -> BC.ByteString ->  IO (Either LBS.ByteString LBS.ByteString)
+createDraftTagsConnections hLogger pool draft_id tags = do 
+    n <- execute_WithPool pool q
+    return $ Left ""
+    where q = toQuery $ BC.concat []
+
+getTagsIds :: Handle -> Pool Connection -> BC.ByteString -> IO (Either LBS.ByteString [Int])
+getTagsIds hLogger pool tags_bs = do
+    let n = Prelude.length $ BC.split ' ' tags_bs
+    let l = BC.split ' ' tags_bs
+    let q = toQuery $ BC.concat [ "select tag_id from tags where tag_name in ?"]
+    rows <- queryWithPool pool q (Only (In l))
+    if Prelude.length rows < n then do
+        --print rows
+        logError hLogger "Someone tags not exist"
+        return $ Left "Someone tags not exist"
+    else do
+        return $ Right $ fromOnly <$> rows
+
+{-tstgettags :: IO (Either LBS.ByteString [Int])
+tstgettags = do
+    pool <- tstPool
+    let bs = E.encodeUtf8 "наука новости музыка"
+    getTagsIds (Handle Debug printLog) pool bs-}

@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
+--{-# LANGUAGE OverloadedStrings #-}
 module Simpleservwithpool where
-import Config
+{-import Config
 import Logger
 import Data.Pool
 import Network.Wai
@@ -98,4 +98,4 @@ getNewsFromDb hLogger sortParam pageParam = do
         return $ Right (NewsArray' rows)) $ \e -> do
                                         let err = E.decodeUtf8 $ sqlErrorMsg e
                                         logError hLogger err --"Database error in getting news list"
-                                        return $ Left "Database error"-}
+                                        return $ Left "Database error"-}-}
