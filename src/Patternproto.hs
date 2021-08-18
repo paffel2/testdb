@@ -102,7 +102,7 @@ app hLogger db_address token_lifetime req respond = do
         pathElems = BC.split '/' path
         pathHead = head pathElems
         badUrlRespond = do
-            logError hLogger "Bad url"
+            --logError hLogger "Bad url"
             respond $ responseBadRequest "bad url"
 
 

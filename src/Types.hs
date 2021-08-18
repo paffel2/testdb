@@ -129,3 +129,45 @@ newtype TagsList = TagsList { tags :: [Tag]} deriving (Show, Generic)
 instance ToJSON TagsList where
     toJSON = genericToJSON defaultOptions
 
+
+data Draft'' = Draft'' { draft_short_title'' :: T.Text,
+                     date_of_changes'' :: UTCTime,
+                     draft_category_id'' :: Maybe Int,
+                     draft_text'' :: Maybe T.Text,
+                     draft_main_image_id'' :: Maybe Int,
+                     draft_images' :: Maybe (PGArray Int),
+                     draft_tags' :: Maybe (PGArray T.Text)
+                     } deriving (Show,Generic,FromRow)
+instance ToJSON Draft''  where
+    toJSON (Draft'' dst doc dci dt dmii di dts) = 
+        object ["draft_short_title''" .= dst,
+                "date_of_changes''" .= doc,
+                "draft_category_id''" .= dci,
+                "draft_text''" .= dt,
+                "draft_main_image_id''" .= dmii,
+                "draft_images'" .= (fromPGArray <$> di),
+                "draft_tags'" .= (fromPGArray <$> dts)]
+
+
+
+data GetNews'' = GetNews'' {  news_id'' :: Int ,
+                            short_title'' :: T.Text ,
+                            date_creation'' :: Day,
+                            author_name' :: T.Text,
+                            category_name''' :: T.Text,
+                            news_text'' :: T.Text,
+                            news_main_image :: Maybe Int,
+                            news_other_images :: Maybe (PGArray Int),
+                            news_tags :: Maybe (PGArray T.Text)
+                       } deriving (Show, Generic, ToRow, FromRow)
+instance ToJSON GetNews'' where
+    toJSON (GetNews'' gnni gnst gndc gnan gncn gnnt gnnmi gnnoi gnnts) =
+        object ["news_id''" .= gnni,
+                "short_title''" .= gnst,
+                "date_creation''" .= gndc,
+                "author_name'" .= gnan,
+                "category_name'''" .= gncn,
+                "news_text''" .= gnnt,
+                "news_main_image" .= gnnmi,
+                "news_other_images" .= (fromPGArray <$> gnnoi),
+                "news_tags" .= (fromPGArray <$> gnnts)]

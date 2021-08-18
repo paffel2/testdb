@@ -24,3 +24,6 @@ query_WithPool pool q =
 
 execute_WithPool :: Pool Connection -> Query -> IO Int64
 execute_WithPool pool q = withResource pool $ \conn -> execute_ conn q
+
+executeManyWithPool :: ToRow q => Pool Connection -> Query -> [q] -> IO Int64
+executeManyWithPool pool q s = withResource pool $ \conn -> executeMany conn q s

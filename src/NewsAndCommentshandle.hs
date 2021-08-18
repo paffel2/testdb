@@ -126,7 +126,14 @@ sendNews hLogger pool req = do
                         Just _ -> ""
 
 
-sendNewsById :: Handle -> Pool Connection ->  Request -> Maybe Int -> IO (Either LBS.ByteString NewsArray')
+{-sendNewsById :: Handle -> Pool Connection ->  Request -> Maybe Int -> IO (Either LBS.ByteString NewsArray')
+sendNewsById hLogger pool req newsId = do
+    let queryParams = rawQueryString req
+    if queryParams == "" then
+            getNewsByIdFromDb hLogger pool newsId
+        else
+            return $ Left "unexpected params"-}
+sendNewsById :: Handle -> Pool Connection ->  Request -> Maybe Int -> IO (Either LBS.ByteString GetNews'')
 sendNewsById hLogger pool req newsId = do
     let queryParams = rawQueryString req
     if queryParams == "" then
