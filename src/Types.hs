@@ -92,7 +92,7 @@ instance ToJSON DraftArray where
 data Image''' = Image''' { f_name'' :: BC.ByteString,
                      content_type'' :: BC.ByteString,
                      content'' :: Binary LBS.ByteString 
-                   } deriving (Show, Generic, ToRow, FromRow)
+                   } deriving (Show, Generic, ToRow, FromRow,Eq)
 
 
 

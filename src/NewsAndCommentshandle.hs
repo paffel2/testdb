@@ -27,6 +27,7 @@ import Databaseoperations
 import FromRequest
 import Data.Pool
 import Database.PostgreSQL.Simple
+import Network.HTTP.Types.Method (methodGet, methodPost, methodDelete)
 
 
 
@@ -86,25 +87,24 @@ newsMethodBlock hLogger pool token_lifetime pathElems req
 
 sendNews :: Handle -> Pool Connection -> Request -> IO (Either LBS.ByteString NewsArray')
 sendNews hLogger pool req = do
-        case filterParamName of
-            Just "tag_in" -> getNewsFilterByTagInFromDb hLogger pool filterParam pageParam
-            Just "category" -> getNewsFilterByCategoryIdFromDb hLogger pool filterParam pageParam sortParam'
-            Just "title" -> getNewsFilterByTitleFromDb hLogger pool filterParam pageParam sortParam'
-            Just "author" -> getNewsFilterByAuthorNameFromDb hLogger pool filterParam pageParam sortParam'
-            Just "date" -> getNewsFilterByDateFromDb hLogger pool filterParam pageParam sortParam'
-            Just "tag_all" -> getNewsFilterByTagAllFromDb hLogger pool filterParam pageParam sortParam'
-            Just "content" -> getNewsFilterByContentFromDb hLogger pool filterParam pageParam sortParam'
-            Just "after_date" -> getNewsFilterByAfterDateFromDb hLogger pool filterParam pageParam sortParam'
-            Just "before_date" -> getNewsFilterByBeforeDateFromDb hLogger pool filterParam pageParam sortParam'
-            Just "tag" -> getNewsFilterByTagIdFromDb hLogger pool fstParam pageParam sortParam'
-            Just _ -> do
-                logError hLogger "Bad request"
-                return $ Left "Bad request"
-            Nothing -> getNewsFromDb hLogger pool sortParam' pageParam
-
+    if requestMethod req ==  methodGet then do
+            case filterParamName of
+                Just "tag_in" -> getNewsFilterByTagInFromDb hLogger pool filterParam pageParam
+                Just "category" -> getNewsFilterByCategoryIdFromDb hLogger pool filterParam pageParam sortParam'
+                Just "title" -> getNewsFilterByTitleFromDb hLogger pool filterParam pageParam sortParam'
+                Just "author" -> getNewsFilterByAuthorNameFromDb hLogger pool filterParam pageParam sortParam'
+                Just "date" -> getNewsFilterByDateFromDb hLogger pool filterParam pageParam sortParam'
+                Just "tag_all" -> getNewsFilterByTagAllFromDb hLogger pool filterParam pageParam sortParam'
+                Just "content" -> getNewsFilterByContentFromDb hLogger pool filterParam pageParam sortParam'
+                Just "after_date" -> getNewsFilterByAfterDateFromDb hLogger pool filterParam pageParam sortParam'
+                Just "before_date" -> getNewsFilterByBeforeDateFromDb hLogger pool filterParam pageParam sortParam'
+                Just "tag" -> getNewsFilterByTagIdFromDb hLogger pool fstParam pageParam sortParam'
+                Just _ -> do
+                    logError hLogger "Bad request"
+                    return $ Left "Bad request"
+                Nothing -> getNewsFromDb hLogger pool sortParam' pageParam
+        else return $ Left "Bad method request"
             --Nothing -> getNewsFromDb hLogger sortParam' pageParam
-
-
     where
         queryParams = queryString req
         --fstQueryParam@(fstParamName,fstParam) = head queryParams
@@ -126,6 +126,8 @@ sendNews hLogger pool req = do
                         Just _ -> ""
 
 
+
+
 {-sendNewsById :: Handle -> Pool Connection ->  Request -> Maybe Int -> IO (Either LBS.ByteString NewsArray')
 sendNewsById hLogger pool req newsId = do
     let queryParams = rawQueryString req
@@ -134,36 +136,53 @@ sendNewsById hLogger pool req newsId = do
         else
             return $ Left "unexpected params"-}
 sendNewsById :: Handle -> Pool Connection ->  Request -> Maybe Int -> IO (Either LBS.ByteString GetNews'')
-sendNewsById hLogger pool req newsId = do
-    let queryParams = rawQueryString req
-    if queryParams == "" then
+sendNewsById hLogger pool req newsId = 
+    if requestMethod req ==  methodGet then do
+        let queryParams = rawQueryString req
+        if queryParams == "" then
             getNewsByIdFromDb hLogger pool newsId
         else
             return $ Left "unexpected params"
+    else
+        return $ Left "Bad request method"
 
 
 sendCommentsByNewsId :: Handle -> Pool Connection -> Request -> Maybe Int -> IO (Either LBS.ByteString CommentArray)
-sendCommentsByNewsId hLogger pool req news'_id = do
-    let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
-    getCommentsByNewsIdFromDb hLogger pool news'_id pageParam
+sendCommentsByNewsId hLogger pool req news'_id = 
+    if requestMethod req ==  methodGet then do
+        let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
+        getCommentsByNewsIdFromDb hLogger pool news'_id pageParam
+    else
+        return $ Left "Bad request method"
 
 
 
 
 addCommentByNewsId :: Handle -> Pool Connection -> TokenLifeTime ->  Request -> Maybe Int -> IO (Either LBS.ByteString LBS.ByteString)
-addCommentByNewsId hLogger pool token_lifetime req news'_id = do
-    (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-    let token' = takeToken req
-    let comment = lookup "comment_text" i
-    addCommentToDb hLogger pool token_lifetime (E.decodeUtf8 $ fromMaybe "" token') news'_id (E.decodeUtf8 <$> comment)
+addCommentByNewsId hLogger pool token_lifetime req news'_id = 
+    if requestMethod req ==  methodPost then do
+        (i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+        let token' = takeToken req
+        let comment = lookup "comment_text" i
+        addCommentToDb hLogger pool token_lifetime (E.decodeUtf8 $ fromMaybe "" token') news'_id (E.decodeUtf8 <$> comment)
+    else
+        return $ Left "Bad request method"
+
 
 
 
 deleteCommentById :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO (Either LBS.ByteString LBS.ByteString)
-deleteCommentById hLogger pool token_lifetime req  = do
-    let token' = E.decodeUtf8 <$> takeToken req
-    --(i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-    let comment_id = fromMaybe Nothing (lookup "comment_id" $ queryString req)
-    let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
-    deleteCommentFromDb hLogger pool token_lifetime token' {-(E.decodeUtf8 $ fromMaybe "" token')-} c_id'
-   
+deleteCommentById hLogger pool token_lifetime req  = 
+    if requestMethod req ==  methodDelete then do
+        let token' = E.decodeUtf8 <$> takeToken req
+        --(i,_) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+        let comment_id = fromMaybe Nothing (lookup "comment_id" $ queryString req)
+        let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
+        deleteCommentFromDb hLogger pool token_lifetime token' {-(E.decodeUtf8 $ fromMaybe "" token')-} c_id'
+    else
+        return $ Left "Bad request method"
+
+
+
+
+--metG = methodGet

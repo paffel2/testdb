@@ -3,16 +3,15 @@ module HelpFunction where
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Network.Wai.Parse
-import qualified Data.Text as T
+--import qualified Data.Text as T
 import Database.PostgreSQL.Simple.Types
 import Data.Time.Calendar
 import Text.Read
 import Data.String
-import Types
---import Database.PostgreSQL.Simple
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text.IO as TIO
-import qualified Data.Text.Encoding as E
+--import Types
+--import qualified Data.ByteString.Lazy as LBS
+--import qualified Data.Text.IO as TIO
+--import qualified Data.Text.Encoding as E
 
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
@@ -30,24 +29,24 @@ foundParametr _ [] = []
 
 
 
-toTriple :: [FileInfo c] -> [([Char], [Char], c)]
+{-toTriple :: [FileInfo c] -> [([Char], [Char], c)]
 toTriple = map
       (\ x
          -> (BC.unpack $ fileName x, BC.unpack $ fileContentType x,
-             fileContent x))
-toImage :: FileInfo LBS.ByteString -> Image'''
-toImage file_info = Image''' (fileName file_info) (fileContentType file_info) (Binary $ fileContent file_info)
+             fileContent x))-}
+{-toImage :: FileInfo LBS.ByteString -> Image'''
+toImage file_info = Image''' (fileName file_info) (fileContentType file_info) (Binary $ fileContent file_info)-}
 
-fstTriple :: (a, b, c) -> a
+{-fstTriple :: (a, b, c) -> a
 fstTriple (a,_,_) = a
 sndTriple :: (a, b, c) -> b
 sndTriple (_,b,_) = b
 thrdTriple :: (a, b, c) -> c
-thrdTriple (_,_,c) = c
+thrdTriple (_,_,c) = c-}
 
 
-splitOnPunctuationMark :: T.Text -> [T.Text]
-splitOnPunctuationMark  = T.splitOn " "
+--splitOnPunctuationMark :: T.Text -> [T.Text]
+--splitOnPunctuationMark  = T.splitOn " "
 
 
 readByteStringToInt :: BC.ByteString -> Maybe Int
@@ -57,8 +56,8 @@ readByteStringListInt :: BC.ByteString -> Maybe [Int]
 readByteStringListInt lst = readMaybe $ BC.unpack lst
 
 
-takePage :: Int -> [a] -> [a]
-takePage p list = Prelude.take 10 $ Prelude.drop ((p-1)*10) list
+--takePage :: Int -> [a] -> [a]
+--takePage p list = Prelude.take 10 $ Prelude.drop ((p-1)*10) list
 
 
 readByteStringToDay :: BC.ByteString -> Maybe Day
@@ -75,5 +74,5 @@ tagsToQueryTagList tagsString = BC.intercalate "," $ map (\ x -> BC.concat ["'",
     where
         tagBSList = BC.split ' ' tagsString
 --tstTags :: BC.ByteString
-tstTags :: IO ()
-tstTags = TIO.putStrLn $ E.decodeUtf8 $ tagsToQueryTagList "news science"
+{-tstTags :: IO ()
+tstTags = TIO.putStrLn $ E.decodeUtf8 $ tagsToQueryTagList "news science"-}

@@ -18,6 +18,10 @@ import Network.Wai
 import qualified Data.ByteString.Char8 as BC
 --import Types
 import Data.Maybe
+import Network.Wai.Parse
+import qualified Data.ByteString.Lazy as LBS
+import Types
+import Database.PostgreSQL.Simple.Types
 --import Text.Read
 --import Control.Applicative
 --import HelpFunction
@@ -27,6 +31,8 @@ import Data.Maybe
 
 takeToken :: Request -> Maybe BC.ByteString
 takeToken req = fromMaybe Nothing (lookup "token" $ queryString req)
+toImage :: FileInfo LBS.ByteString -> Image'''
+toImage file_info = Image''' (fileName file_info) (fileContentType file_info) (Binary $ fileContent file_info)
 
 {-takeMainImage :: Request -> IO (Network.Wai.Parse.FileInfo c)
 takeMainImage req = (parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req) >>= foundParametr "main_image"

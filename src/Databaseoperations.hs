@@ -326,13 +326,15 @@ addCommentToDb hLogger _ _ _ _ Nothing = do
     logError hLogger "No comment parameter"
     return $ Left "No comment parameter"
 addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) = catch (do
-                            logInfo hLogger $ T.concat ["User №", T.pack $ show token', " try add commentary to news №", T.pack $ show newsId]
+                            --logInfo hLogger $ T.concat ["User №", T.pack $ show token', " try add commentary to news №", T.pack $ show newsId]
+                            logInfo hLogger $ T.concat ["Someone try add commentary to news ",T.pack $ show newsId]
                             now <- getCurrentTime
                             let com = Comment token' token_lifetime comment newsId now
                             n_r <- executeWithPool pool q com
                             if n_r > 0 then do
-                                logInfo hLogger $ T.concat ["User №", T.pack $ show token', "  add news commentary to news №", T.pack $ show newsId]
-                                return $ Right "comment added"
+                                logInfo hLogger $ T.concat ["New commetary to news ",T.pack $ show newsId, " added"]
+                                --logInfo hLogger $ T.concat ["User №", T.pack $ show token', "  add news commentary to news №", T.pack $ show newsId]
+                                return $ Right "Comment added"
                             else do
                                 logError hLogger "Comment not added"
                                 return $ Right "Comment not added") $ \e -> do
