@@ -20,6 +20,12 @@
             "type": "shell",
             "command": "stack build hlint",
             "problemMatcher": []
+        },
+        {
+            "label" : "exec",
+            "type" : "shell",
+            "command" : "stack exec testdb-exe",
+            "problemMatcher" : []
         }
 
     ]

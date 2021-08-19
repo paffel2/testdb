@@ -1,26 +1,28 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module HelpFunction where
+
+import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
-import Network.Wai.Parse ( FileInfo )
-import Database.PostgreSQL.Simple.Types ( Query )
-import Data.Time.Calendar ( Day )
-import Text.Read ( readMaybe )
-import Data.String ( IsString(fromString) )
-import Config
+import Data.String (IsString(fromString))
+import Data.Time.Calendar (Day)
+import Database.PostgreSQL.Simple.Types (Query)
+import Network.Wai.Parse (FileInfo)
+import Text.Read (readMaybe)
+
 --import qualified Data.ByteString.Lazy as BC
-
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
-myLookup _key []          =  Nothing
-myLookup  key ((x,_):xys)
-    | key == x           =  Just key
-    | otherwise         =  myLookup key xys
-
+myLookup _key [] = Nothing
+myLookup key ((x, _):xys)
+    | key == x = Just key
+    | otherwise = myLookup key xys
 
 foundParametr :: B.ByteString -> [(B.ByteString, FileInfo c)] -> [FileInfo c]
-foundParametr param ((p,c):xs) = if p == param then
-                                                c : foundParametr param xs
-                                                else foundParametr param xs
+foundParametr param ((p, c):xs) =
+    if p == param
+        then c : foundParametr param xs
+        else foundParametr param xs
 foundParametr _ [] = []
 
 readByteStringToInt :: BC.ByteString -> Maybe Int
@@ -35,13 +37,24 @@ readByteStringToDay bs = readMaybe $ BC.unpack bs
 toQuery :: BC.ByteString -> Query
 toQuery s = fromString $ BC.unpack s
 
-
 tagsToQueryTagList :: BC.ByteString -> BC.ByteString
-tagsToQueryTagList tagsString = BC.intercalate "," $ map (\ x -> BC.concat ["'", x, "'"]) tagBSList
-    where
-        tagBSList = BC.split ' ' tagsString
-
+tagsToQueryTagList tagsString =
+    BC.intercalate "," $ map (\x -> BC.concat ["'", x, "'"]) tagBSList
+  where
+    tagBSList = BC.split ' ' tagsString
 
 dbAddress :: ConfigModules -> BC.ByteString
-dbAddress confDb = BC.concat ["host=", db_host confDb, " port=", db_port confDb, " user='", 
-                                db_login confDb,"' password='",db_password confDb,"' dbname='",db_name confDb,"'"]
+dbAddress confDb =
+    BC.concat
+        [ "host="
+        , db_host confDb
+        , " port="
+        , db_port confDb
+        , " user='"
+        , db_login confDb
+        , "' password='"
+        , db_password confDb
+        , "' dbname='"
+        , db_name confDb
+        , "'"
+        ]
