@@ -21,26 +21,36 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
-
+- postgresql-simple
+- wai
+- warp
+- bytestring
+- text
+- aeson
+- http-client
+- time
+- http-types
+- wai-extra
+- configurator
+- directory
+- resource-pool
 library:
   source-dirs: src
-  dependencies:
-    - postgresql-simple
-    - wai
-    - warp
-    - bytestring
-    - text
-    - aeson
-   # - req
-   # - req-conduit
-    - http-client
-    - time
-    - http-types
-    - wai-extra
-    - configurator
-    - directory
-    - resource-pool
-  exposed-modules:  Lib
+  # dependencies:
+  #  - postgresql-simple
+  #  - wai
+  #  - warp
+  #  - bytestring
+   # - text
+  #  - aeson
+  #  - http-client
+  #  - time
+  #  - http-types
+  #  - wai-extra
+  #  - configurator
+  #  - directory
+  #  - resource-pool
+  # exposed-modules:  Lib
 executables:
   testdb-exe:
     main:                Main.hs

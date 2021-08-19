@@ -1,7 +1,17 @@
 module PostgreSqlWithPool where
-import Data.Pool
+import Data.Pool ( Pool, withResource )
 import Database.PostgreSQL.Simple
-import Data.Int
+    ( Connection,
+      FromRow,
+      ToRow,
+      Query,
+      execute,
+      executeMany,
+      query,
+      query_,
+      returning,
+      execute_ )
+import Data.Int ( Int64 )
 
 
 executeWithPool :: ToRow q => Pool Connection -> Query -> q -> IO Int64

@@ -2,18 +2,20 @@
 {-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE DeriveAnyClass #-}
 module Types where
-import Database.PostgreSQL.Simple
+import Database.PostgreSQL.Simple ( FromRow, ToRow, Binary )
 import Database.PostgreSQL.Simple.Types
---import Control.Monad
---import Control.Applicative
---import Data.ByteString as B
+    (PGArray(fromPGArray) )
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
---import qualified Data.Text.IO as TIO
-import GHC.Generics
-import Data.Time
+import GHC.Generics ( Generic )
+import Data.Time ( UTCTime, Day )
 import Data.Aeson
+    ( ToJSON(toJSON),
+      defaultOptions,
+      object,
+      genericToJSON,
+      KeyValue((.=)) )
 
 
 data Comment = Comment { comment_token :: T.Text ,
@@ -24,7 +26,7 @@ data Comment = Comment { comment_token :: T.Text ,
                          } deriving (Show,Generic, ToRow, FromRow)
 
 
-data GetNews' = GetNews' {  news_id' :: Int ,
+data ElemOfNewsArray = ElemOfNewsArray {  news_id' :: Int ,
                             short_title' :: T.Text ,
                             date_creation' :: Day,
                             author_name :: T.Text,
@@ -33,65 +35,65 @@ data GetNews' = GetNews' {  news_id' :: Int ,
                        } deriving (Show, Generic, ToRow, FromRow)
 
 
-instance ToJSON GetNews' where
+instance ToJSON ElemOfNewsArray where
 
 
-newtype NewsArray' = NewsArray' { news' :: [GetNews']} deriving (Show, Generic)
+newtype NewsArray = NewsArray { news :: [ElemOfNewsArray]} deriving (Show, Generic)
 
-instance ToJSON NewsArray' where
+instance ToJSON NewsArray where
     toJSON = genericToJSON defaultOptions
 
-data Comment' = Comment' { comment_author_name :: T.Text,
+data ElemOfCommentArray = ElemOfCommentArray { comment_author_name :: T.Text,
                               comment_text' :: T.Text,
                               comment_time' :: UTCTime,
                               comment_id' :: Int
                             } deriving (Show, Generic, ToRow, FromRow)
 
-newtype CommentArray = CommentArray { comments :: [Comment']} deriving (Show, Generic)
-instance ToJSON Comment' where
+newtype CommentArray = CommentArray { comments :: [ElemOfCommentArray]} deriving (Show, Generic)
+instance ToJSON ElemOfCommentArray where
 
 instance ToJSON CommentArray where
     toJSON = genericToJSON defaultOptions
 
 
-data CheckToken = CheckToken { ct_user_id :: Int,
-                               ct_creation_date :: UTCTime
-                               } deriving (Show, Generic, ToRow, FromRow)
+--data CheckToken = CheckToken { ct_user_id :: Int,
+ --                              ct_creation_date :: UTCTime
+ --                              } deriving (Show, Generic, ToRow, FromRow)
 
 
-newtype Category' = Category' { category_name'' :: T.Text } deriving (Show, Generic, ToRow, FromRow)
-instance ToJSON Category' where
-    toJSON = genericToJSON defaultOptions
+newtype ElemOfCategoryList = ElemOfCategoryList { category_get_name :: T.Text } deriving (Show, Generic, ToRow, FromRow)
+instance ToJSON ElemOfCategoryList where
+   toJSON = genericToJSON defaultOptions
 
-newtype ListOfCategories = ListOfCategories { categories' :: [Category']} deriving (Show, Generic)
+newtype ListOfCategories = ListOfCategories { list_of_categories :: [ElemOfCategoryList]} deriving (Show, Generic)
 instance ToJSON ListOfCategories where
-    toJSON = genericToJSON defaultOptions
+   toJSON = genericToJSON defaultOptions
 
 
-data Draft' = Draft' { draft_short_title' :: T.Text,
-                     date_of_changes' :: UTCTime,
-                     draft_category_id' :: Maybe Int,
-                     draft_text' :: Maybe T.Text,
-                     draft_main_image_id' :: Maybe Int,
-                     draft_images :: Maybe (PGArray Int)
+data ElemOfDraftArray = DraftGet { draft_get_short_title :: T.Text,
+                     draft_get_date_of_changes :: UTCTime,
+                     draft_get_category_id :: Maybe Int,
+                     draft_get_text :: Maybe T.Text,
+                     draft_get_main_image_id :: Maybe Int,
+                     draft_get_images :: Maybe (PGArray Int)
                      } deriving (Show,Generic,FromRow)
-instance ToJSON Draft'  where
-    toJSON (Draft' dst doc dci dt dmii di) = 
-        object ["draft_short_title'" .= dst,
-                "date_of_changes'" .= doc,
-                "draft_category_id'" .= dci,
-                "draft_text'" .= dt,
-                "draft_main_image_id'" .= dmii,
-                "draft_images" .= (fromPGArray <$> di)]
+instance ToJSON ElemOfDraftArray  where
+    toJSON (DraftGet dgst dgdoc dgci dgt dgmii dgi) = 
+        object ["draft_short_title'" .= dgst,
+                "date_of_changes'" .= dgdoc,
+                "draft_category_id'" .= dgci,
+                "draft_text'" .= dgt,
+                "draft_main_image_id'" .= dgmii,
+                "draft_images" .= (fromPGArray <$> dgi)]
 
-newtype DraftArray = DraftArray {drafts :: [Draft']} deriving (Show, Generic)
+newtype DraftArray = DraftArray {drafts :: [ElemOfDraftArray]} deriving (Show, Generic)
 instance ToJSON DraftArray where
     toJSON = genericToJSON defaultOptions
 
 
-data Image''' = Image''' { f_name'' :: BC.ByteString,
-                     content_type'' :: BC.ByteString,
-                     content'' :: Binary LBS.ByteString 
+data Image = Image { image_file_name :: BC.ByteString,
+                     image_content_type :: BC.ByteString,
+                     image_content :: Binary LBS.ByteString 
                    } deriving (Show, Generic, ToRow, FromRow,Eq)
 
 
@@ -107,8 +109,8 @@ instance ToJSON Profile where
                 "profile_last_name" .= pln,
                 "profile_avatar" .= pa]
 
-data TokenProfile = TokenProfile { token :: T.Text,
-                    token_lifetime' :: Int } deriving (Show, Generic, ToRow, FromRow)
+data TokenProfile = TokenProfile { profile_token :: T.Text,
+                    profile_token_lifetime :: Int } deriving (Show, Generic, ToRow, FromRow)
 
 type DatabaseAddress = BC.ByteString
 
@@ -130,7 +132,7 @@ instance ToJSON TagsList where
     toJSON = genericToJSON defaultOptions
 
 
-data Draft'' = Draft'' { draft_short_title'' :: T.Text,
+data Draft = Draft { draft_short_title'' :: T.Text,
                      date_of_changes'' :: UTCTime,
                      draft_category_id'' :: Maybe Int,
                      draft_text'' :: Maybe T.Text,
@@ -138,8 +140,8 @@ data Draft'' = Draft'' { draft_short_title'' :: T.Text,
                      draft_images' :: Maybe (PGArray Int),
                      draft_tags' :: Maybe (PGArray T.Text)
                      } deriving (Show,Generic,FromRow)
-instance ToJSON Draft''  where
-    toJSON (Draft'' dst doc dci dt dmii di dts) = 
+instance ToJSON Draft  where
+    toJSON (Draft dst doc dci dt dmii di dts) = 
         object ["draft_short_title''" .= dst,
                 "date_of_changes''" .= doc,
                 "draft_category_id''" .= dci,
@@ -150,18 +152,18 @@ instance ToJSON Draft''  where
 
 
 
-data GetNews'' = GetNews'' {  news_id'' :: Int ,
-                            short_title'' :: T.Text ,
-                            date_creation'' :: Day,
-                            author_name' :: T.Text,
-                            category_name''' :: T.Text,
-                            news_text'' :: T.Text,
-                            news_main_image :: Maybe Int,
-                            news_other_images :: Maybe (PGArray Int),
-                            news_tags :: Maybe (PGArray T.Text)
+data GetNews = GetNews {    gn_news_id'' :: Int ,
+                            gn_short_title'' :: T.Text ,
+                            gn_date_creation'' :: Day,
+                            gn_author_name' :: T.Text,
+                            gn_category_name''' :: T.Text,
+                            gn_news_text'' :: T.Text,
+                            gn_news_main_image :: Maybe Int,
+                            gn_news_other_images :: Maybe (PGArray Int),
+                            gn_news_tags :: Maybe (PGArray T.Text)
                        } deriving (Show, Generic, ToRow, FromRow)
-instance ToJSON GetNews'' where
-    toJSON (GetNews'' gnni gnst gndc gnan gncn gnnt gnnmi gnnoi gnnts) =
+instance ToJSON GetNews where
+    toJSON (GetNews gnni gnst gndc gnan gncn gnnt gnnmi gnnoi gnnts) =
         object ["news_id''" .= gnni,
                 "short_title''" .= gnst,
                 "date_creation''" .= gndc,

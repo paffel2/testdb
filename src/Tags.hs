@@ -1,40 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Tags where
-import Network.Wai
---import Network.Wai.Handler.Warp
---import Network.Wai.Parse
---import Network.HTTP.Types
---import GHC.Generics
-import Data.Aeson
---import Testdatabase
---import Control.Exception
---import qualified Data.Text.Lazy.Encoding as EL
---import qualified Data.Text.Lazy.IO as TLIO
+import Network.Wai ( Response, Request(queryString) )
+import Data.Aeson ( encode )
 import qualified Data.Text.Encoding as E
---import qualified Data.Text as T
---import qualified Data.Text.IO as TIO
---import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BC
-import Types
-import Data.Maybe
---import Text.Read
---import Control.Applicative
---import HelpFunction
-import Responses
---import NewsAndComments
---import Categories
---import Users
-import Logger
-import FromRequest
+import Types ( TokenLifeTime )
+import Data.Maybe ( fromMaybe )
+import Responses ( responseOk, responseBadRequest )
+import Logger ( Handle )
+import FromRequest ( takeToken )
 import Databaseoperations
-import Data.Pool
-import Database.PostgreSQL.Simple
+    ( checkAdmin', getTagsListFromDb, createTagInDb, deleteTagFromDb )
+import Data.Pool ( Pool )
+import Database.PostgreSQL.Simple ( Connection )
 import qualified Data.Text as T
---import Network.Wai.Test (request)
---import qualified GHC.Unicode as T
---import Foreign.Marshal (pooledMallocArray)
---import Database.PostgreSQL.Simple
 
 
 
