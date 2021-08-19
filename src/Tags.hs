@@ -18,7 +18,7 @@ import Databaseoperations
     )
 import FromRequest (takeToken)
 import Logger (Handle)
-import Network.Wai (Request(queryString), Response)
+import Network.Wai (Request(queryString, rawPathInfo), Response)
 import Responses (responseBadRequest, responseOk)
 import Types (TokenLifeTime)
 
@@ -64,13 +64,8 @@ deleteTag hLogger pool token_lifetime req = do
                 Right bs -> return $ responseOk bs
 
 tagsBlock ::
-       Handle
-    -> Pool Connection
-    -> TokenLifeTime
-    -> [BC.ByteString]
-    -> Request
-    -> IO Response
-tagsBlock hLogger pool token_lifetime pathElems req
+       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+tagsBlock hLogger pool token_lifetime req
     | pathElemsC == 1 = sendTagsList hLogger pool req
     | pathElemsC == 2 =
         case last pathElems of
@@ -79,4 +74,6 @@ tagsBlock hLogger pool token_lifetime pathElems req
             _ -> return $ responseBadRequest "bad request"
     | otherwise = return $ responseBadRequest "bad request"
   where
+    path = BC.tail $ rawPathInfo req
+    pathElems = BC.split '/' path
     pathElemsC = length pathElems

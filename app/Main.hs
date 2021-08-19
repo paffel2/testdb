@@ -20,6 +20,7 @@ import Network.Wai.Handler.Warp
     , setPort
     )
 import Router (routes)
+import ServicesHandle
 
 main :: IO ()
 main = do
@@ -35,5 +36,5 @@ main = do
     runSettings
         (setMaximumBodyFlush (server_maximum_body_flush confServer) $
          setPort (server_port confServer) defaultSettings) $
-        routes hLogger db_address token_lifetime
+        routes hLogger db_address token_lifetime handler
 

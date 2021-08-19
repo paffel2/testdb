@@ -22,7 +22,7 @@ import Databaseoperations
 import FromRequest (takeToken, toImage)
 import HelpFunction (foundParametr, readByteStringToInt)
 import Logger (Handle, logError, logInfo)
-import Network.Wai (Request(queryString), Response)
+import Network.Wai (Request(queryString, rawPathInfo), Response)
 import Network.Wai.Parse
     ( FileInfo(fileContent)
     , lbsBackEnd
@@ -200,13 +200,8 @@ publicNews hLogger pool token_lifetime draft_id req = do
                     return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
 
 draftsBlock ::
-       Handle
-    -> Pool Connection
-    -> TokenLifeTime
-    -> [BC.ByteString]
-    -> Request
-    -> IO Response
-draftsBlock hLogger pool token_lifetime pathElems req
+       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+draftsBlock hLogger pool token_lifetime req
     | pathElemsC == 1 = sendDrafts hLogger pool token_lifetime req
     | pathElemsC == 2 =
         case readByteStringToInt $ last pathElems of
@@ -227,4 +222,6 @@ draftsBlock hLogger pool token_lifetime pathElems req
                     _ -> return $ responseBadRequest "bad request"
     | otherwise = return $ responseBadRequest "bad request"
   where
+    path = BC.tail $ rawPathInfo req
+    pathElems = BC.split '/' path
     pathElemsC = length pathElems
