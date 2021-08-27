@@ -22,7 +22,9 @@ import Network.Wai (Request(queryString, rawPathInfo), Response)
 
 --import Network.Wai (Request(queryString), Response,rawPathInfo)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import Responses (responseBadRequest, responseOk)
+
+--import Responses (responseBadRequest, responseOk)
+import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (TokenLifeTime)
 
 sendCategoriesList :: Handle -> Pool Connection -> Request -> IO Response
@@ -30,7 +32,7 @@ sendCategoriesList hLogger pool req = do
     result <- getCategoriesListFromDb hLogger pool pageParam
     case result of
         Left bs -> return $ responseBadRequest bs
-        Right loc -> return $ responseOk $ encode loc
+        Right loc -> return $ responseOKJSON $ encode loc
   where
     queryParams = queryString req
     pageParam = fromMaybe Nothing (lookup "page" queryParams)

@@ -29,7 +29,9 @@ import Network.Wai.Parse
     , noLimitParseRequestBodyOptions
     , parseRequestBodyEx
     )
-import Responses (responseBadRequest, responseOk)
+
+--import Responses (responseBadRequest, responseOk, )
+import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (Image(Image, image_content_type), TokenLifeTime)
 
 sendDrafts ::
@@ -41,7 +43,7 @@ sendDrafts hLogger pool token_liferime req = do
         Left bs -> return $ responseBadRequest bs
         Right draftsA -> do
             logInfo hLogger "Sending drafts to user"
-            return $ responseOk (encode draftsA)
+            return $ responseOKJSON (encode draftsA)
 
 createDraft ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
@@ -121,7 +123,7 @@ getDraftById hLogger pool token_lifetime draft_id req = do
     result <- getDraftByIdFromDb hLogger pool token_lifetime token' draft_id
     case result of
         Left bs -> return $ responseBadRequest bs
-        Right draft -> return $ responseOk $ encode draft
+        Right draft -> return $ responseOKJSON $ encode draft
 
 updateDraft ::
        Handle

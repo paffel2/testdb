@@ -23,7 +23,7 @@ import Network.Wai.Parse
     , lbsBackEnd
     , parseRequestBody
     )
-import Responses (responseBadRequest, responseOk)
+import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (TokenLifeTime)
 
 login :: Handle -> Pool Connection -> Request -> IO Response
@@ -88,4 +88,4 @@ profile hLogger pool token_lifetime req = do
     result <- profileOnDb hLogger pool token_lifetime token'
     case result of
         Left bs -> return $ responseBadRequest bs
-        Right pro -> return $ responseOk $ encode pro
+        Right pro -> return $ responseOKJSON $ encode pro

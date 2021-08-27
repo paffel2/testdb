@@ -19,6 +19,9 @@ import Database.PostgreSQL.Simple (Binary, FromRow, ToRow)
 import Database.PostgreSQL.Simple.Types (PGArray(fromPGArray))
 import GHC.Generics (Generic)
 
+--import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Internal as BI
+
 data Comment =
     Comment
         { comment_token :: T.Text
@@ -235,3 +238,30 @@ instance ToJSON GetNews where
             , "news_other_images" .= (fromPGArray <$> gnnoi)
             , "news_tags" .= (fromPGArray <$> gnnts)
             ]
+
+data ImageB =
+    ImageB
+        { image_b :: Binary LBS.ByteString
+        , con_type :: BI.ByteString
+        }
+    deriving (Show, Generic, ToRow, FromRow, Eq)
+
+data ElemImageArray =
+    ElemImageArray
+        { image_id :: Int
+        , image_name :: T.Text
+        }
+    deriving (Show, Generic, ToRow, FromRow, Eq)
+
+instance ToJSON ElemImageArray where
+    toJSON (ElemImageArray imid imn) =
+        object ["image_id" .= imid, "image_name" .= imn]
+
+newtype ImageArray =
+    ImageArray
+        { images :: [ElemImageArray]
+        }
+    deriving (Show, Generic)
+
+instance ToJSON ImageArray where
+    toJSON = genericToJSON defaultOptions

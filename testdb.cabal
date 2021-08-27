@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3aadfc3608784e06f9898f8a38c8ddd9b53f72a2b5c09b04c8e70abd21de7a1d
+-- hash: 7b24bc02ee78e46fe77d50ee70211e6c59957346d1165afb89ab939b39c88944
 
 name:           testdb
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       Drafts
       FromRequest
       HelpFunction
+      Images
       Logger
       MethodHandle
       NewsAndComments

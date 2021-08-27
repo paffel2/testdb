@@ -17,4 +17,5 @@ data MethodHandle =
         , draft_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         , new_draft_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         , tags_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+        , image_handler :: Handle -> Pool Connection -> Request -> IO Response
         }

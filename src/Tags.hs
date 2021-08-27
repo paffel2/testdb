@@ -19,7 +19,7 @@ import Databaseoperations
 import FromRequest (takeToken)
 import Logger (Handle)
 import Network.Wai (Request(queryString, rawPathInfo), Response)
-import Responses (responseBadRequest, responseOk)
+import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (TokenLifeTime)
 
 sendTagsList :: Handle -> Pool Connection -> Request -> IO Response
@@ -27,7 +27,7 @@ sendTagsList hLogger pool req = do
     tags_list <- getTagsListFromDb hLogger pool page
     case tags_list of
         Left bs -> return $ responseBadRequest bs
-        Right tl -> return $ responseOk $ encode tl
+        Right tl -> return $ responseOKJSON $ encode tl
   where
     page = fromMaybe Nothing (lookup "page" $ queryString req)
 

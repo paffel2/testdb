@@ -2,6 +2,7 @@ module ServicesHandle where
 
 import Categories (categoriesBlock)
 import Drafts (createDraft, draftsBlock)
+import Images (imageBlock)
 import MethodHandle (MethodHandle(..))
 import NewsAndComments (newsMethodBlock)
 import Tags (tagsBlock)
@@ -19,4 +20,5 @@ handler =
         , draft_handler = draftsBlock
         , new_draft_handler = createDraft
         , tags_handler = tagsBlock
+        , image_handler = imageBlock
         }

@@ -5,10 +5,11 @@ module Router where
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (createPool)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
+import Images
 import Logger (Handle)
 import MethodHandle
     ( MethodHandle(categories_handler, delete_user_handler,
-             draft_handler, login_handler, new_draft_handler,
+             draft_handler, image_handler, login_handler, new_draft_handler,
              news_and_comments_handler, profile_handler, registration_handler,
              tags_handler)
     )
@@ -42,12 +43,11 @@ routes hLogger db_address token_lifetime methods req respond = do
             respond
         "tags" ->
             tags_handler methods hLogger pool token_lifetime req >>= respond
+        "image" -> image_handler methods hLogger pool req >>= respond
         _ -> badUrlRespond
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path
     pathHead = head pathElems
-    badUrlRespond
-            --logError hLogger "Bad url"
-     = do
+    badUrlRespond = do
         respond $ responseBadRequest "bad url"

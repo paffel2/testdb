@@ -40,72 +40,10 @@ import Network.Wai.Parse
     , noLimitParseRequestBodyOptions
     , parseRequestBodyEx
     )
-import Responses (responseBadRequest, responseOk)
+import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Text.Read (readMaybe)
 import Types (CommentArray, GetNews, NewsArray, TokenLifeTime)
 
-{-newsMethodBlock ::
-       Handle
-    -> Pool Connection
-    -> TokenLifeTime
-    -> [BC.ByteString]
-    -> Request
-    -> IO Response
-newsMethodBlock hLogger pool token_lifetime pathElems req
-    | pathElemC == 1 = do
-        result <- sendNews hLogger pool req
-        case result of
-            Left bs -> return $ responseBadRequest bs
-            Right na -> return $ responseOk $ encode na
-    | pathElemC == 2 = do
-        let newsId = readMaybe $ BC.unpack $ last pathElems :: Maybe Int
-        result <- sendNewsById hLogger pool req newsId
-        case result of
-            Left bs -> return $ responseBadRequest bs
-            Right na -> return $ responseOk $ encode na
-    | pathElemC == 3 = do
-        let newsId = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
-        if last pathElems == "comments"
-            then do
-                result <- sendCommentsByNewsId hLogger pool req newsId
-                case result of
-                    Left bs -> return $ responseBadRequest bs
-                    Right ca -> return $ responseOk $ encode ca
-            else do
-                logError hLogger "Bad url"
-                return $ responseBadRequest "Bad url"
-    | pathElemC == 4 =
-        case last pathElems of
-            "add_comment" -> do
-                let news'_id =
-                        readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
-                result <-
-                    addCommentByNewsId hLogger pool token_lifetime req news'_id
-                case result of
-                    Left bs -> return $ responseBadRequest bs
-                    Right bs -> return $ responseOk bs
-            "delete_comment" -> do
-                let news'_id =
-                        readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
-                case news'_id of
-                    Nothing -> do
-                        logError hLogger "bad comment id"
-                        return $ responseBadRequest "bad comment id"
-                    Just _ -> do
-                        result <-
-                            deleteCommentById hLogger pool token_lifetime req
-                        case result of
-                            Left bs -> return $ responseBadRequest bs
-                            Right bs -> return $ responseOk bs
-            _ -> do
-                logError hLogger "Bad url"
-                return $ responseBadRequest "bad request"
-    | otherwise = do
-        logError hLogger "Bad url"
-        return $ responseBadRequest "Bad url"
-  where
-    pathElemC = length pathElems
-    -}
 newsMethodBlock ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 newsMethodBlock hLogger pool token_lifetime req
@@ -113,13 +51,13 @@ newsMethodBlock hLogger pool token_lifetime req
         result <- sendNews hLogger pool req
         case result of
             Left bs -> return $ responseBadRequest bs
-            Right na -> return $ responseOk $ encode na
+            Right na -> return $ responseOKJSON $ encode na
     | pathElemC == 2 = do
         let newsId = readMaybe $ BC.unpack $ last pathElems :: Maybe Int
         result <- sendNewsById hLogger pool req newsId
         case result of
             Left bs -> return $ responseBadRequest bs
-            Right na -> return $ responseOk $ encode na
+            Right na -> return $ responseOKJSON $ encode na
     | pathElemC == 3 = do
         let newsId = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
         if last pathElems == "comments"
@@ -127,7 +65,7 @@ newsMethodBlock hLogger pool token_lifetime req
                 result <- sendCommentsByNewsId hLogger pool req newsId
                 case result of
                     Left bs -> return $ responseBadRequest bs
-                    Right ca -> return $ responseOk $ encode ca
+                    Right ca -> return $ responseOKJSON $ encode ca
             else do
                 logError hLogger "Bad url"
                 return $ responseBadRequest "Bad url"
