@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Categories where
+module Controllers.Categories where
 
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
@@ -9,21 +9,17 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations
-    ( checkAdmin'
-    , createCategoryOnDb
+import Databaseoperations.Categories
+    ( createCategoryOnDb
     , deleteCategoryFromDb
     , editCategoryOnDb
     , getCategoriesListFromDb
     )
+import Databaseoperations.CheckAdmin (checkAdmin)
 import FromRequest (takeToken)
 import Logger (Handle)
 import Network.Wai (Request(queryString, rawPathInfo), Response)
-
---import Network.Wai (Request(queryString), Response,rawPathInfo)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-
---import Responses (responseBadRequest, responseOk)
 import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (TokenLifeTime)
 
@@ -41,7 +37,7 @@ createCategory ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 createCategory hLogger pool token_lifetime req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    ct <- checkAdmin' hLogger pool token_lifetime token'
+    ct <- checkAdmin hLogger pool token_lifetime token'
     case ct of
         (False, bs) -> return $ responseBadRequest bs
         (True, _) -> do
@@ -65,7 +61,7 @@ deleteCategory ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteCategory hLogger pool token_lifetime req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    ct <- checkAdmin' hLogger pool token_lifetime token'
+    ct <- checkAdmin hLogger pool token_lifetime token'
     case ct of
         (False, bs) -> return $ responseBadRequest bs
         (True, _) -> do
@@ -80,7 +76,7 @@ editCategory ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 editCategory hLogger pool token_lifetime req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    ct <- checkAdmin' hLogger pool token_lifetime token'
+    ct <- checkAdmin hLogger pool token_lifetime token'
     case ct of
         (False, bs) -> return $ responseBadRequest bs
         (True, _) -> do

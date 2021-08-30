@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7b24bc02ee78e46fe77d50ee70211e6c59957346d1165afb89ab939b39c88944
+-- hash: b94b17f0b5e888a33e5c129a84cdace312bc5162c2840db0b9c1e304368aab82
 
 name:           testdb
 version:        0.1.0.0
@@ -27,23 +27,28 @@ source-repository head
 
 library
   exposed-modules:
-      Categories
       Config
-      Databaseoperations
-      Drafts
+      Controllers.Categories
+      Controllers.Drafts
+      Controllers.Images
+      Controllers.NewsAndComments
+      Controllers.Tags
+      Controllers.Users
+      ControllersHandle
+      Databaseoperations.Categories
+      Databaseoperations.CheckAdmin
+      Databaseoperations.Drafts
+      Databaseoperations.Images
+      Databaseoperations.NewsAndComments
+      Databaseoperations.Tags
+      Databaseoperations.Users
       FromRequest
       HelpFunction
-      Images
       Logger
-      MethodHandle
-      NewsAndComments
       PostgreSqlWithPool
       Responses
       Router
-      ServicesHandle
-      Tags
       Types
-      Users
   other-modules:
       Paths_testdb
   hs-source-dirs:

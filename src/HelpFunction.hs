@@ -11,7 +11,6 @@ import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
 import Text.Read (readMaybe)
 
---import qualified Data.ByteString.Lazy as BC
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
 myLookup key ((x, _):xys)

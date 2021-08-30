@@ -20,7 +20,7 @@ import Network.Wai.Handler.Warp
     , setPort
     )
 import Router (routes)
-import ServicesHandle
+import ControllersHandle (handler)
 
 main :: IO ()
 main = do

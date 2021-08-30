@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Tags where
+module Controllers.Tags where
 
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
@@ -10,9 +10,9 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations
-    ( checkAdmin'
-    , createTagInDb
+import Databaseoperations.CheckAdmin (checkAdmin)
+import Databaseoperations.Tags
+    ( createTagInDb
     , deleteTagFromDb
     , getTagsListFromDb
     )
@@ -34,7 +34,7 @@ sendTagsList hLogger pool req = do
 newTag :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 newTag hLogger pool token_lifetime req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    c_a <- checkAdmin' hLogger pool token_lifetime token'
+    c_a <- checkAdmin hLogger pool token_lifetime token'
     case c_a of
         (False, bs) -> return $ responseBadRequest bs
         (True, _) -> do
@@ -51,7 +51,7 @@ deleteTag ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteTag hLogger pool token_lifetime req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    c_a <- checkAdmin' hLogger pool token_lifetime token'
+    c_a <- checkAdmin hLogger pool token_lifetime token'
     case c_a of
         (False, bs) -> return $ responseBadRequest bs
         (True, _) -> do

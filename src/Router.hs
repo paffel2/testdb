@@ -2,23 +2,26 @@
 
 module Router where
 
+import ControllersHandle
+    ( ControllersHandle(categories_handler, delete_user_handler,
+                  draft_handler, image_handler, login_handler, new_draft_handler,
+                  news_and_comments_handler, profile_handler, registration_handler,
+                  tags_handler)
+    )
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (createPool)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
-import Images
 import Logger (Handle)
-import MethodHandle
-    ( MethodHandle(categories_handler, delete_user_handler,
-             draft_handler, image_handler, login_handler, new_draft_handler,
-             news_and_comments_handler, profile_handler, registration_handler,
-             tags_handler)
-    )
 import Network.Wai (Application, Request(rawPathInfo))
 import Responses (responseBadRequest)
 import Types (DatabaseAddress, TokenLifeTime)
 
 routes ::
-       Handle -> DatabaseAddress -> TokenLifeTime -> MethodHandle -> Application
+       Handle
+    -> DatabaseAddress
+    -> TokenLifeTime
+    -> ControllersHandle
+    -> Application
 routes hLogger db_address token_lifetime methods req respond = do
     pool <- createPool (connectPostgreSQL db_address) close 1 5 10
     case pathHead of

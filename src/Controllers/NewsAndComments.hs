@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module NewsAndComments where
+module Controllers.NewsAndComments where
 
 import Control.Applicative (Alternative((<|>)))
 import Data.Aeson (encode)
@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations
+import Databaseoperations.NewsAndComments
     ( addCommentToDb
     , deleteCommentFromDb
     , getCommentsByNewsIdFromDb

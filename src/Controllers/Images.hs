@@ -1,23 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Images where
+module Controllers.Images where
 
-import Data.Aeson
+import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe
-import Data.Pool
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple
-import Databaseoperations
-import FromRequest
-import HelpFunction
-import Logger
-import Network.HTTP.Types.Method
-import Network.Wai
-import Network.Wai.Parse
-import Responses
-import Types
+import Data.Maybe (fromMaybe)
+import Data.Pool (Pool)
+import Database.PostgreSQL.Simple (Binary(fromBinary), Connection)
+import Databaseoperations.Images (getPhoto, getPhotoList)
+import HelpFunction (readByteStringToInt)
+import Logger (Handle)
+import Network.HTTP.Types.Method (methodGet)
+import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Responses (responseBadRequest, responseOKImage, responseOKJSON)
+import Types (ImageB(con_type, image_b))
 
 sendImagesList :: Handle -> Pool Connection -> Request -> IO Response
 sendImagesList hLogger pool req = do

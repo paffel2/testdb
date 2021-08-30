@@ -12,15 +12,13 @@ import Data.Aeson
     , object
     )
 import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Internal as BI
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import Data.Time (Day, UTCTime)
 import Database.PostgreSQL.Simple (Binary, FromRow, ToRow)
 import Database.PostgreSQL.Simple.Types (PGArray(fromPGArray))
 import GHC.Generics (Generic)
-
---import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Internal as BI
 
 data Comment =
     Comment
@@ -73,10 +71,7 @@ instance ToJSON ElemOfCommentArray
 
 instance ToJSON CommentArray where
     toJSON = genericToJSON defaultOptions
- --                              ct_creation_date :: UTCTime
- --                              } deriving (Show, Generic, ToRow, FromRow)
 
---data CheckToken = CheckToken { ct_user_id :: Int,
 newtype ElemOfCategoryList =
     ElemOfCategoryList
         { category_get_name :: T.Text

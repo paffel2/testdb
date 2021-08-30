@@ -1,13 +1,19 @@
-module MethodHandle where
+module ControllersHandle where
 
+import Controllers.Categories (categoriesBlock)
+import Controllers.Drafts (createDraft, draftsBlock)
+import Controllers.Images (imageBlock)
+import Controllers.NewsAndComments (newsMethodBlock)
+import Controllers.Tags (tagsBlock)
+import Controllers.Users (deleteUser, login, profile, registration)
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
 import Logger (Handle)
 import Network.Wai (Request, Response)
 import Types (TokenLifeTime)
 
-data MethodHandle =
-    MethodHandle
+data ControllersHandle =
+    ControllersHandle
         { news_and_comments_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         , login_handler :: Handle -> Pool Connection -> Request -> IO Response
         , registration_handler :: Handle -> Pool Connection -> Request -> IO Response
@@ -18,4 +24,19 @@ data MethodHandle =
         , new_draft_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         , tags_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         , image_handler :: Handle -> Pool Connection -> Request -> IO Response
+        }
+
+handler :: ControllersHandle
+handler =
+    ControllersHandle
+        { news_and_comments_handler = newsMethodBlock
+        , login_handler = login
+        , registration_handler = registration
+        , delete_user_handler = deleteUser
+        , categories_handler = categoriesBlock
+        , profile_handler = profile
+        , draft_handler = draftsBlock
+        , new_draft_handler = createDraft
+        , tags_handler = tagsBlock
+        , image_handler = imageBlock
         }

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Users where
+module Controllers.Users where
 
 import Data.Aeson (encode)
 import Data.Maybe (fromMaybe)
@@ -8,9 +8,9 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations
+import Databaseoperations.CheckAdmin (checkAdmin)
+import Databaseoperations.Users
     ( authentication
-    , checkAdmin'
     , createUserInDb
     , deleteUserFromDb
     , profileOnDb
@@ -29,8 +29,8 @@ import Types (TokenLifeTime)
 login :: Handle -> Pool Connection -> Request -> IO Response
 login hLogger pool req = do
     (i, _) <- parseRequestBody lbsBackEnd req
-    let login' = fromMaybe "" (lookup "login" i)
-    let pass = fromMaybe "" (lookup "user_password" i)
+    let login' = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
+    let pass = E.decodeUtf8 $ fromMaybe "" (lookup "user_password" i)
     check <- authentication hLogger pool login' pass
     case check of
         Left bs -> return $ responseBadRequest bs
@@ -73,7 +73,7 @@ deleteUser ::
 deleteUser hLogger pool token_lifetime req = do
     let login' = fromMaybe Nothing (lookup "login" $ queryString req)
     let token' = E.decodeUtf8 <$> takeToken req
-    isAdmin <- checkAdmin' hLogger pool token_lifetime token'
+    isAdmin <- checkAdmin hLogger pool token_lifetime token'
     case isAdmin of
         (False, bs) -> return $ responseBadRequest bs
         (True, _) -> do

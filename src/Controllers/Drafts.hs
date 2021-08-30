@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Drafts where
+module Controllers.Drafts where
 
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
@@ -9,14 +9,13 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Binary(Binary), Connection)
-import Databaseoperations
+import Databaseoperations.Drafts
     ( checkAuthor
-    , checkAuthor'
     , createDraftOnDb'
     , deleteDraftFromDb
     , getDraftByIdFromDb
     , getDraftsByAuthorToken
-    , publicNewsOnDb'
+    , publicNewsOnDb
     , updateDraftInDb'
     )
 import FromRequest (takeToken, toImage)
@@ -29,8 +28,6 @@ import Network.Wai.Parse
     , noLimitParseRequestBodyOptions
     , parseRequestBodyEx
     )
-
---import Responses (responseBadRequest, responseOk, )
 import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (Image(Image, image_content_type), TokenLifeTime)
 
@@ -97,16 +94,17 @@ createDraft hLogger pool token_lifetime req = do
                 Right n ->
                     return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
 
-deleteDraft :: Handle -> Request -> IO Response
-deleteDraft hLogger req = do
+deleteDraft ::
+       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+deleteDraft hLogger pool token_lifetime req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    ca <- Databaseoperations.checkAuthor hLogger token'
+    ca <- checkAuthor hLogger pool token_lifetime token'
     case ca of
         Left bs -> return $ responseBadRequest bs
         Right n -> do
             let draft_id =
                     fromMaybe Nothing (lookup "draft_id" $ queryString req)
-            result <- Databaseoperations.deleteDraftFromDb hLogger n draft_id
+            result <- deleteDraftFromDb hLogger n draft_id
             case result of
                 Left bs -> return $ responseBadRequest bs
                 Right bs -> return $ responseOk bs
@@ -191,11 +189,11 @@ publicNews ::
     -> IO Response
 publicNews hLogger pool token_lifetime draft_id req = do
     let token' = E.decodeUtf8 <$> takeToken req
-    ca <- checkAuthor' hLogger pool token_lifetime token'
+    ca <- checkAuthor hLogger pool token_lifetime token'
     case ca of
         Left bs -> return $ responseBadRequest bs
         Right author'_id -> do
-            result <- publicNewsOnDb' hLogger pool author'_id draft_id
+            result <- publicNewsOnDb hLogger pool author'_id draft_id
             case result of
                 Left bs -> return $ responseBadRequest bs
                 Right n ->
@@ -210,7 +208,8 @@ draftsBlock hLogger pool token_lifetime req
             Just n -> getDraftById hLogger pool token_lifetime n req
             Nothing ->
                 case last pathElems of
-                    "delete_draft" -> deleteDraft hLogger req
+                    "delete_draft" ->
+                        deleteDraft hLogger pool token_lifetime req
                     _ -> return $ responseBadRequest "bad request"
     | pathElemsC == 3 =
         case readByteStringToInt $ head $ tail pathElems of
