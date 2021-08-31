@@ -37,6 +37,7 @@ dependencies:
 library:
   source-dirs: src
   # dependencies:
+  #  - base64-bytestring
   #  - postgresql-simple
   #  - wai
   #  - warp

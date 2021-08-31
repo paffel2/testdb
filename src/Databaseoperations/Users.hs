@@ -23,6 +23,7 @@ import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool)
 import Types (Profile, TokenLifeTime, TokenProfile(TokenProfile))
+import Databaseoperations.CheckAdmin
 
 generateToken :: T.Text -> IO (T.Text, UTCTime)
 generateToken login = do
@@ -118,8 +119,13 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
                              logError hLogger "Registration failed"
                              return $ Left "Registration failed") $ \e -> do
                  let err = E.decodeUtf8 $ sqlErrorMsg e
-                 logError hLogger err
-                 return $ Left "Database error in registration"
+                 let errState = sqlState e
+                 let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                 logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+                 case errStateInt of
+                     22001 -> return $ Left "One or more parameter too long"
+                     23505 -> return $ Left "User with that login already exist"
+                     _ -> return $ Left "Database error in registration"
   where
     q =
         toQuery $
@@ -129,7 +135,7 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
             , "values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),?,?)"
             ]
 
-deleteUserFromDb ::
+{-deleteUserFromDb ::
        Handle -> ByteString -> IO (Either LBS.ByteString LBS.ByteString)
 deleteUserFromDb hLogger login =
     catch
@@ -149,6 +155,32 @@ deleteUserFromDb hLogger login =
                         Right $
                         LBS.concat ["User ", LBS.fromStrict login, " deleted"]
                 else return $ Left "User not exist") $ \e -> do
+        let err = E.decodeUtf8 $ sqlErrorMsg e
+        logError hLogger err
+        return $ Left "Database error"-}
+
+
+
+deleteUserFromDb ::
+       Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text ->  ByteString -> IO (Either LBS.ByteString LBS.ByteString)
+deleteUserFromDb hLogger pool token_lifetime token login =
+    catch
+        (do logInfo hLogger $
+                T.concat ["Trying delete user ", E.decodeUtf8 login]
+            ch <- checkAdmin hLogger pool token_lifetime token
+            case ch of
+                (False, bs) -> return $ Left bs
+                (True,_) -> do
+                    let q = "delete from users where login = ?"
+                    n <- executeWithPool pool  q [login]
+                    if n > 0
+                        then do
+                            logInfo hLogger $
+                                T.concat ["User ", E.decodeUtf8 login, " deleted"]
+                            return $
+                                Right $
+                                LBS.concat ["User ", LBS.fromStrict login, " deleted"]
+                    else return $ Left "User not exist") $ \e -> do
         let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
         return $ Left "Database error"

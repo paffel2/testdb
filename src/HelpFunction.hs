@@ -10,6 +10,7 @@ import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
 import Text.Read (readMaybe)
+import Data.Maybe (fromMaybe)
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -26,6 +27,10 @@ foundParametr _ [] = []
 
 readByteStringToInt :: BC.ByteString -> Maybe Int
 readByteStringToInt num = readMaybe $ BC.unpack num
+
+
+readByteStringToInt' :: BC.ByteString -> Int 
+readByteStringToInt' num = fromMaybe (-1) $ readByteStringToInt num
 
 readByteStringListInt :: BC.ByteString -> Maybe [Int]
 readByteStringListInt lst = readMaybe $ BC.unpack lst

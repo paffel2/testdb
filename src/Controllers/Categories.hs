@@ -17,83 +17,76 @@ import Databaseoperations.Categories
     )
 import Databaseoperations.CheckAdmin (checkAdmin)
 import FromRequest (takeToken)
-import Logger (Handle)
-import Network.Wai (Request(queryString, rawPathInfo), Response)
+import Logger ( Handle, logError )
+import Network.Wai
+    ( Request(queryString, requestMethod, rawPathInfo), Response ) 
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (TokenLifeTime)
+import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost, methodPut)
 
 sendCategoriesList :: Handle -> Pool Connection -> Request -> IO Response
-sendCategoriesList hLogger pool req = do
-    result <- getCategoriesListFromDb hLogger pool pageParam
-    case result of
-        Left bs -> return $ responseBadRequest bs
-        Right loc -> return $ responseOKJSON $ encode loc
-  where
-    queryParams = queryString req
-    pageParam = fromMaybe Nothing (lookup "page" queryParams)
+sendCategoriesList hLogger pool req =
+    if requestMethod req /= methodGet then do
+        result <- getCategoriesListFromDb hLogger pool pageParam
+        case result of
+            Left bs -> return $ responseBadRequest bs
+            Right loc -> return $ responseOKJSON $ encode loc
+    else do
+        logError hLogger "Bad request method"
+        return $ responseBadRequest "Bad method request"
+
+    where
+        queryParams = queryString req
+        pageParam = fromMaybe Nothing (lookup "page" queryParams)
 
 createCategory ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-createCategory hLogger pool token_lifetime req = do
-    let token' = E.decodeUtf8 <$> takeToken req
-    ct <- checkAdmin hLogger pool token_lifetime token'
-    case ct of
-        (False, bs) -> return $ responseBadRequest bs
-        (True, _) -> do
-            (i, _) <- parseRequestBody lbsBackEnd req
-            let category_name =
-                    T.toLower . E.decodeUtf8 <$> lookup "category_name" i
-            let maternal_category_name =
-                    T.toLower . E.decodeUtf8 <$>
-                    lookup "maternal_category_name" i
-            result <-
-                createCategoryOnDb
-                    hLogger
-                    pool
-                    category_name
-                    maternal_category_name
-            case result of
+createCategory hLogger pool token_lifetime req = 
+    if requestMethod req /= methodPost then do
+        logError hLogger "Bad request method"
+        return $ responseBadRequest "Bad method request"
+    else do
+        (i, _) <- parseRequestBody lbsBackEnd req
+        let token' = E.decodeUtf8 <$> takeToken req
+        let category_name = T.toLower . E.decodeUtf8 <$> lookup "category_name" i
+        let maternal_category_name = T.toLower . E.decodeUtf8 <$> lookup "maternal_category_name" i
+        result <- createCategoryOnDb hLogger pool token_lifetime token' category_name maternal_category_name
+        case result of
                 Left bs -> return $ responseBadRequest bs
                 Right bs -> return $ responseOk bs
 
 deleteCategory ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteCategory hLogger pool token_lifetime req = do
-    let token' = E.decodeUtf8 <$> takeToken req
-    ct <- checkAdmin hLogger pool token_lifetime token'
-    case ct of
-        (False, bs) -> return $ responseBadRequest bs
-        (True, _) -> do
-            (i, _) <- parseRequestBody lbsBackEnd req
-            let category_name = E.decodeUtf8 <$> lookup "category_name" i
-            result <- deleteCategoryFromDb hLogger pool category_name
-            case result of
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+deleteCategory hLogger pool token_lifetime req = 
+    if requestMethod req /= methodDelete then do
+        logError hLogger "Bad request method"
+        return $ responseBadRequest "Bad method request"
+    else do
+        let token' = E.decodeUtf8 <$> takeToken req
+        (i, _) <- parseRequestBody lbsBackEnd req
+        let category_name = E.decodeUtf8 <$> lookup "category_name" i
+        result <- deleteCategoryFromDb hLogger pool token_lifetime token' category_name
+        case result of
+            Left bs -> return $ responseBadRequest bs
+            Right bs -> return $ responseOk bs
 
 editCategory ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 editCategory hLogger pool token_lifetime req = do
-    let token' = E.decodeUtf8 <$> takeToken req
-    ct <- checkAdmin hLogger pool token_lifetime token'
-    case ct of
-        (False, bs) -> return $ responseBadRequest bs
-        (True, _) -> do
-            (i, _) <- parseRequestBody lbsBackEnd req
-            let category_name = E.decodeUtf8 <$> lookup "category_name" i
-            let new_maternal_parametr = E.decodeUtf8 <$> lookup "new_maternal" i
-            let new_name_parametr = E.decodeUtf8 <$> lookup "new_name" i
-            result <-
-                editCategoryOnDb
-                    hLogger
-                    pool
-                    category_name
-                    new_name_parametr
-                    new_maternal_parametr
-            case result of
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+    if requestMethod req /= methodPut then do
+        logError hLogger "Bad request method"
+        return $ responseBadRequest "Bad method request"
+    else do
+        let token' = E.decodeUtf8 <$> takeToken req
+        (i, _) <- parseRequestBody lbsBackEnd req
+        let category_name = E.decodeUtf8 <$> lookup "category_name" i
+        let new_maternal_parametr = E.decodeUtf8 <$> lookup "new_maternal" i
+        let new_name_parametr = E.decodeUtf8 <$> lookup "new_name" i
+        result <- editCategoryOnDb hLogger pool token_lifetime token' category_name new_name_parametr new_maternal_parametr
+        case result of
+            Left bs -> return $ responseBadRequest bs
+            Right bs -> return $ responseOk bs
 
 categoriesBlock ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
