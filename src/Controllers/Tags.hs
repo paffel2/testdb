@@ -10,38 +10,45 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.CheckAdmin (checkAdmin)
 import Databaseoperations.Tags
     ( createTagInDb
     , deleteTagFromDb
     , getTagsListFromDb
     )
 import FromRequest (takeToken)
-import Logger (Handle)
-import Network.Wai (Request(queryString, rawPathInfo), Response)
+import Logger (Handle, logError)
+import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
+import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
 import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (TokenLifeTime)
 
 sendTagsList :: Handle -> Pool Connection -> Request -> IO Response
-sendTagsList hLogger pool req = do
-    tags_list <- getTagsListFromDb hLogger pool page
-    case tags_list of
-        Left bs -> return $ responseBadRequest bs
-        Right tl -> return $ responseOKJSON $ encode tl
+sendTagsList hLogger pool req =
+    if requestMethod req /= methodGet
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            tags_list <- getTagsListFromDb hLogger pool page
+            case tags_list of
+                Left bs -> return $ responseBadRequest bs
+                Right tl -> return $ responseOKJSON $ encode tl
   where
     page = fromMaybe Nothing (lookup "page" $ queryString req)
 
 newTag :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-newTag hLogger pool token_lifetime req = do
-    let token' = E.decodeUtf8 <$> takeToken req
-    c_a <- checkAdmin hLogger pool token_lifetime token'
-    case c_a of
-        (False, bs) -> return $ responseBadRequest bs
-        (True, _) -> do
+newTag hLogger pool token_lifetime req =
+    if requestMethod req /= methodPost
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            let token' = E.decodeUtf8 <$> takeToken req
             let tag_name_param =
                     T.toLower . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "tag_name" $ queryString req)
-            result <- createTagInDb hLogger pool tag_name_param
+            result <-
+                createTagInDb hLogger pool token_lifetime token' tag_name_param
             case result of
                 Left bs -> return $ responseBadRequest bs
                 Right n ->
@@ -49,16 +56,23 @@ newTag hLogger pool token_lifetime req = do
 
 deleteTag ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteTag hLogger pool token_lifetime req = do
-    let token' = E.decodeUtf8 <$> takeToken req
-    c_a <- checkAdmin hLogger pool token_lifetime token'
-    case c_a of
-        (False, bs) -> return $ responseBadRequest bs
-        (True, _) -> do
+deleteTag hLogger pool token_lifetime req =
+    if requestMethod req /= methodDelete
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            let token' = E.decodeUtf8 <$> takeToken req
             let tag_name_param =
                     T.toLower . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "tag_name" $ queryString req)
-            result <- deleteTagFromDb hLogger pool tag_name_param
+            result <-
+                deleteTagFromDb
+                    hLogger
+                    pool
+                    token_lifetime
+                    token'
+                    tag_name_param
             case result of
                 Left bs -> return $ responseBadRequest bs
                 Right bs -> return $ responseOk bs

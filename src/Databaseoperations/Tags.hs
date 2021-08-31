@@ -15,30 +15,37 @@ import Database.PostgreSQL.Simple
     , Only(fromOnly)
     , SqlError(sqlErrorMsg, sqlState)
     )
+import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types (TagsList(TagsList))
+import Types (TagsList(TagsList), TokenLifeTime)
 
 createTagInDb ::
        Handle
     -> Pool Connection
+    -> TokenLifeTime
+    -> Maybe T.Text
     -> Maybe T.Text
     -> IO (Either LBS.ByteString Int)
-createTagInDb hLogger _ Nothing = do
+createTagInDb hLogger _ _ _ Nothing = do
     logError hLogger "No tag_name parameter"
     return $ Left "No tag_name parameter"
-createTagInDb hLogger pool (Just tag_name') =
+createTagInDb hLogger pool token_lifetime token' (Just tag_name') =
     catch
         (do logInfo hLogger "Creating new tag"
-            rows <- queryWithPool pool q [tag_name'] :: IO [Only Int]
-            if Prelude.null rows
-                then do
-                    logError hLogger "Tag not created"
-                    return $ Left "Tag not created"
-                else do
-                    logInfo hLogger "Tag created"
-                    return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
+            ch <- checkAdmin hLogger pool token_lifetime token'
+            case ch of
+                (False, bs) -> return $ Left bs
+                (True, _) -> do
+                    rows <- queryWithPool pool q [tag_name'] :: IO [Only Int]
+                    if Prelude.null rows
+                        then do
+                            logError hLogger "Tag not created"
+                            return $ Left "Tag not created"
+                        else do
+                            logInfo hLogger "Tag created"
+                            return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
         let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -54,23 +61,30 @@ createTagInDb hLogger pool (Just tag_name') =
 deleteTagFromDb ::
        Handle
     -> Pool Connection
+    -> TokenLifeTime
+    -> Maybe T.Text
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)
-deleteTagFromDb hLogger _ Nothing = do
+deleteTagFromDb hLogger _ _ _ Nothing = do
     logError hLogger "No tag_name parameter"
     return $ Left "No tag_name parameter"
-deleteTagFromDb hLogger pool (Just tag_name') =
+deleteTagFromDb hLogger pool token_lifetime token' (Just tag_name') =
     catch
         (do logInfo hLogger $ T.concat ["Deleting tag ", tag_name']
-            n <- executeWithPool pool q [tag_name']
-            if n > 0
-                then do
-                    logInfo hLogger $ T.concat ["Tag ", tag_name', " deleted"]
-                    return $ Right "Tag deleted"
-                else do
-                    logError hLogger $
-                        T.concat ["Tag ", tag_name', " not deleted"]
-                    return $ Right "Tag not deleted") $ \e -> do
+            ch <- checkAdmin hLogger pool token_lifetime token'
+            case ch of
+                (False, bs) -> return $ Left bs
+                (True, _) -> do
+                    n <- executeWithPool pool q [tag_name']
+                    if n > 0
+                        then do
+                            logInfo hLogger $
+                                T.concat ["Tag ", tag_name', " deleted"]
+                            return $ Right "Tag deleted"
+                        else do
+                            logError hLogger $
+                                T.concat ["Tag ", tag_name', " not deleted"]
+                            return $ Right "Tag not deleted") $ \e -> do
         let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

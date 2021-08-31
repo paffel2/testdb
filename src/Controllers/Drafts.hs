@@ -10,19 +10,24 @@ import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Binary(Binary), Connection)
 import Databaseoperations.Drafts
-    ( checkAuthor
-    , createDraftOnDb'
+    ( createDraftOnDb'
     , deleteDraftFromDb
     , getDraftByIdFromDb
     , getDraftsByAuthorToken
     , publicNewsOnDb
-    , updateDraftInDb'
     , publicNewsOnDb
+    , updateDraftInDb'
     )
 import FromRequest (takeToken, toImage)
 import HelpFunction (foundParametr, readByteStringToInt)
 import Logger (Handle, logError, logInfo)
-import Network.Wai (Request(queryString,requestMethod, rawPathInfo), Response)
+import Network.HTTP.Types.Method
+    ( methodDelete
+    , methodGet
+    , methodPost
+    , methodPut
+    )
+import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse
     ( FileInfo(fileContent)
     , lbsBackEnd
@@ -31,83 +36,98 @@ import Network.Wai.Parse
     )
 import Responses (responseBadRequest, responseOKJSON, responseOk)
 import Types (Image(Image, image_content_type), TokenLifeTime)
-import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost, methodPut)
 
 sendDrafts ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 sendDrafts hLogger pool token_liferime req =
-    if requestMethod req /= methodGet then do
-        logError hLogger "Bad request method"
-        return $ responseBadRequest "Bad method request"
-    else do
-        let token' = E.decodeUtf8 <$> takeToken req
-        drafts' <- getDraftsByAuthorToken hLogger pool token_liferime token'
-        case drafts' of
-            Left bs -> return $ responseBadRequest bs
-            Right draftsA -> do
-                logInfo hLogger "Sending drafts to user"
-                return $ responseOKJSON (encode draftsA)
+    if requestMethod req /= methodGet
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            let token' = E.decodeUtf8 <$> takeToken req
+            drafts' <- getDraftsByAuthorToken hLogger pool token_liferime token'
+            case drafts' of
+                Left bs -> return $ responseBadRequest bs
+                Right draftsA -> do
+                    logInfo hLogger "Sending drafts to user"
+                    return $ responseOKJSON (encode draftsA)
 
 createDraft ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 createDraft hLogger pool token_lifetime req =
-    if requestMethod req /= methodPost then do
-        logError hLogger "Bad request method"
-        return $ responseBadRequest "Bad method request"
-    else do 
-        (i, f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-        let main'_image = foundParametr "main_image" f
-        let images = foundParametr "images" f
-        let main_image_triple = if fileContent (Prelude.head main'_image) == "" then Nothing
-                else Just $ toImage $ Prelude.head main'_image
-        let images_list = if fileContent (Prelude.head images) == ""
-                then Nothing
-                else Just $ toImage <$> images
-        let con_type = any (/= "image") (BC.take 5 . image_content_type <$> fromMaybe [Image "" "" (Binary "")] images_list)
-        if ((BC.take
-             5
-             (image_content_type $
-              fromMaybe (Image "" "" (Binary "")) main_image_triple) /=
-         "image") && main_image_triple /= Just (Image "" "" (Binary ""))) || (fromMaybe [] images_list /= [] && con_type)
-            then do
-                logError hLogger "Bad image file"
-                return $ responseBadRequest "Bad image file"
-            else do
-                let token' = takeToken req
-                let category = E.decodeUtf8 <$> lookup "category" i
-                let tags_list = lookup "tags" i
-                let short'_title = E.decodeUtf8 <$> lookup "short_title" i
-                let text = E.decodeUtf8 <$> lookup "news_text" i
-                result <-
-                    createDraftOnDb'
-                        hLogger
-                        pool
-                        token_lifetime
-                        token'
-                        category
-                        tags_list
-                        short'_title
-                        text
-                        main_image_triple
-                        images_list
-                case result of
-                    Left bs -> return $ responseBadRequest bs
-                    Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
-
+    if requestMethod req /= methodPost
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            (i, f) <-
+                parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            let main'_image = foundParametr "main_image" f
+            let images = foundParametr "images" f
+            let main_image_triple =
+                    if fileContent (Prelude.head main'_image) == ""
+                        then Nothing
+                        else Just $ toImage $ Prelude.head main'_image
+            let images_list =
+                    if fileContent (Prelude.head images) == ""
+                        then Nothing
+                        else Just $ toImage <$> images
+            let con_type =
+                    any
+                        (/= "image")
+                        (BC.take 5 . image_content_type <$>
+                         fromMaybe [Image "" "" (Binary "")] images_list)
+            if ((BC.take
+                     5
+                     (image_content_type $
+                      fromMaybe (Image "" "" (Binary "")) main_image_triple) /=
+                 "image") &&
+                main_image_triple /= Just (Image "" "" (Binary ""))) ||
+               (fromMaybe [] images_list /= [] && con_type)
+                then do
+                    logError hLogger "Bad image file"
+                    return $ responseBadRequest "Bad image file"
+                else do
+                    let token' = takeToken req
+                    let category = E.decodeUtf8 <$> lookup "category" i
+                    let tags_list = lookup "tags" i
+                    let short'_title = E.decodeUtf8 <$> lookup "short_title" i
+                    let text = E.decodeUtf8 <$> lookup "news_text" i
+                    result <-
+                        createDraftOnDb'
+                            hLogger
+                            pool
+                            token_lifetime
+                            token'
+                            category
+                            tags_list
+                            short'_title
+                            text
+                            main_image_triple
+                            images_list
+                    case result of
+                        Left bs -> return $ responseBadRequest bs
+                        Right n ->
+                            return $
+                            responseOk $ LBS.fromStrict $ BC.pack $ show n
 
 deleteDraft ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteDraft hLogger pool token_lifetime req =
-    if requestMethod req /= methodDelete then do
-        logError hLogger "Bad request method"
-        return $ responseBadRequest "Bad method request"
-    else do
-        let token' = E.decodeUtf8 <$> takeToken req
-        let draft_id = fromMaybe Nothing (lookup "draft_id" $ queryString req)
-        result <- deleteDraftFromDb hLogger pool token_lifetime token' draft_id
-        case result of
-            Left bs -> return $ responseBadRequest bs
-            Right bs -> return $ responseOk bs
+    if requestMethod req /= methodDelete
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            let token' = E.decodeUtf8 <$> takeToken req
+            let draft_id =
+                    fromMaybe Nothing (lookup "draft_id" $ queryString req)
+            result <-
+                deleteDraftFromDb hLogger pool token_lifetime token' draft_id
+            case result of
+                Left bs -> return $ responseBadRequest bs
+                Right bs -> return $ responseOk bs
 
 getDraftById ::
        Handle
@@ -116,16 +136,18 @@ getDraftById ::
     -> Int
     -> Request
     -> IO Response
-getDraftById hLogger pool token_lifetime draft_id req = 
-    if requestMethod req /= methodGet then do
-        logError hLogger "Bad request method"
-        return $ responseBadRequest "Bad method request"
-    else do
-        let token' = E.decodeUtf8 <$> takeToken req
-        result <- getDraftByIdFromDb hLogger pool token_lifetime token' draft_id
-        case result of
-            Left bs -> return $ responseBadRequest bs
-            Right draft -> return $ responseOKJSON $ encode draft
+getDraftById hLogger pool token_lifetime draft_id req =
+    if requestMethod req /= methodGet
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            let token' = E.decodeUtf8 <$> takeToken req
+            result <-
+                getDraftByIdFromDb hLogger pool token_lifetime token' draft_id
+            case result of
+                Left bs -> return $ responseBadRequest bs
+                Right draft -> return $ responseOKJSON $ encode draft
 
 updateDraft ::
        Handle
@@ -134,45 +156,61 @@ updateDraft ::
     -> Int
     -> Request
     -> IO Response
-updateDraft hLogger pool token_lifetime draft_id req = 
-    if requestMethod req /= methodPut then do
-        logError hLogger "Bad request method"
-        return $ responseBadRequest "Bad method request"
-    else do
-        let token' = takeToken req
-        (i, f) <- parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-        let main'_image = foundParametr "main_image" f
-        let images = foundParametr "images" f
-        let main_image_triple = if fileContent (Prelude.head main'_image) == "" then Nothing
-                else Just $ toImage $ Prelude.head main'_image
-        let images_list = if fileContent (Prelude.head images) == "" then Nothing
-                else Just $ toImage <$> images
-        let category = E.decodeUtf8 <$> lookup "category" i
-        let tags_list = lookup "tags" i
-        let short'_title = E.decodeUtf8 <$> lookup "short_title" i
-        let text = E.decodeUtf8 <$> lookup "news_text" i
-        let con_type = any (/= "image") (BC.take 5 . image_content_type <$> fromMaybe [Image "" "" (Binary "")] images_list)
-        if ((BC.take 5 (image_content_type $ fromMaybe (Image "" "" (Binary "")) main_image_triple) /= "image") && main_image_triple /= Just (Image "" "" (Binary ""))) || (fromMaybe [] images_list /= [] && con_type)
+updateDraft hLogger pool token_lifetime draft_id req =
+    if requestMethod req /= methodPut
         then do
-            logError hLogger "Bad image file"
-            return $ responseBadRequest "Bad image file"
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
         else do
-            result <-
-                updateDraftInDb'
-                    hLogger
-                    pool
-                    token_lifetime
-                    token'
-                    category
-                    tags_list
-                    short'_title
-                    text
-                    main_image_triple
-                    images_list
-                    draft_id
-            case result of
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+            let token' = takeToken req
+            (i, f) <-
+                parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            let main'_image = foundParametr "main_image" f
+            let images = foundParametr "images" f
+            let main_image_triple =
+                    if fileContent (Prelude.head main'_image) == ""
+                        then Nothing
+                        else Just $ toImage $ Prelude.head main'_image
+            let images_list =
+                    if fileContent (Prelude.head images) == ""
+                        then Nothing
+                        else Just $ toImage <$> images
+            let category = E.decodeUtf8 <$> lookup "category" i
+            let tags_list = lookup "tags" i
+            let short'_title = E.decodeUtf8 <$> lookup "short_title" i
+            let text = E.decodeUtf8 <$> lookup "news_text" i
+            let con_type =
+                    any
+                        (/= "image")
+                        (BC.take 5 . image_content_type <$>
+                         fromMaybe [Image "" "" (Binary "")] images_list)
+            if ((BC.take
+                     5
+                     (image_content_type $
+                      fromMaybe (Image "" "" (Binary "")) main_image_triple) /=
+                 "image") &&
+                main_image_triple /= Just (Image "" "" (Binary ""))) ||
+               (fromMaybe [] images_list /= [] && con_type)
+                then do
+                    logError hLogger "Bad image file"
+                    return $ responseBadRequest "Bad image file"
+                else do
+                    result <-
+                        updateDraftInDb'
+                            hLogger
+                            pool
+                            token_lifetime
+                            token'
+                            category
+                            tags_list
+                            short'_title
+                            text
+                            main_image_triple
+                            images_list
+                            draft_id
+                    case result of
+                        Left bs -> return $ responseBadRequest bs
+                        Right bs -> return $ responseOk bs
 
 publicNews ::
        Handle
@@ -181,16 +219,18 @@ publicNews ::
     -> Int
     -> Request
     -> IO Response
-publicNews hLogger pool token_lifetime draft_id req = 
-    if requestMethod req /= methodPut then do
-        logError hLogger "Bad request method"
-        return $ responseBadRequest "Bad method request"
-    else do
-        let token' = E.decodeUtf8 <$> takeToken req
-        result <- publicNewsOnDb hLogger pool token_lifetime token' draft_id
-        case result of
-            Left bs -> return $ responseBadRequest bs
-            Right n -> return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
+publicNews hLogger pool token_lifetime draft_id req =
+    if requestMethod req /= methodPut
+        then do
+            logError hLogger "Bad request method"
+            return $ responseBadRequest "Bad method request"
+        else do
+            let token' = E.decodeUtf8 <$> takeToken req
+            result <- publicNewsOnDb hLogger pool token_lifetime token' draft_id
+            case result of
+                Left bs -> return $ responseBadRequest bs
+                Right n ->
+                    return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
 
 draftsBlock ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response

@@ -5,12 +5,12 @@ module HelpFunction where
 import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
+import Data.Maybe (fromMaybe)
 import Data.String (IsString(fromString))
 import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
 import Text.Read (readMaybe)
-import Data.Maybe (fromMaybe)
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -28,8 +28,7 @@ foundParametr _ [] = []
 readByteStringToInt :: BC.ByteString -> Maybe Int
 readByteStringToInt num = readMaybe $ BC.unpack num
 
-
-readByteStringToInt' :: BC.ByteString -> Int 
+readByteStringToInt' :: BC.ByteString -> Int
 readByteStringToInt' num = fromMaybe (-1) $ readByteStringToInt num
 
 readByteStringListInt :: BC.ByteString -> Maybe [Int]

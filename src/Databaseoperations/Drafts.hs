@@ -16,9 +16,6 @@ import Database.PostgreSQL.Simple
     , In(In)
     , Only(..)
     , SqlError(sqlErrorMsg, sqlState)
-    , close
-    , connectPostgreSQL
-    , execute, ConnectInfo
     )
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError, logInfo)
@@ -35,7 +32,6 @@ import Types
     , TokenLifeTime
     , TokenProfile(TokenProfile)
     )
-
 
 {-checkAuthor :: Handle -> Maybe T.Text -> IO (Either LBS.ByteString Int)
 checkAuthor hLogger Nothing = do
@@ -126,37 +122,43 @@ getDraftsByAuthorToken hLogger pool token_lifetime (Just token') =
             , "where token = ? and (now() - tokens.creation_date) < make_interval(secs => ?) group by draft_id"
             ]
 
-
 deleteDraftFromDb ::
        Handle
     -> Pool Connection
-    -> TokenLifeTime 
+    -> TokenLifeTime
     -> Maybe T.Text
     -> Maybe ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
-deleteDraftFromDb hLogger _ _ _  Nothing = do
+deleteDraftFromDb hLogger _ _ _ Nothing = do
     logError hLogger "No draft_id parameter"
     return $ Left "No draft_id parameter"
-deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) = catch(do
-    ch <- checkAuthor hLogger pool token_lifetime token'
-    case ch of 
-        Left bs -> return $ Left bs
-        Right author_id -> do
-            let q =  "delete from drafts where draft_id = ? and author_id = ?"
-            let dr_id = fromMaybe (-1) $ readByteStringToInt draft_id
-            n <- executeWithPool pool q (dr_id, author_id)
-            if n > 0 then do
-                logInfo hLogger $ T.concat ["Draft ", T.pack $ show dr_id, " deleted"]
-                return $ Right "Draft deleted"
-            else do
-                logError hLogger "Deleting not existing draft or bad draft_id parameter"
-                return $ Left "Draft not exist or bad draft_id parameter" ) $ \e -> do
-                                        let err = E.decodeUtf8 $ sqlErrorMsg e
-                                        let errState = sqlState e
-                                        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                                        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
-                                        return $ Left "Database error"
-
+deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) =
+    catch
+        (do ch <- checkAuthor hLogger pool token_lifetime token'
+            case ch of
+                Left bs -> return $ Left bs
+                Right author_id -> do
+                    let q =
+                            "delete from drafts where draft_id = ? and author_id = ?"
+                    let dr_id = fromMaybe (-1) $ readByteStringToInt draft_id
+                    n <- executeWithPool pool q (dr_id, author_id)
+                    if n > 0
+                        then do
+                            logInfo hLogger $
+                                T.concat
+                                    ["Draft ", T.pack $ show dr_id, " deleted"]
+                            return $ Right "Draft deleted"
+                        else do
+                            logError
+                                hLogger
+                                "Deleting not existing draft or bad draft_id parameter"
+                            return $
+                                Left "Draft not exist or bad draft_id parameter") $ \e -> do
+        let err = E.decodeUtf8 $ sqlErrorMsg e
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        return $ Left "Database error"
     {-catch
         (do let draft_id_int = readByteStringToInt draft_id
             case draft_id_int of
@@ -184,9 +186,6 @@ deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) = catch(do
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
         return $ Left "Database error"-}
-
-
-
 
 getDraftByIdFromDb ::
        Handle
@@ -596,9 +595,13 @@ getTagsIds hLogger pool tags_bs = do
         else do
             return $ Right $ fromOnly <$> rows
 
-
 publicNewsOnDb ::
-       Handle -> Pool Connection -> TokenLifeTime -> Maybe T.Text -> Int -> IO (Either LBS.ByteString Int)
+       Handle
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Maybe T.Text
+    -> Int
+    -> IO (Either LBS.ByteString Int)
 publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
     ch <- checkAuthor hLogger pool token_lifetime token'
     case ch of
