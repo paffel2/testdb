@@ -3,11 +3,7 @@
 module Router where
 
 import ControllersHandle
-    ( ControllersHandle(categories_handler, delete_user_handler,
-                  draft_handler, image_handler, login_handler, new_draft_handler,
-                  news_and_comments_handler, profile_handler, registration_handler,
-                  tags_handler)
-    )
+
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (createPool)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
@@ -15,15 +11,17 @@ import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo))
 import Responses (responseBadRequest)
 import Types (DatabaseAddress, TokenLifeTime)
+--import Controllers.InitDb
 
 routes ::
        Handle
     -> DatabaseAddress
+    -> DatabaseAddress
     -> TokenLifeTime
     -> ControllersHandle
     -> Application
-routes hLogger db_address token_lifetime methods req respond = do
-    pool <- createPool (connectPostgreSQL db_address) close 1 5 10
+routes hLogger db_address db_server_address token_lifetime methods req respond = do
+    pool <- createPool (connectPostgreSQL db_address) close 1 10 10
     case pathHead of
         "news" ->
             news_and_comments_handler methods hLogger pool token_lifetime req >>=
@@ -47,6 +45,7 @@ routes hLogger db_address token_lifetime methods req respond = do
         "tags" ->
             tags_handler methods hLogger pool token_lifetime req >>= respond
         "image" -> image_handler methods hLogger pool req >>= respond
+        "initDb" -> initDb_handler methods hLogger pool db_server_address req >>= respond
         _ -> badUrlRespond
   where
     path = BC.tail $ rawPathInfo req

@@ -11,6 +11,8 @@ import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
 import Text.Read (readMaybe)
+import System.Directory ( getDirectoryContents )
+import Data.List ( sort )
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -61,3 +63,42 @@ dbAddress confDb =
         , db_name confDb
         , "'"
         ]
+dbServerAddress :: ConfigModules -> BC.ByteString 
+dbServerAddress confDb = 
+    BC.concat
+        [ "host="
+        , db_host confDb
+        , " port="
+        , db_port confDb
+        , " user='"
+        , db_login confDb
+        , "' password='"
+        , db_password confDb
+        , "'" 
+        ]
+
+
+getFiles :: IO [FilePath]
+getFiles = do
+    list <- getDirectoryContents "sql/img"
+    let cleanList = takeWhile (\x -> takeEnd 4 x == ".jpg" ) list
+    return $ sort cleanList
+
+
+takeEnd :: Int -> [a] -> [a]
+takeEnd n x = reverse $ take n (reverse x) 
+tstTakeEnd :: [Char]
+tstTakeEnd = takeEnd 4 "img (1).jpg"
+
+sumStrings :: String -> [String] -> [String]
+sumStrings y (x:xs) = (y ++ x) : sumStrings y xs
+sumStrings _ [] = [] 
+
+
+tst :: [String]
+tst = sumStrings "123" ["13","24"]
+
+toPairList :: [a] -> [b] -> [(a, b)]
+toPairList (x:xs) (y:ys) = (x,y) : toPairList xs ys
+toPairList _ [] = []
+toPairList [] _ = []

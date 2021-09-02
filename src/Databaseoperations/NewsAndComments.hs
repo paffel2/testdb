@@ -70,10 +70,10 @@ addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) =
                 else do
                     logError hLogger "Comment not added"
                     return $ Right "Comment not added") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23503 -> return $ Left "News not exist"
             23502 -> return $ Left "Bad token"
@@ -110,8 +110,11 @@ deleteCommentFromDb hLogger pool token_lifetime token' (Just comment_id) = do
                         else do
                             logError hLogger "Comment not deleted"
                             return $ Left "Comment not deleted") $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                --let err = E.decodeUtf8 $ sqlErrorMsg e
+                --logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
 
 getCommentsByNewsIdFromDb ::
@@ -132,10 +135,10 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
                     ]
             rows <- queryWithPool pool q [news_id]
             return (Right $ CommentArray rows)) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23503 -> return $ Left "News not exist"
             23502 -> return $ Left "Bad token"
@@ -184,8 +187,9 @@ getNewsByIdFromDb hLogger pool (Just news'_id) =
                         T.concat
                             ["Sending news with id = ", T.pack $ show news'_id]
                     return $ Right $ Prelude.head rows) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
   where
     q =
@@ -221,8 +225,9 @@ getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
             catch
                 (do rows <- queryWithPool pool q (Only (In n))
                     return (Right $ NewsArray rows)) $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
   where
     pg =
@@ -266,8 +271,9 @@ getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
             catch
                 (do rows <- queryWithPool pool q [n]
                     return (Right $ NewsArray rows)) $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
   where
     sort' =
@@ -310,8 +316,9 @@ getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
         (do logInfo hLogger "Someone try get news list filtered by title"
             rows <- queryWithPool pool q [titleName]
             return (Right $ NewsArray rows)) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
   where
     sort' =
@@ -406,8 +413,9 @@ getNewsFilterByDateFromDb hLogger pool (Just date) page_p sortParam = do
             catch
                 (do rows <- queryWithPool pool q [day]
                     return (Right $ NewsArray rows)) $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
   where
     sort' =
@@ -468,8 +476,9 @@ getNewsFilterByTagAllFromDb hLogger pool (Just tag_lst) page_p sortParam = do
                                 ]
                     rows <- queryWithPool pool q (Only (In tag_list))
                     return (Right $ NewsArray rows)) $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
   where
     sort' =
@@ -503,8 +512,9 @@ getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
         (do logInfo hLogger "Someone try get news list filtered by content"
             rows <- queryWithPool pool q [BC.concat ["%", content_c, "%"]]
             return (Right $ NewsArray rows)) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
   where
     sort' =
@@ -553,8 +563,9 @@ getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
             catch
                 (do rows <- queryWithPool pool q [day]
                     return (Right $ NewsArray rows)) $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
   where
     sort' =
@@ -605,8 +616,9 @@ getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
             catch
                 (do rows <- queryWithPool pool q [day]
                     return (Right $ NewsArray rows)) $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
   where
     sort' =
@@ -654,8 +666,9 @@ getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
             catch
                 (do rows <- queryWithPool pool q [n]
                     return (Right $ NewsArray rows)) $ \e -> do
-                let err = E.decodeUtf8 $ sqlErrorMsg e
-                logError hLogger err
+                let errState = sqlState e
+                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+                logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
                 return $ Left "Database error"
   where
     sort' =
@@ -694,8 +707,9 @@ getNewsFromDb hLogger pool sortParam pageParam =
         (do logInfo hLogger "Someone try get news list"
             rows <- query_WithPool pool q
             return $ Right (NewsArray rows)) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
   where
     sort' =

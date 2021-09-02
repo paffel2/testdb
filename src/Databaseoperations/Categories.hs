@@ -8,12 +8,8 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple
-    ( Connection
-    , Only(Only, fromOnly)
-    , SqlError(sqlErrorMsg, sqlState)
-    )
+import Database.PostgreSQL.Simple (Connection, Only(..), SqlError(sqlState))
+
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
@@ -34,9 +30,13 @@ getCategoriesListFromDb hLogger pool pageParam =
     catch
         (do logInfo hLogger "Someone try get list of categories"
             rows <- query_WithPool pool q
-            return $ Right (ListOfCategories rows)) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+            return $ Right (ListOfCategories rows)) $ \e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
   where
     pg =
@@ -76,11 +76,13 @@ createCategoryOnDb hLogger pool token_lifetime token' (Just category'_name) (Jus
                 (True, _) -> do
                     if maternal_name == ""
                         then createWithoutMaternal
-                        else createWithMaternal) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+                        else createWithMaternal) $ \e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger err
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23505 -> return $ Left "Category already exist"
             _ -> return $ Left "Database error"
@@ -147,8 +149,10 @@ deleteCategoryFromDb hLogger pool token_lifetime token (Just categoryName) =
                                 T.concat
                                     ["Category ", categoryName, " not exist"]
                             return $ Right "Category not exist") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
 
 editCategoryOnDb ::
@@ -187,11 +191,13 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
-                            return $ Left "Category not exist") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+                            return $ Left "Category not exist") $ \e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23505 -> return $ Left "Category already exist"
             _ -> return $ Left "Database error"
@@ -219,11 +225,13 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just "") (Ju
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
-                            return $ Left "Category not exist") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+                            return $ Left "Category not exist") $ \e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23503 -> return $ Left "Maternal category not exist"
             _ -> return $ Left "Database error"
@@ -259,11 +267,13 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
-                            return $ Left "Category not exist") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+                            return $ Left "Category not exist") $ \e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23505 -> return $ Left "Category already exist"
             23503 -> return $ Left "Maternal category not exist"

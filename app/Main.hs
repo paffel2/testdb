@@ -11,7 +11,7 @@ import Config
     , getTkConfig
     , newConfigHandle
     )
-import HelpFunction (dbAddress)
+import HelpFunction (dbAddress, dbServerAddress)
 import Logger (Handle(Handle), logInfo, printLog)
 import Network.Wai.Handler.Warp
     ( defaultSettings
@@ -32,9 +32,10 @@ main = do
     let db_address = dbAddress confDb
     let token_lifetime = lifeTime confToken
     let hLogger = Handle (log_priority confLogger) printLog
+    let db_server_address = dbServerAddress confDb
     logInfo hLogger "Serving"
     runSettings
         (setMaximumBodyFlush (server_maximum_body_flush confServer) $
          setPort (server_port confServer) defaultSettings) $
-        routes hLogger db_address token_lifetime handler
+        routes hLogger db_address db_server_address token_lifetime handler
 

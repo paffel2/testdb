@@ -27,6 +27,13 @@
             "command" : "stack exec testdb-exe",
             "problemMatcher" : []
         }
+        ,
+        {
+            "label" : "exec with cyrillic",
+            "type" : "shell",
+            "command" : "chcp 65001; stack exec testdb-exe",
+            "problemMatcher" : []
+        }
 
     ]
 }

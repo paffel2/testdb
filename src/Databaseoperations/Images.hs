@@ -9,8 +9,8 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple (Connection, SqlError(sqlErrorMsg, sqlState))
+import Database.PostgreSQL.Simple
+    ( Connection, SqlError(sqlState) )
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError, logInfo)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
@@ -30,10 +30,9 @@ getPhoto hLogger pool image_id =
             if Prelude.null rows
                 then return $ Left "Image not exist"
                 else return $ Right $ Prelude.head rows) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
 
 getPhotoList ::
@@ -46,10 +45,9 @@ getPhotoList hLogger pool pageParam =
         (do logInfo hLogger "Someone try get photo list"
             rows <- query_WithPool pool q :: IO [ElemImageArray]
             return $ Right (ImageArray rows)) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
   where
     pg =

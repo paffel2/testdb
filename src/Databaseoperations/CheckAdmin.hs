@@ -6,15 +6,13 @@ import Control.Exception (catch)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Pool (Pool)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple
-    ( Connection
-    , Only(fromOnly)
-    , SqlError(sqlErrorMsg)
-    )
+    ( Connection, Only(fromOnly), SqlError(sqlState) )
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool)
 import Types (TokenLifeTime)
+import HelpFunction ( readByteStringToInt )
+import Data.Maybe ( fromMaybe )
 
 checkAdmin ::
        Handle
@@ -41,6 +39,8 @@ checkAdmin hLogger pool token_liferime (Just token') =
                     if admin'_mark
                         then return (admin'_mark, "")
                         else return (admin'_mark, "Not admin")) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return (False, "Database error")

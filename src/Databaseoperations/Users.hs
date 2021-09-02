@@ -12,10 +12,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Data.Time (UTCTime, getCurrentTime)
 import Database.PostgreSQL.Simple
-    ( Binary(Binary)
-    , Connection
-    , SqlError(sqlErrorMsg, sqlState)
-    )
+    ( Connection, Binary(Binary), SqlError(sqlState) )
+
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
@@ -51,8 +49,10 @@ authentication hLogger pool login password =
                     logError hLogger $
                         T.concat ["User with login ", login, " cant logged"]
                     return $ Left "Wrong login or password") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error in authentication"
   where
     q =
@@ -115,11 +115,11 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
                          else do
                              logError hLogger "Registration failed"
                              return $ Left "Registration failed") $ \e -> do
-                 let err = E.decodeUtf8 $ sqlErrorMsg e
+                 --let err = E.decodeUtf8 $ sqlErrorMsg e
                  let errState = sqlState e
                  let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                  logError hLogger $
-                     T.concat [err, " ", T.pack $ show errStateInt]
+                     T.concat ["Database error ", T.pack $ show errStateInt]
                  case errStateInt of
                      22001 -> return $ Left "One or more parameter too long"
                      23505 -> return $ Left "User with that login already exist"
@@ -183,8 +183,11 @@ deleteUserFromDb hLogger pool token_lifetime token login =
                                 LBS.concat
                                     ["User ", LBS.fromStrict login, " deleted"]
                         else return $ Left "User not exist") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        --logError hLogger err
         return $ Left "Database error"
 
 firstToken ::
@@ -207,8 +210,11 @@ firstToken hLogger pool login password =
                     logError hLogger $
                         T.concat ["User with login ", login, " cant logged"]
                     return $ Left "Wrong login or password") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        --logError hLogger err
         return $ Left "Database error"
   where
     q =
@@ -238,10 +244,10 @@ profileOnDb hLogger pool token_lifetime (Just token') =
                 else do
                     logInfo hLogger "Profile information sended"
                     return $ Right $ Prelude.head rows) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+        --let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat [err, " ", T.pack $ show errStateInt]
+        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23505 -> return $ Left "Category already exist"
             _ -> return $ Left "Database error"
