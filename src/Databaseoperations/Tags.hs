@@ -45,10 +45,14 @@ createTagInDb hLogger pool token_lifetime token' (Just tag_name') =
         --let err = E.decodeUtf8 $ sqlErrorMsg e
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error " ,T.pack $ show errStateInt]
+        --logError hLogger $ T.concat ["Database error " ,T.pack $ show errStateInt]
         case errStateInt of
-            23505 -> return $ Left "Tag already exist"
-            _ -> return $ Left "Database error"
+            23505 -> do
+                logError hLogger "Tag already exist"
+                return $ Left "Tag already exist"
+            _ -> do
+                logError hLogger $ T.concat ["Database error " ,T.pack $ show errStateInt]
+                return $ Left "Database error"
   where
     q =
         toQuery $

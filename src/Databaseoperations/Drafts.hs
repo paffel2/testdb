@@ -275,6 +275,7 @@ createDraftOnDb' hLogger pool token_lifetime (Just token') (Just category) (Just
                             , " ? ,now(),(select category_id from get_c),"
                             , " ?) returning draft_id"
                             ]
+                logDebug hLogger "Insert draft info"
                 rows <-
                     queryWithPool pool q (category, short'_title, text) :: IO [Only Int]
                 if Prelude.null rows
@@ -282,12 +283,19 @@ createDraftOnDb' hLogger pool token_lifetime (Just token') (Just category) (Just
                         logError hLogger "Draft not created"
                         return $ Left "Draft not created"
                     else do
+                        logDebug hLogger "Draft info added"
                         return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
             --let err = E.decodeUtf8 $ sqlErrorMsg e
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
+            --logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+            case errStateInt of
+                23502 -> do
+                    logError hLogger "Bad token"
+                    return $ Left "Bad token"
+                _ -> do
+                    logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+                    return $ Left "Database error"
     createTagConnections (Left message) = return $ Left message
     createTagConnections (Right draft_id) =
         catch
@@ -302,12 +310,15 @@ createDraftOnDb' hLogger pool token_lifetime (Just token') (Just category) (Just
                                     ]
                         let a = Prelude.map (draft_id, ) ns
                         let nt = Prelude.length ns
+                        logDebug hLogger "Add tag connections"
                         n <- executeManyWithPool pool q a
                         if fromIntegral n < nt
                             then do
                                 logError hLogger "Some tags not added"
                                 return $ Left "Some tags not added"
-                            else return $ Right draft_id) $ \e -> do
+                            else do
+                                logDebug hLogger "Connections added"
+                                return $ Right draft_id) $ \e -> do
             --let err = E.decodeUtf8 $ sqlErrorMsg e
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -324,12 +335,15 @@ createDraftOnDb' hLogger pool token_lifetime (Just token') (Just category) (Just
                             , "update drafts set main_image = (select * from m_id) where draft_id = "
                             , BC.pack $ show draft_id
                             ]
+                logDebug hLogger "Load main image"
                 n <- executeWithPool pool q image
                 if n < 1
                     then do
                         logError hLogger "Image not loaded"
                         return $ Left "Image not loaded"
-                    else return $ Right draft_id) $ \e -> do
+                    else do
+                        logDebug hLogger "Main image loaded"
+                        return $ Right draft_id) $ \e -> do
             --let err = E.decodeUtf8 $ sqlErrorMsg e
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -348,6 +362,7 @@ createDraftOnDb' hLogger pool token_lifetime (Just token') (Just category) (Just
                             , " as draft_id, image_id from m_id) "
                             , "insert into drafts_images (draft_id,image_id) select * from d_i"
                             ]
+                logDebug hLogger "Load other images"
                 n <- executeManyWithPool pool q images
                 if fromIntegral n < Prelude.length images
                     then do

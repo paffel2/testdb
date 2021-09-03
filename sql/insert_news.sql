@@ -1,5 +1,5 @@
 insert into news(short_title,date_creation,author_id,category_id,news_text,main_image)
-values ('New album', now(),2,3,'It`d be easy to forget that Dethklok are seen as an animated band, since braintrust Brendon Small is such a skilled guitar player, 
+values ('New album', '2020-09-03',2,3,'It`d be easy to forget that Dethklok are seen as an animated band, since braintrust Brendon Small is such a skilled guitar player, 
 and the music isn`t secondary to the hilarious and bombastic plots of the show `Metalocalypse`. 
 Strip away the funny and fantastical elements of the `Metalocalypse` cartoon and listen to the music of `Dethalbum III`, 
 and it`ll become painfully obvious why metalheads love the show, the band and Small. First of all, the guitar riffs rip and snort. 
@@ -23,7 +23,7 @@ insert into news_images(news_id,image_id) values (1,17);
 insert into news_tags(news_id,tag_id) values (1,2),(1,3);
 
 insert into news(short_title,date_creation,author_id,category_id,news_text,main_image)
-values ('EURO 2020',now(),3,5,'BEST MOMENT
+values ('EURO 2020','2021-09-02',3,5,'BEST MOMENT
 It was beautiful, touching and uplifting, so soon after a near-tragedy.
 Shaken fans inside the Parken Stadium were waiting for updates after Denmark midfielder Christian Eriksen collapsed on the field during the game against Finland 
 when supporters from the Finnish contingent broke the eerie silence. “Christian! Christian!” they chanted.

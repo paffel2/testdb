@@ -46,6 +46,10 @@ routes hLogger db_address db_server_address token_lifetime methods req respond =
             tags_handler methods hLogger pool token_lifetime req >>= respond
         "image" -> image_handler methods hLogger pool req >>= respond
         "initDb" -> initDb_handler methods hLogger pool db_server_address req >>= respond
+        "new_author" ->
+            new_author_handler methods hLogger pool token_lifetime req >>= respond
+        "delete_author" -> 
+            delete_author_handler methods hLogger pool token_lifetime req >>= respond
         _ -> badUrlRespond
   where
     path = BC.tail $ rawPathInfo req

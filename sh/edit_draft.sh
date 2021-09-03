@@ -1,0 +1,2 @@
+#!/bin/bash
+curl  -X 'PUT' -G "http://localhost:8000/drafts/4/update_draft?token=qwerty5" -F 'category=sport' -F 'tags=victory' -F 'short_title=Reeegby' -F 'news_text=Amazing match' -F 'main_image=@img800.jpg' -F 'images=@img600.jpg' -F 'images=@img700.jpg'

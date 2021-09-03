@@ -11,7 +11,8 @@ import Database.PostgreSQL.Simple (Connection)
 import Logger (Handle)
 import Network.Wai (Request, Response)
 import Types ( DatabaseAddress, TokenLifeTime ) 
-import Controllers.InitDb
+import Controllers.InitDb ( initDbBlock )
+import Controllers.Authors
 
 data ControllersHandle =
     ControllersHandle
@@ -26,6 +27,8 @@ data ControllersHandle =
         , tags_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         , image_handler :: Handle -> Pool Connection -> Request -> IO Response
         , initDb_handler :: Handle -> Pool Connection -> DatabaseAddress -> Request -> IO Response
+        , new_author_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+        , delete_author_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         }
 
 handler :: ControllersHandle
@@ -42,4 +45,6 @@ handler =
         , tags_handler = tagsBlock
         , image_handler = imageBlock
         , initDb_handler = initDbBlock
+        , new_author_handler = newAuthor
+        , delete_author_handler = deleteAuthor
         }

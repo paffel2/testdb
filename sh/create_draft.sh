@@ -1,0 +1,2 @@
+#!/bin/bash
+curl  -X 'POST' -G "http://localhost:8000/new_draft?token=qwerty5" -F 'category=sport' -F 'tags=victory' -F 'short_title=Regby' -F 'news_text=Amazing match' -F 'main_image=@img800.jpg' -F 'images=@img600.jpg' -F 'images=@img700.jpg'

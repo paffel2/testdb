@@ -16,7 +16,7 @@ CREATE TABLE Users (
 
 CREATE TABLE Authors (
     author_id serial PRIMARY KEY,
-    user_id INT,
+    user_id INT UNIQUE NOT NULL,
     description varchar(50));
 
 CREATE TABLE categories (
