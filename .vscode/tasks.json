@@ -33,6 +33,12 @@
             "type" : "shell",
             "command" : "chcp 65001; stack exec testdb-exe",
             "problemMatcher" : []
+        },
+        {
+            "label": "tests",
+            "type": "shell",
+            "command": "stack test",
+            "problemMatcher": []
         }
 
     ]

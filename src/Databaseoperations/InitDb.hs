@@ -14,7 +14,7 @@ import Database.PostgreSQL.Simple
     , close
     , connectPostgreSQL
     )
-import HelpFunction (getFiles, sumStrings, toPairList, toQuery)
+import HelpFunction --(getFiles, sumStrings, toPairList, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
 import Types (DatabaseAddress)
@@ -100,10 +100,10 @@ fillImages (Right _) hLogger pool = do
             toQuery
                 "insert into images (image_name,image_b,content_type) values (?,? , 'image/jpeg')"
     files <- getFiles
-    filesLBS <- mapM LBS.readFile $ sumStrings "sql/img/" files
+    filesLBS <- mapM LBS.readFile $ ("sql/img/" ++) <$> files
     logDebug hLogger "Script readed and translated to query"
     logDebug hLogger "Start filling images"
-    let sendFiles = toPairList files $ Binary <$> filesLBS
+    let sendFiles = zip files $ Binary <$> filesLBS
     _ <- loadImages q sendFiles
     logDebug hLogger "Images loaded"
     return $ Right "Images loaded"

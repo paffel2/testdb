@@ -14,10 +14,9 @@ import Data.Pool (createPool)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
 import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo))
-import Responses (responseBadRequest, responseNotFound)
+import Responses ( responseNotFound )
 import Types (DatabaseAddress, TokenLifeTime)
 
---import Controllers.InitDb
 routes ::
        Handle
     -> DatabaseAddress

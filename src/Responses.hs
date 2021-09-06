@@ -44,4 +44,3 @@ responseImage contype = (`responseLBS` [(hContentType, contype)])
 
 responseOKImage :: BI.ByteString -> LBS.ByteString -> Response
 responseOKImage contype = responseImage contype status200
---responseCreated :: LBS.ByteString -> Response

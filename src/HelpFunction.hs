@@ -3,9 +3,8 @@
 module HelpFunction where
 
 import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
---import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe)
+--import Data.Maybe (fromMaybe)
 import Data.String (IsString(fromString))
 import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)
@@ -20,7 +19,7 @@ myLookup key ((x, _):xys)
     | key == x = Just key
     | otherwise = myLookup key xys
 
-foundParametr :: BC.ByteString -> [(BC.ByteString, FileInfo c)] -> [FileInfo c]  --B.ByteString
+foundParametr :: BC.ByteString -> [(BC.ByteString, FileInfo c)] -> [FileInfo c]
 foundParametr param ((p, c):xs) =
     if p == param
         then c : foundParametr param xs
@@ -30,9 +29,6 @@ foundParametr _ [] = []
 readByteStringToInt :: BC.ByteString -> Maybe Int
 readByteStringToInt num = readMaybe $ BC.unpack num
 
-readByteStringToInt' :: BC.ByteString -> Int
-readByteStringToInt' num = fromMaybe (-1) $ readByteStringToInt num
-
 readByteStringListInt :: BC.ByteString -> Maybe [Int]
 readByteStringListInt lst = readMaybe $ BC.unpack lst
 
@@ -41,12 +37,6 @@ readByteStringToDay bs = readMaybe $ BC.unpack bs
 
 toQuery :: BC.ByteString -> Query
 toQuery s = fromString $ BC.unpack s
-
-tagsToQueryTagList :: BC.ByteString -> BC.ByteString
-tagsToQueryTagList tagsString =
-    BC.intercalate "," $ map (\x -> BC.concat ["'", x, "'"]) tagBSList
-  where
-    tagBSList = BC.split ' ' tagsString
 
 dbAddress :: ConfigModules -> BC.ByteString
 dbAddress confDb =
@@ -87,18 +77,4 @@ getFiles = do
 
 takeEnd :: Int -> [a] -> [a]
 takeEnd n x = reverse $ take n (reverse x) 
-tstTakeEnd :: [Char]
-tstTakeEnd = takeEnd 4 "img (1).jpg"
 
-sumStrings :: String -> [String] -> [String]
-sumStrings y (x:xs) = (y ++ x) : sumStrings y xs
-sumStrings _ [] = [] 
-
-
-tst :: [String]
-tst = sumStrings "123" ["13","24"]
-
-toPairList :: [a] -> [b] -> [(a, b)]
-toPairList (x:xs) (y:ys) = (x,y) : toPairList xs ys
-toPairList _ [] = []
-toPairList [] _ = []

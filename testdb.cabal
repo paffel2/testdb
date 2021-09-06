@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 349fce8685c9d16fcfe4ce506509e730567ddfbf0b4c9de49e7b73bc0ff50e20
+-- hash: fb728dede1850a9ce2f7fe63c5d4636b993cc0995af654cfd31585b109bcd0ed
 
 name:           testdb
 version:        0.1.0.0
@@ -63,6 +63,7 @@ library
     , bytestring
     , configurator
     , directory
+    , hspec
     , http-client
     , http-types
     , postgresql-simple
@@ -87,6 +88,7 @@ executable testdb-exe
     , bytestring
     , configurator
     , directory
+    , hspec
     , http-client
     , http-types
     , postgresql-simple
@@ -103,6 +105,8 @@ test-suite testdb-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      FromRequestTests
+      HelpFunctionTests
       Paths_testdb
   hs-source-dirs:
       test
@@ -113,6 +117,7 @@ test-suite testdb-test
     , bytestring
     , configurator
     , directory
+    , hspec
     , http-client
     , http-types
     , postgresql-simple

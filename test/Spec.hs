@@ -1,2 +1,7 @@
+import FromRequestTests (fromRequestTests)
+import HelpFunctionTests (functionsTests)
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = do
+    functionsTests
+    fromRequestTests

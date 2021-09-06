@@ -5,7 +5,7 @@ module Controllers.NewsAndComments where
 import Control.Applicative (Alternative((<|>)))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
+--import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
@@ -212,7 +212,7 @@ sendNews hLogger pool req =
             return $ responseMethodNotAllowed "Bad request method"
   where
     queryParams = queryString req
-    (_, fstParam) = head queryParams
+    --(_, fstParam) = head queryParams
     pageParam = fromMaybe Nothing (lookup "page" queryParams)
     sortParam = fromMaybe Nothing (lookup "sort" queryParams)
     filterParamName =
