@@ -1,8 +1,10 @@
 module ControllersHandle where
 
+import Controllers.Authors (authorsBlock)
 import Controllers.Categories (categoriesBlock)
 import Controllers.Drafts (createDraft, draftsBlock)
 import Controllers.Images (imageBlock)
+import Controllers.InitDb (initDbBlock)
 import Controllers.NewsAndComments (newsMethodBlock)
 import Controllers.Tags (tagsBlock)
 import Controllers.Users (deleteUser, login, profile, registration)
@@ -10,9 +12,7 @@ import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
 import Logger (Handle)
 import Network.Wai (Request, Response)
-import Types ( DatabaseAddress, TokenLifeTime ) 
-import Controllers.InitDb ( initDbBlock )
-import Controllers.Authors
+import Types (DatabaseAddress, TokenLifeTime)
 
 data ControllersHandle =
     ControllersHandle
@@ -27,8 +27,9 @@ data ControllersHandle =
         , tags_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         , image_handler :: Handle -> Pool Connection -> Request -> IO Response
         , initDb_handler :: Handle -> Pool Connection -> DatabaseAddress -> Request -> IO Response
-        , new_author_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , delete_author_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+        --, new_author_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+        --, delete_author_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+        , authors_hanlder :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
         }
 
 handler :: ControllersHandle
@@ -45,6 +46,7 @@ handler =
         , tags_handler = tagsBlock
         , image_handler = imageBlock
         , initDb_handler = initDbBlock
-        , new_author_handler = newAuthor
-        , delete_author_handler = deleteAuthor
+        --, new_author_handler = newAuthor
+        --, delete_author_handler = deleteAuthor
+        , authors_hanlder = authorsBlock
         }

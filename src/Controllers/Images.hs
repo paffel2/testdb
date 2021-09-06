@@ -12,7 +12,13 @@ import HelpFunction (readByteStringToInt)
 import Logger (Handle)
 import Network.HTTP.Types.Method (methodGet)
 import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
-import Responses (responseBadRequest, responseOKImage, responseOKJSON)
+import Responses
+    ( responseBadRequest
+    , responseMethodNotAllowed
+    , responseNotFound
+    , responseOKImage
+    , responseOKJSON
+    )
 import Types (ImageB(con_type, image_b))
 
 sendImagesList :: Handle -> Pool Connection -> Request -> IO Response
@@ -23,7 +29,7 @@ sendImagesList hLogger pool req = do
             case result of
                 Left bs -> return $ responseBadRequest bs
                 Right ia -> return $ responseOKJSON $ encode ia
-        else return $ responseBadRequest "Bad method request"
+        else return $ responseMethodNotAllowed "Bad method request"
   where
     queryParams = queryString req
     pageParam = fromMaybe Nothing (lookup "page" queryParams)
@@ -38,16 +44,16 @@ sendImage hLogger pool imageId req = do
                 Right ib ->
                     return $
                     responseOKImage (con_type ib) (fromBinary $ image_b ib)
-        else return $ responseBadRequest "Bad method request"
+        else return $ responseMethodNotAllowed "Bad method request"
 
 imageBlock :: Handle -> Pool Connection -> Request -> IO Response
 imageBlock hLogger pool req
     | pathElemsC == 1 = sendImagesList hLogger pool req
     | pathElemsC == 2 =
         case readByteStringToInt $ last pathElems of
-            Nothing -> return $ responseBadRequest "Bad image if"
+            Nothing -> return $ responseBadRequest "Bad image id"
             Just n -> sendImage hLogger pool n req
-    | otherwise = return $ responseBadRequest "bad request"
+    | otherwise = return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

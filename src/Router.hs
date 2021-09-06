@@ -3,16 +3,21 @@
 module Router where
 
 import ControllersHandle
+    ( ControllersHandle(authors_hanlder, categories_handler,
+                  delete_user_handler, draft_handler, image_handler, initDb_handler,
+                  login_handler, new_draft_handler, news_and_comments_handler,
+                  profile_handler, registration_handler, tags_handler)
+    )
 
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (createPool)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
 import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo))
-import Responses (responseBadRequest)
+import Responses (responseBadRequest, responseNotFound)
 import Types (DatabaseAddress, TokenLifeTime)
---import Controllers.InitDb
 
+--import Controllers.InitDb
 routes ::
        Handle
     -> DatabaseAddress
@@ -45,15 +50,19 @@ routes hLogger db_address db_server_address token_lifetime methods req respond =
         "tags" ->
             tags_handler methods hLogger pool token_lifetime req >>= respond
         "image" -> image_handler methods hLogger pool req >>= respond
-        "initDb" -> initDb_handler methods hLogger pool db_server_address req >>= respond
-        "new_author" ->
+        "initDb" ->
+            initDb_handler methods hLogger pool db_server_address req >>=
+            respond
+        "authors" ->
+            authors_hanlder methods hLogger pool token_lifetime req >>= respond
+        {-"new_author" ->
             new_author_handler methods hLogger pool token_lifetime req >>= respond
         "delete_author" -> 
-            delete_author_handler methods hLogger pool token_lifetime req >>= respond
-        _ -> badUrlRespond
+            delete_author_handler methods hLogger pool token_lifetime req >>= respond-}
+        _ -> respond $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path
     pathHead = head pathElems
-    badUrlRespond = do
-        respond $ responseBadRequest "bad url"
+    --badUrlRespond = do
+        --respond $ responseBadRequest "bad url"

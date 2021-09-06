@@ -4,15 +4,18 @@ module Databaseoperations.CheckAdmin where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Lazy as LBS
+import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text as T
 import Database.PostgreSQL.Simple
-    ( Connection, Only(fromOnly), SqlError(sqlState) )
+    ( Connection
+    , Only(fromOnly)
+    , SqlError(sqlState)
+    )
+import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool)
 import Types (TokenLifeTime)
-import HelpFunction ( readByteStringToInt )
-import Data.Maybe ( fromMaybe )
 
 checkAdmin ::
        Handle
@@ -38,9 +41,11 @@ checkAdmin hLogger pool token_liferime (Just token') =
                     let admin'_mark = fromOnly $ Prelude.head rows
                     if admin'_mark
                         then return (admin'_mark, "")
-                        else return (admin'_mark, "Not admin")) $ \e -> do
+                        else return (admin'_mark, "Not admin")) $ \e
         --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         return (False, "Database error")

@@ -22,7 +22,14 @@ import Network.Wai.Parse
     , lbsBackEnd
     , parseRequestBody
     )
-import Responses (responseBadRequest, responseOKJSON, responseOk)
+import Responses
+    ( responseBadRequest
+    , responseCreated
+    , responseForbidden
+    , responseMethodNotAllowed
+    , responseOKJSON
+    , responseOk
+    )
 import Types (TokenLifeTime)
 
 login :: Handle -> Pool Connection -> Request -> IO Response
@@ -30,7 +37,7 @@ login hLogger pool req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             (i, _) <- parseRequestBody lbsBackEnd req
             let login' = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
@@ -45,7 +52,7 @@ registration hLogger pool req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             (i, f) <- parseRequestBody lbsBackEnd req
             let [(_, file)] = f
@@ -53,15 +60,6 @@ registration hLogger pool req =
             let l_name = E.decodeUtf8 <$> lookup "l_name" i
             let login' = E.decodeUtf8 <$> lookup "login" i
             let password = E.decodeUtf8 <$> lookup "password" i
-    {-if T.length (fromMaybe "" f_name) > 50 ||
-       T.length (fromMaybe "" f_name) > 50 ||
-       T.length (fromMaybe "" login') > 50 ||
-       T.length (fromMaybe "" password) > 50
-        then do
-            logError hLogger "Long parametr for registration"
-            return $
-                responseBadRequest "One or more parameter more then 50 symbols"
-        else do-}
             result <-
                 createUserInDb
                     hLogger
@@ -75,7 +73,7 @@ registration hLogger pool req =
                     (fileContent file)
             case result of
                 Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Right bs -> return $ responseCreated bs
 
 deleteUser ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
@@ -83,7 +81,7 @@ deleteUser hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             let login' = fromMaybe Nothing (lookup "login" $ queryString req)
             let token' = E.decodeUtf8 <$> takeToken req
@@ -91,6 +89,8 @@ deleteUser hLogger pool token_lifetime req =
                 deleteUserFromDb hLogger pool token_lifetime token' $
                 fromMaybe "" login'
             case result of
+                Left "Not admin" -> return $ responseForbidden "Not admin"
+                Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs' -> return $ responseBadRequest bs'
                 Right bs' -> return $ responseOk bs'
 
@@ -99,10 +99,11 @@ profile hLogger pool token_lifetime req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             let token' = E.decodeUtf8 <$> takeToken req
             result <- profileOnDb hLogger pool token_lifetime token'
             case result of
+                Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> return $ responseBadRequest bs
                 Right pro -> return $ responseOKJSON $ encode pro

@@ -9,7 +9,6 @@ import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
 import Database.PostgreSQL.Simple (Connection, Only(..), SqlError(sqlState))
-
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)

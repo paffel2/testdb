@@ -7,18 +7,28 @@ import qualified Data.ByteString.Lazy as LBS
 import Network.HTTP.Types
     ( Status
     , badRequest400
+    , forbidden403
     , hContentType
+    , methodNotAllowed405
     , notFound404
     , status200
+    , status201
     )
 import Network.Wai (Response, responseLBS)
 
-responseOk, responseNotFound, responseBadRequest :: LBS.ByteString -> Response
+responseOk, responseNotFound, responseBadRequest, responseCreated, responseForbidden, responseMethodNotAllowed ::
+       LBS.ByteString -> Response
 responseOk = responsePlainText status200
 
 responseNotFound = responsePlainText notFound404
 
 responseBadRequest = responsePlainText badRequest400
+
+responseCreated = responsePlainText status201
+
+responseForbidden = responsePlainText forbidden403
+
+responseMethodNotAllowed = responsePlainText methodNotAllowed405
 
 responsePlainText :: Status -> LBS.ByteString -> Response
 responsePlainText = (`responseLBS` [(hContentType, "text/plain")])
@@ -34,3 +44,4 @@ responseImage contype = (`responseLBS` [(hContentType, contype)])
 
 responseOKImage :: BI.ByteString -> LBS.ByteString -> Response
 responseOKImage contype = responseImage contype status200
+--responseCreated :: LBS.ByteString -> Response

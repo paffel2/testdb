@@ -260,3 +260,23 @@ newtype ImageArray =
 
 instance ToJSON ImageArray where
     toJSON = genericToJSON defaultOptions
+
+data ElemAuthorsList =
+    ElemAuthorsList
+        { author_id :: Int
+        , author_name' :: T.Text
+        , authors_description :: Maybe T.Text
+        }
+    deriving (Show, Generic, ToRow, FromRow, Eq)
+
+instance ToJSON ElemAuthorsList where
+    toJSON = genericToJSON defaultOptions
+
+newtype AuthorsList =
+    AuthorsList
+        { authors :: [ElemAuthorsList]
+        }
+    deriving (Show, Generic)
+
+instance ToJSON AuthorsList where
+    toJSON = genericToJSON defaultOptions

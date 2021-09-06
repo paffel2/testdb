@@ -3,14 +3,12 @@
 module Databaseoperations.Images where
 
 import Control.Exception (catch)
-import Data.ByteString as B (ByteString)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
-import Database.PostgreSQL.Simple
-    ( Connection, SqlError(sqlState) )
+import Database.PostgreSQL.Simple (Connection, SqlError(sqlState))
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError, logInfo)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
@@ -32,13 +30,14 @@ getPhoto hLogger pool image_id =
                 else return $ Right $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
 
 getPhotoList ::
        Handle
     -> Pool Connection
-    -> Maybe ByteString
+    -> Maybe BC.ByteString
     -> IO (Either LBS.ByteString ImageArray)
 getPhotoList hLogger pool pageParam =
     catch
@@ -47,7 +46,8 @@ getPhotoList hLogger pool pageParam =
             return $ Right (ImageArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
   where
     pg =

@@ -8,7 +8,7 @@ import Database.PostgreSQL.Simple (Connection)
 import Databaseoperations.InitDb (createDb)
 import Logger (Handle)
 import Network.Wai (Request(rawPathInfo), Response)
-import Responses (responseBadRequest, responseOk)
+import Responses (responseBadRequest, responseCreated, responseNotFound)
 import Types (DatabaseAddress)
 
 initDbBlock ::
@@ -19,12 +19,9 @@ initDbBlock hLogger pool db_server_addres req =
             result <- createDb hLogger pool db_server_addres
             case result of
                 Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
-        else return $ responseBadRequest "Bad method request"
+                Right bs -> return $ responseCreated bs
+        else return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path
     pathElemsC = length pathElems
-
-
-

@@ -15,7 +15,6 @@ import Databaseoperations.Drafts
     , getDraftByIdFromDb
     , getDraftsByAuthorToken
     , publicNewsOnDb
-    , publicNewsOnDb
     , updateDraftInDb'
     )
 import FromRequest (takeToken, toImage)
@@ -34,7 +33,15 @@ import Network.Wai.Parse
     , noLimitParseRequestBodyOptions
     , parseRequestBodyEx
     )
-import Responses (responseBadRequest, responseOKJSON, responseOk)
+import Responses
+    ( responseBadRequest
+    , responseCreated
+    , responseForbidden
+    , responseMethodNotAllowed
+    , responseNotFound
+    , responseOKJSON
+    , responseOk
+    )
 import Types (Image(Image, image_content_type), TokenLifeTime)
 
 sendDrafts ::
@@ -43,11 +50,12 @@ sendDrafts hLogger pool token_liferime req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             let token' = E.decodeUtf8 <$> takeToken req
             drafts' <- getDraftsByAuthorToken hLogger pool token_liferime token'
             case drafts' of
+                Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> return $ responseBadRequest bs
                 Right draftsA -> do
                     logInfo hLogger "Sending drafts to user"
@@ -59,7 +67,7 @@ createDraft hLogger pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             (i, f) <-
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
@@ -107,10 +115,12 @@ createDraft hLogger pool token_lifetime req =
                             main_image_triple
                             images_list
                     case result of
+                        Left "Bad token" ->
+                            return $ responseForbidden "Bad token"
                         Left bs -> return $ responseBadRequest bs
                         Right n ->
                             return $
-                            responseOk $ LBS.fromStrict $ BC.pack $ show n
+                            responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 deleteDraft ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
@@ -118,7 +128,7 @@ deleteDraft hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             let token' = E.decodeUtf8 <$> takeToken req
             let draft_id =
@@ -126,6 +136,7 @@ deleteDraft hLogger pool token_lifetime req =
             result <-
                 deleteDraftFromDb hLogger pool token_lifetime token' draft_id
             case result of
+                Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> return $ responseBadRequest bs
                 Right bs -> return $ responseOk bs
 
@@ -140,12 +151,13 @@ getDraftById hLogger pool token_lifetime draft_id req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             let token' = E.decodeUtf8 <$> takeToken req
             result <-
                 getDraftByIdFromDb hLogger pool token_lifetime token' draft_id
             case result of
+                Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> return $ responseBadRequest bs
                 Right draft -> return $ responseOKJSON $ encode draft
 
@@ -160,7 +172,7 @@ updateDraft hLogger pool token_lifetime draft_id req =
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             let token' = takeToken req
             (i, f) <-
@@ -209,6 +221,8 @@ updateDraft hLogger pool token_lifetime draft_id req =
                             images_list
                             draft_id
                     case result of
+                        Left "Bad token" ->
+                            return $ responseForbidden "Bad token"
                         Left bs -> return $ responseBadRequest bs
                         Right bs -> return $ responseOk bs
 
@@ -223,14 +237,15 @@ publicNews hLogger pool token_lifetime draft_id req =
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
-            return $ responseBadRequest "Bad method request"
+            return $ responseMethodNotAllowed "Bad method request"
         else do
             let token' = E.decodeUtf8 <$> takeToken req
             result <- publicNewsOnDb hLogger pool token_lifetime token' draft_id
             case result of
+                Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> return $ responseBadRequest bs
                 Right n ->
-                    return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
+                    return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 draftsBlock ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
@@ -243,7 +258,7 @@ draftsBlock hLogger pool token_lifetime req
                 case last pathElems of
                     "delete_draft" ->
                         deleteDraft hLogger pool token_lifetime req
-                    _ -> return $ responseBadRequest "bad request"
+                    _ -> return $ responseNotFound "Not Found"
     | pathElemsC == 3 =
         case readByteStringToInt $ head $ tail pathElems of
             Nothing -> return $ responseBadRequest "bad request"
@@ -253,8 +268,8 @@ draftsBlock hLogger pool token_lifetime req
                         updateDraft hLogger pool token_lifetime n req
                     "public_news" ->
                         publicNews hLogger pool token_lifetime n req
-                    _ -> return $ responseBadRequest "bad request"
-    | otherwise = return $ responseBadRequest "bad request"
+                    _ -> return $ responseNotFound "Not Found"
+    | otherwise = return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

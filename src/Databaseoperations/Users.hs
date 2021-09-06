@@ -3,7 +3,8 @@
 module Databaseoperations.Users where
 
 import Control.Exception (catch)
-import Data.ByteString as B (ByteString)
+
+--import Data.ByteString as B (ByteString)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
@@ -12,8 +13,10 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Data.Time (UTCTime, getCurrentTime)
 import Database.PostgreSQL.Simple
-    ( Connection, Binary(Binary), SqlError(sqlState) )
-
+    ( Binary(Binary)
+    , Connection
+    , SqlError(sqlState)
+    )
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
@@ -48,11 +51,13 @@ authentication hLogger pool login password =
                 else do
                     logError hLogger $
                         T.concat ["User with login ", login, " cant logged"]
-                    return $ Left "Wrong login or password") $ \e -> do
+                    return $ Left "Wrong login or password") $ \e
         --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error in authentication"
   where
     q =
@@ -114,8 +119,9 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
                              firstToken hLogger pool login password
                          else do
                              logError hLogger "Registration failed"
-                             return $ Left "Registration failed") $ \e -> do
+                             return $ Left "Registration failed") $ \e
                  --let err = E.decodeUtf8 $ sqlErrorMsg e
+              -> do
                  let errState = sqlState e
                  let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                  logError hLogger $
@@ -161,7 +167,7 @@ deleteUserFromDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
-    -> ByteString
+    -> BC.ByteString --ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteUserFromDb hLogger pool token_lifetime token login =
     catch
@@ -182,11 +188,13 @@ deleteUserFromDb hLogger pool token_lifetime token login =
                                 Right $
                                 LBS.concat
                                     ["User ", LBS.fromStrict login, " deleted"]
-                        else return $ Left "User not exist") $ \e -> do
+                        else return $ Left "User not exist") $ \e
         --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         --logError hLogger err
         return $ Left "Database error"
 
@@ -209,11 +217,13 @@ firstToken hLogger pool login password =
                 else do
                     logError hLogger $
                         T.concat ["User with login ", login, " cant logged"]
-                    return $ Left "Wrong login or password") $ \e -> do
+                    return $ Left "Wrong login or password") $ \e
         --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         --logError hLogger err
         return $ Left "Database error"
   where
@@ -243,11 +253,13 @@ profileOnDb hLogger pool token_lifetime (Just token') =
                     return $ Left "Bad token"
                 else do
                     logInfo hLogger "Profile information sended"
-                    return $ Right $ Prelude.head rows) $ \e -> do
+                    return $ Right $ Prelude.head rows) $ \e
         --let err = E.decodeUtf8 $ sqlErrorMsg e
+     -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23505 -> return $ Left "Category already exist"
             _ -> return $ Left "Database error"

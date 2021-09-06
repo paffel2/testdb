@@ -33,7 +33,7 @@ main = do
     let token_lifetime = lifeTime confToken
     let hLogger = Handle (log_priority confLogger) printLog
     let db_server_address = dbServerAddress confDb
-    logInfo hLogger "Serving"
+    logInfo hLogger "Server started"
     runSettings
         (setMaximumBodyFlush (server_maximum_body_flush confServer) $
          setPort (server_port confServer) defaultSettings) $

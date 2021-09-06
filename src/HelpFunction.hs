@@ -3,7 +3,7 @@
 module HelpFunction where
 
 import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
-import qualified Data.ByteString as B
+--import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Data.Maybe (fromMaybe)
 import Data.String (IsString(fromString))
@@ -20,7 +20,7 @@ myLookup key ((x, _):xys)
     | key == x = Just key
     | otherwise = myLookup key xys
 
-foundParametr :: B.ByteString -> [(B.ByteString, FileInfo c)] -> [FileInfo c]
+foundParametr :: BC.ByteString -> [(BC.ByteString, FileInfo c)] -> [FileInfo c]  --B.ByteString
 foundParametr param ((p, c):xs) =
     if p == param
         then c : foundParametr param xs
