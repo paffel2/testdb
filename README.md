@@ -8,6 +8,35 @@ After installing stack, clone this repository. Install the compiler (if required
       stack setup
     # build project
       stack build
+## Configuration file
+    token {
+            lifetime = 86400 
+          }
+    database {
+        host = "localhost"
+        port = "5432"
+        login = "login"
+        password = "password"
+        name = "ServerNews"
+             }
+    logger {
+        priority = "Debug"/"Info"/"Warning"/"Error"
+           }
+    server {
+        port = 8000
+        maximum_body_flush = 1
+           }
+    pool {
+        num_stripes = 1
+        idle_time = 40
+        max_resources = 10
+         }
+         
+The database name must match the name specified in the file `sql/init_database.sql`
+
+To the run server use 
+
+    stack exec testdb-exe
 
 # Project structure
 

@@ -4,7 +4,6 @@ module HelpFunction where
 
 import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString.Char8 as BC
---import Data.Maybe (fromMaybe)
 import Data.String (IsString(fromString))
 import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)

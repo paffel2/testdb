@@ -7,10 +7,10 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 
 data Priority
-    = Debug -- ^ Debug messages
-    | Info -- ^ Notable information that requires no immediate action.
-    | Warning -- ^ Something is probably wrong, and we should investigate.
-    | Error -- ^ Something is wrong and immediate action is required.
+    = Debug
+    | Info
+    | Warning
+    | Error
     deriving (Eq, Ord, Show)
 
 data Handle =

@@ -11,7 +11,7 @@ import qualified Data.Text as T
 import Database.PostgreSQL.Simple (Connection, Only(..), SqlError(sqlState))
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logError, logInfo)
+import Logger (Handle, logDebug, logError, logInfo)
 import PostgreSqlWithPool
     ( executeWithPool
     , queryWithPool
@@ -27,11 +27,8 @@ getCategoriesListFromDb ::
     -> IO (Either LBS.ByteString ListOfCategories)
 getCategoriesListFromDb hLogger pool pageParam =
     catch
-        (do logInfo hLogger "Someone try get list of categories"
-            rows <- query_WithPool pool q
-            return $ Right (ListOfCategories rows)) $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
-     -> do
+        (do rows <- query_WithPool pool q
+            return $ Right (ListOfCategories rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -76,7 +73,6 @@ createCategoryOnDb hLogger pool token_lifetime token' (Just category'_name) (Jus
                     if maternal_name == ""
                         then createWithoutMaternal
                         else createWithMaternal) $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -91,10 +87,9 @@ createCategoryOnDb hLogger pool token_lifetime token' (Just category'_name) (Jus
     check_maternal =
         "select category_id from categories where category_name = ?"
     createWithoutMaternal = do
-        logInfo hLogger "Maternal category is null"
+        logDebug hLogger "Maternal category is null"
         rows <-
             returningWithPool pool q [(category'_name, Nothing :: Maybe T.Text)] :: IO [Only Int]
-        logInfo hLogger "Category created"
         return $
             Right $
             LBS.fromStrict $ BC.pack $ show (fromOnly $ Prelude.head rows)
@@ -111,7 +106,6 @@ createCategoryOnDb hLogger pool token_lifetime token' (Just category'_name) (Jus
                         pool
                         q
                         [(category'_name, fromOnly $ Prelude.head c'_id)] :: IO [Only Int]
-                logInfo hLogger "Category created"
                 return $
                     Right $
                     LBS.fromStrict $
@@ -140,8 +134,6 @@ deleteCategoryFromDb hLogger pool token_lifetime token (Just categoryName) =
                             [categoryName]
                     if n > 0
                         then do
-                            logInfo hLogger $
-                                T.concat ["Category ", categoryName, " deleted"]
                             return $ Right "Category deleted"
                         else do
                             logError hLogger $
@@ -184,14 +176,11 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                             (new'_name, old_name)
                     if n > 0
                         then do
-                            logInfo hLogger $
-                                T.concat ["Category ", old_name, " edited"]
                             return $ Right "Category edited"
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
                             return $ Left "Category not exist") $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -218,14 +207,11 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just "") (Ju
                             (fromOnly $ myHead m_id, old_name)
                     if n > 0
                         then do
-                            logInfo hLogger $
-                                T.concat ["Category ", old_name, " edited"]
                             return $ Right "Category edited"
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
                             return $ Left "Category not exist") $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -260,14 +246,11 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                             (new'_name, fromOnly $ myHead m_id, old_name)
                     if n > 0
                         then do
-                            logInfo hLogger $
-                                T.concat ["Category ", old_name, " edited"]
                             return $ Right "Category edited"
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
                             return $ Left "Category not exist") $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

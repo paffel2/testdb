@@ -14,7 +14,7 @@ import Databaseoperations.Users
     , profileOnDb
     )
 import FromRequest (takeToken)
-import Logger (Handle, logError)
+import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import Network.Wai (Request(queryString, requestMethod), Response)
 import Network.Wai.Parse
@@ -39,13 +39,18 @@ login hLogger pool req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for sign in."
             (i, _) <- parseRequestBody lbsBackEnd req
             let login' = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
             let pass = E.decodeUtf8 $ fromMaybe "" (lookup "user_password" i)
             check <- authentication hLogger pool login' pass
             case check of
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Left bs -> do
+                    logError hLogger "User not logged."
+                    return $ responseBadRequest bs
+                Right bs -> do
+                    logInfo hLogger "User logged."
+                    return $ responseOk bs
 
 registration :: Handle -> Pool Connection -> Request -> IO Response
 registration hLogger pool req =
@@ -54,6 +59,7 @@ registration hLogger pool req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for registration new user."
             (i, f) <- parseRequestBody lbsBackEnd req
             let [(_, file)] = f
             let f_name = E.decodeUtf8 <$> lookup "f_name" i
@@ -72,8 +78,12 @@ registration hLogger pool req =
                     (fileContentType file)
                     (fileContent file)
             case result of
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseCreated bs
+                Left bs -> do
+                    logError hLogger "User not registered."
+                    return $ responseBadRequest bs
+                Right bs -> do
+                    logInfo hLogger "User registered."
+                    return $ responseCreated bs
 
 deleteUser ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
@@ -83,16 +93,25 @@ deleteUser hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for deleting user."
             let login' = fromMaybe Nothing (lookup "login" $ queryString req)
             let token' = E.decodeUtf8 <$> takeToken req
             result <-
                 deleteUserFromDb hLogger pool token_lifetime token' $
                 fromMaybe "" login'
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs' -> return $ responseBadRequest bs'
-                Right bs' -> return $ responseOk bs'
+                Left "Not admin" -> do
+                    logError hLogger "User not deleted. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "User not deleted. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs' -> do
+                    logError hLogger "User not deleted."
+                    return $ responseBadRequest bs'
+                Right bs' -> do
+                    logInfo hLogger "User deleted."
+                    return $ responseOk bs'
 
 profile :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 profile hLogger pool token_lifetime req =
@@ -101,9 +120,16 @@ profile hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for sending user information."
             let token' = E.decodeUtf8 <$> takeToken req
             result <- profileOnDb hLogger pool token_lifetime token'
             case result of
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right pro -> return $ responseOKJSON $ encode pro
+                Left "Bad token" -> do
+                    logError hLogger "Information not sended. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Information not sended."
+                    return $ responseBadRequest bs
+                Right pro -> do
+                    logInfo hLogger "Information sended."
+                    return $ responseOKJSON $ encode pro

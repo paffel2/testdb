@@ -17,7 +17,7 @@ import Databaseoperations.Authors
     )
 import FromRequest (takeToken)
 import HelpFunction (readByteStringToInt)
-import Logger (Handle, logError)
+import Logger (Handle, logDebug, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
     , methodGet
@@ -45,10 +45,12 @@ newAuthor hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing parameters for creating new author."
             let token' = E.decodeUtf8 <$> takeToken req
             (i, _) <- parseRequestBody lbsBackEnd req
             let author_login = E.decodeUtf8 <$> lookup "author_login" i
             let description = E.decodeUtf8 <$> lookup "description" i
+            logDebug hLogger "Creating Author on database"
             result <-
                 createAuthorInDb
                     hLogger
@@ -58,10 +60,17 @@ newAuthor hLogger pool token_lifetime req =
                     author_login
                     description
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseCreated bs
-                Right n ->
+                Left "Not admin" -> do
+                    logError hLogger "Author not created. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "Author not created. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Author not created."
+                    return $ responseCreated bs
+                Right n -> do
+                    logInfo hLogger "Author created."
                     return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
 
 deleteAuthor ::
@@ -72,16 +81,25 @@ deleteAuthor hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing parameters for deleting author."
             let token' = E.decodeUtf8 <$> takeToken req
             (i, _) <- parseRequestBody lbsBackEnd req
             let author_login = E.decodeUtf8 <$> lookup "author_login" i
             result <-
                 deleteAuthorInDb hLogger pool token_lifetime token' author_login
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Left "Not admin" -> do
+                    logError hLogger "Author not deleted. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "Author not deleted. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Author not deleted."
+                    return $ responseCreated bs
+                Right bs -> do
+                    logInfo hLogger "Author deleted."
+                    return $ responseOk bs
 
 sendAuthorsList :: Handle -> Pool Connection -> Request -> IO Response
 sendAuthorsList hLogger pool req = do
@@ -90,10 +108,15 @@ sendAuthorsList hLogger pool req = do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing data for sending authors list"
             result <- getAuthorsList hLogger pool pageParam
             case result of
-                Left bs -> return $ responseBadRequest bs
-                Right al -> return $ responseOKJSON $ encode al
+                Left bs -> do
+                    logError hLogger "Authors list not sended."
+                    return $ responseBadRequest bs
+                Right al -> do
+                    logInfo hLogger "Authors list sended."
+                    return $ responseOKJSON $ encode al
   where
     pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
 
@@ -105,6 +128,7 @@ editAuthor hLogger pool token_lifetime req = do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing data for editing author's description."
             let token' = E.decodeUtf8 <$> takeToken req
             (i, _) <- parseRequestBody lbsBackEnd req
             let new_description = E.decodeUtf8 <$> lookup "new_description" i
@@ -118,10 +142,18 @@ editAuthor hLogger pool token_lifetime req = do
                     a_id
                     new_description
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Left "Not admin" -> do
+                    logError hLogger "Author not edited. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "Author not edited. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Author not edited."
+                    return $ responseCreated bs
+                Right bs -> do
+                    logInfo hLogger "Author edited."
+                    return $ responseOk bs
 
 authorsBlock ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response

@@ -3,8 +3,6 @@
 module Databaseoperations.Tags where
 
 import Control.Exception (catch)
-
---import Data.ByteString as B (ByteString)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
@@ -33,18 +31,15 @@ createTagInDb hLogger _ _ _ Nothing = do
     return $ Left "No tag_name parameter"
 createTagInDb hLogger pool token_lifetime token' (Just tag_name') =
     catch
-        (do logInfo hLogger "Creating new tag"
-            ch <- checkAdmin hLogger pool token_lifetime token'
+        (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
                     rows <- queryWithPool pool q [tag_name'] :: IO [Only Int]
                     if Prelude.null rows
                         then do
-                            logError hLogger "Tag not created"
                             return $ Left "Tag not created"
                         else do
-                            logInfo hLogger "Tag created"
                             return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -99,12 +94,11 @@ deleteTagFromDb hLogger pool token_lifetime token' (Just tag_name') =
 getTagsListFromDb ::
        Handle
     -> Pool Connection
-    -> Maybe BC.ByteString --ByteString
+    -> Maybe BC.ByteString
     -> IO (Either LBS.ByteString TagsList)
 getTagsListFromDb hLogger pool maybe_page =
     catch
-        (do logInfo hLogger "Sending tags list"
-            rows <- query_WithPool pool q
+        (do rows <- query_WithPool pool q
             return $ Right $ TagsList rows) $ \e -> do
         let _ = sqlState e
         logError hLogger "Database error"
@@ -156,7 +150,8 @@ editTagInDb hLogger pool token_lifetime token (Just old_tag_name) (Just new_tag_
                                     [ "Tag '"
                                     , old_tag_name
                                     , "' renaimed to '"
-                                    , new_tag_name, "'"
+                                    , new_tag_name
+                                    , "'"
                                     ]
                             return $ Right "Tag edited"
                         else return $ Left "Tag not exist") $ \e -> do

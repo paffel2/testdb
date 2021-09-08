@@ -35,14 +35,12 @@ checkAdmin hLogger pool token_liferime (Just token') =
                     (token', token_liferime)
             if Prelude.null rows
                 then do
-                    logError hLogger "Bad token"
                     return (False, "Bad token")
                 else do
                     let admin'_mark = fromOnly $ Prelude.head rows
                     if admin'_mark
                         then return (admin'_mark, "")
                         else return (admin'_mark, "Not admin")) $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

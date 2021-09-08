@@ -15,7 +15,7 @@ import Database.PostgreSQL.Simple
     )
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logDebug, logError, logInfo)
+import Logger (Handle, logError)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
 import Types (AuthorsList(AuthorsList), TokenLifeTime)
 
@@ -38,8 +38,7 @@ createAuthorInDb hLogger _ _ _ _ Nothing = do
     return $ Left "No description field"
 createAuthorInDb hLogger pool token_lifetime token' (Just author_login) (Just author_description) =
     catch
-        (do logDebug hLogger "Creating new author"
-            ch <- checkAdmin hLogger pool token_lifetime token'
+        (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
@@ -47,10 +46,8 @@ createAuthorInDb hLogger pool token_lifetime token' (Just author_login) (Just au
                         queryWithPool pool q (author_login, author_description) :: IO [Only Int]
                     if Prelude.null rows
                         then do
-                            logError hLogger "Author not created"
                             return $ Left "Author not created"
                         else do
-                            logInfo hLogger "New author created"
                             return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -84,8 +81,7 @@ deleteAuthorInDb hLogger _ _ _ Nothing = do
     return $ Left "No login field"
 deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login) =
     catch
-        (do logDebug hLogger "Deleting author"
-            ch <- checkAdmin hLogger pool token_lifetime token'
+        (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
@@ -117,7 +113,6 @@ getAuthorsList ::
 getAuthorsList hLogger pool page_p' =
     catch
         (do rows <- query_WithPool pool q
-    --logInfo hLogger "Sending authors list"
             return $ Right $ AuthorsList rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

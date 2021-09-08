@@ -7,10 +7,12 @@ import Config
               server_port)
     , getDbConfig
     , getLgConfig
+    , getPlConfig
     , getSrConfig
     , getTkConfig
     , newConfigHandle
     )
+import ControllersHandle (handler)
 import HelpFunction (dbAddress, dbServerAddress)
 import Logger (Handle(Handle), logInfo, printLog)
 import Network.Wai.Handler.Warp
@@ -19,8 +21,7 @@ import Network.Wai.Handler.Warp
     , setMaximumBodyFlush
     , setPort
     )
-import Router (routes)
-import ControllersHandle (handler)
+import Router ( routes )
 
 main :: IO ()
 main = do
@@ -29,6 +30,7 @@ main = do
     confLogger <- getLgConfig hConfig
     confServer <- getSrConfig hConfig
     confDb <- getDbConfig hConfig
+    confPool <- getPlConfig hConfig
     let db_address = dbAddress confDb
     let token_lifetime = lifeTime confToken
     let hLogger = Handle (log_priority confLogger) printLog
@@ -37,5 +39,10 @@ main = do
     runSettings
         (setMaximumBodyFlush (server_maximum_body_flush confServer) $
          setPort (server_port confServer) defaultSettings) $
-        routes hLogger db_address db_server_address token_lifetime handler
-
+        routes
+            hLogger
+            db_address
+            db_server_address
+            token_lifetime
+            confPool
+            handler

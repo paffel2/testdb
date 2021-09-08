@@ -5,6 +5,7 @@ module Config where
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.Configurator as C
 import qualified Data.Text as T
+import Data.Time.Clock ( NominalDiffTime )
 import Logger (Priority(..))
 
 data Modules
@@ -12,6 +13,7 @@ data Modules
     | DB
     | LG
     | SR
+    | PL
 
 data ConfigModules
     = Token
@@ -31,6 +33,11 @@ data ConfigModules
           { server_port :: Int
           , server_maximum_body_flush :: Maybe Int
           }
+    | PoolConf
+          { num_stripes :: Int
+          , idle_time :: NominalDiffTime
+          , max_resources :: Int
+          }
     deriving (Show)
 
 newtype ConfigHandle =
@@ -38,7 +45,7 @@ newtype ConfigHandle =
         { getConfig :: Modules -> IO ConfigModules
         }
 
-getDbConfig, getTkConfig, getLgConfig, getSrConfig ::
+getDbConfig, getTkConfig, getLgConfig, getSrConfig, getPlConfig ::
        ConfigHandle -> IO ConfigModules
 getDbConfig = (`getConfig` DB)
 
@@ -47,6 +54,8 @@ getTkConfig = (`getConfig` TK)
 getLgConfig = (`getConfig` LG)
 
 getSrConfig = (`getConfig` SR)
+
+getPlConfig = (`getConfig` PL)
 
 newConfigHandle :: IO ConfigHandle
 newConfigHandle = return $ ConfigHandle {getConfig = getconfig}
@@ -88,3 +97,12 @@ getconfig module' = do
                     conf
                     (T.pack "server.maximum_body_flush") :: IO Int
             return $ Server port (Just smbf)
+        PL -> do
+            num_sparks' <- C.lookupDefault 1 conf (T.pack "pool.num_stripes")
+            idle_time' <-
+                toEnum . (1000000000000 *) <$>
+                C.lookupDefault 10 conf (T.pack "pool.idle_time")
+            --let idle_time'' = toEnum idle_time'
+            max_resources' <-
+                C.lookupDefault 10 conf (T.pack "pool.max_resources")
+            return $ PoolConf num_sparks' idle_time' max_resources'

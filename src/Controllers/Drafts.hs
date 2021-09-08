@@ -10,12 +10,12 @@ import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Binary(Binary), Connection)
 import Databaseoperations.Drafts
-    ( createDraftOnDb'
+    ( createDraftOnDb
     , deleteDraftFromDb
     , getDraftByIdFromDb
     , getDraftsByAuthorToken
     , publicNewsOnDb
-    , updateDraftInDb'
+    , updateDraftInDb
     )
 import FromRequest (takeToken, toImage)
 import HelpFunction (foundParametr, readByteStringToInt)
@@ -52,10 +52,10 @@ sendDrafts hLogger pool token_liferime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for sending drafts"
             let token' = E.decodeUtf8 <$> takeToken req
             drafts' <- getDraftsByAuthorToken hLogger pool token_liferime token'
             case drafts' of
-                Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> return $ responseBadRequest bs
                 Right draftsA -> do
                     logInfo hLogger "Sending drafts to user"
@@ -69,6 +69,7 @@ createDraft hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for creating draft"
             (i, f) <-
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
             let main'_image = foundParametr "main_image" f
@@ -103,7 +104,7 @@ createDraft hLogger pool token_lifetime req =
                     let short'_title = E.decodeUtf8 <$> lookup "short_title" i
                     let text = E.decodeUtf8 <$> lookup "news_text" i
                     result <-
-                        createDraftOnDb'
+                        createDraftOnDb
                             hLogger
                             pool
                             token_lifetime
@@ -117,10 +118,14 @@ createDraft hLogger pool token_lifetime req =
                     case result of
                         Left "Bad token" ->
                             return $ responseForbidden "Bad token"
-                        Left bs -> return $ responseBadRequest bs
-                        Right n ->
+                        Left bs -> do
+                            logError hLogger "Draft not created."
+                            return $ responseBadRequest bs
+                        Right n -> do
+                            logInfo hLogger "Draft created."
                             return $
-                            responseCreated $ LBS.fromStrict $ BC.pack $ show n
+                                responseCreated $
+                                LBS.fromStrict $ BC.pack $ show n
 
 deleteDraft ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
@@ -130,6 +135,7 @@ deleteDraft hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for deleting draft"
             let token' = E.decodeUtf8 <$> takeToken req
             let draft_id =
                     fromMaybe Nothing (lookup "draft_id" $ queryString req)
@@ -137,8 +143,12 @@ deleteDraft hLogger pool token_lifetime req =
                 deleteDraftFromDb hLogger pool token_lifetime token' draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Left bs -> do
+                    logError hLogger "Draft not deleted."
+                    return $ responseBadRequest bs
+                Right bs -> do
+                    logInfo hLogger "Draft deletedd."
+                    return $ responseOk bs
 
 getDraftById ::
        Handle
@@ -153,13 +163,18 @@ getDraftById hLogger pool token_lifetime draft_id req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for sending draft"
             let token' = E.decodeUtf8 <$> takeToken req
             result <-
                 getDraftByIdFromDb hLogger pool token_lifetime token' draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right draft -> return $ responseOKJSON $ encode draft
+                Left bs -> do
+                    logError hLogger "Draft not sended."
+                    return $ responseBadRequest bs
+                Right draft -> do
+                    logInfo hLogger "Draft not sended."
+                    return $ responseOKJSON $ encode draft
 
 updateDraft ::
        Handle
@@ -174,6 +189,7 @@ updateDraft hLogger pool token_lifetime draft_id req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for updating draft"
             let token' = takeToken req
             (i, f) <-
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
@@ -208,7 +224,7 @@ updateDraft hLogger pool token_lifetime draft_id req =
                     return $ responseBadRequest "Bad image file"
                 else do
                     result <-
-                        updateDraftInDb'
+                        updateDraftInDb
                             hLogger
                             pool
                             token_lifetime
@@ -223,8 +239,12 @@ updateDraft hLogger pool token_lifetime draft_id req =
                     case result of
                         Left "Bad token" ->
                             return $ responseForbidden "Bad token"
-                        Left bs -> return $ responseBadRequest bs
-                        Right bs -> return $ responseOk bs
+                        Left bs -> do
+                            logError hLogger "Draft not updated"
+                            return $ responseBadRequest bs
+                        Right bs -> do
+                            logInfo hLogger "Draft updated"
+                            return $ responseOk bs
 
 publicNews ::
        Handle
@@ -239,12 +259,16 @@ publicNews hLogger pool token_lifetime draft_id req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for public news"
             let token' = E.decodeUtf8 <$> takeToken req
             result <- publicNewsOnDb hLogger pool token_lifetime token' draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right n ->
+                Left bs -> do
+                    logError hLogger "News not created"
+                    return $ responseBadRequest bs
+                Right n -> do
+                    logInfo hLogger "News published"
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 draftsBlock ::

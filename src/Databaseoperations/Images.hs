@@ -10,7 +10,7 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import Database.PostgreSQL.Simple (Connection, SqlError(sqlState))
 import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logDebug, logError, logInfo)
+import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
 import Types (ElemImageArray, ImageArray(ImageArray), ImageB)
 
@@ -18,8 +18,7 @@ getPhoto ::
        Handle -> Pool Connection -> Int -> IO (Either LBS.ByteString ImageB)
 getPhoto hLogger pool image_id =
     catch
-        (do logDebug hLogger "Getting images from db"
-            let q =
+        (do let q =
                     toQuery $
                     BC.concat
                         [ "select image_b, content_type from images where image_id = ?"
@@ -41,8 +40,7 @@ getPhotoList ::
     -> IO (Either LBS.ByteString ImageArray)
 getPhotoList hLogger pool pageParam =
     catch
-        (do logInfo hLogger "Someone try get photo list"
-            rows <- query_WithPool pool q :: IO [ElemImageArray]
+        (do rows <- query_WithPool pool q :: IO [ElemImageArray]
             return $ Right (ImageArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

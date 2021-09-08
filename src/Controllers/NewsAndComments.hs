@@ -5,7 +5,6 @@ module Controllers.NewsAndComments where
 import Control.Applicative (Alternative((<|>)))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
---import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
@@ -29,7 +28,7 @@ import Databaseoperations.NewsAndComments
     )
 import FromRequest (takeToken)
 import HelpFunction (myLookup)
-import Logger (Handle, logError)
+import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse
@@ -57,6 +56,7 @@ deleteCommentById hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing data for deleting commentary"
             let token' = E.decodeUtf8 <$> takeToken req
             let comment_id =
                     fromMaybe Nothing (lookup "comment_id" $ queryString req)
@@ -64,10 +64,18 @@ deleteCommentById hLogger pool token_lifetime req =
             result <-
                 deleteCommentFromDb hLogger pool token_lifetime token' c_id'
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Left "Not admin" -> do
+                    logError hLogger "Commentary not deleted. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "Commentary not deleted. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Commentary not deleted."
+                    return $ responseBadRequest bs
+                Right bs -> do
+                    logInfo hLogger "Commentary deleted."
+                    return $ responseOk bs
 
 addCommentByNewsId ::
        Handle
@@ -82,6 +90,7 @@ addCommentByNewsId hLogger pool token_lifetime req news'_id =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing data for adding commentary"
             (i, _) <-
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
             let token' = takeToken req
@@ -95,9 +104,18 @@ addCommentByNewsId hLogger pool token_lifetime req news'_id =
                     news'_id
                     (E.decodeUtf8 <$> comment)
             case result of
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseCreated bs
+                Left "News not exist" -> do
+                    logError hLogger "Commentary not added. News not exist."
+                    return $ responseBadRequest "News not exist"
+                Left "Bad token" -> do
+                    logError hLogger "Commentary not added. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Commentary not added."
+                    return $ responseBadRequest bs
+                Right bs -> do
+                    logInfo hLogger "Commentary added."
+                    return $ responseCreated bs
 
 sendCommentsByNewsId ::
        Handle -> Pool Connection -> Request -> Maybe Int -> IO Response
@@ -107,11 +125,16 @@ sendCommentsByNewsId hLogger pool req news'_id =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing data for sending commentary list"
             let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
             result <- getCommentsByNewsIdFromDb hLogger pool news'_id pageParam
             case result of
-                Left bs -> return $ responseBadRequest bs
-                Right ca -> return $ responseOKJSON $ encode ca
+                Left bs -> do
+                    logError hLogger "Commentaries not sended."
+                    return $ responseBadRequest bs
+                Right ca -> do
+                    logInfo hLogger "Commentaries sended."
+                    return $ responseOKJSON $ encode ca
 
 sendNewsById :: Handle -> Pool Connection -> Request -> Maybe Int -> IO Response
 sendNewsById hLogger pool req newsId =
@@ -120,9 +143,15 @@ sendNewsById hLogger pool req newsId =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
+            logInfo hLogger "Preparing data for sending news"
             result <- getNewsByIdFromDb hLogger pool newsId
             case result of
-                Left bs -> return $ responseBadRequest bs
+                Left "News not exist" -> do
+                    logError hLogger "News not sended. News not exist."
+                    return $ responseBadRequest "News not exist"
+                Left bs -> do
+                    logError hLogger "News not sended."
+                    return $ responseBadRequest bs
                 Right gn -> return $ responseOKJSON $ encode gn
 
 sendNews :: Handle -> Pool Connection -> Request -> IO Response
@@ -212,7 +241,6 @@ sendNews hLogger pool req =
             return $ responseMethodNotAllowed "Bad request method"
   where
     queryParams = queryString req
-    --(_, fstParam) = head queryParams
     pageParam = fromMaybe Nothing (lookup "page" queryParams)
     sortParam = fromMaybe Nothing (lookup "sort" queryParams)
     filterParamName =

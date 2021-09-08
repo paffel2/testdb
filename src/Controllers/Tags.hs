@@ -17,7 +17,7 @@ import Databaseoperations.Tags
     , getTagsListFromDb
     )
 import FromRequest (takeToken)
-import Logger (Handle, logError)
+import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
     , methodGet
@@ -44,10 +44,15 @@ sendTagsList hLogger pool req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing parameters for sending tags list."
             tags_list <- getTagsListFromDb hLogger pool page
             case tags_list of
-                Left bs -> return $ responseBadRequest bs
-                Right tl -> return $ responseOKJSON $ encode tl
+                Left bs -> do
+                    logError hLogger "Tags list not sended"
+                    return $ responseBadRequest bs
+                Right tl -> do
+                    logInfo hLogger "Tags list sended"
+                    return $ responseOKJSON $ encode tl
   where
     page = fromMaybe Nothing (lookup "page" $ queryString req)
 
@@ -58,6 +63,7 @@ newTag hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for creating tag."
             let token' = E.decodeUtf8 <$> takeToken req
             let tag_name_param =
                     T.toLower . E.decodeUtf8 <$>
@@ -65,10 +71,17 @@ newTag hLogger pool token_lifetime req =
             result <-
                 createTagInDb hLogger pool token_lifetime token' tag_name_param
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right n ->
+                Left "Not admin" -> do
+                    logError hLogger "Tag not created. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "Tag not created. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Tag not created."
+                    return $ responseBadRequest bs
+                Right n -> do
+                    logInfo hLogger "Tag created."
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 deleteTag ::
@@ -79,6 +92,7 @@ deleteTag hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for deleting tag."
             let token' = E.decodeUtf8 <$> takeToken req
             let tag_name_param =
                     T.toLower . E.decodeUtf8 <$>
@@ -91,10 +105,18 @@ deleteTag hLogger pool token_lifetime req =
                     token'
                     tag_name_param
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Left "Not admin" -> do
+                    logError hLogger "Tag not deleted. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "Tag not deleted. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Tag not deleted."
+                    return $ responseBadRequest bs
+                Right bs -> do
+                    logInfo hLogger "Tag deleted."
+                    return $ responseOk bs
 
 editTag :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 editTag hLogger pool token_lifetime req =
@@ -103,6 +125,7 @@ editTag hLogger pool token_lifetime req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
+            logInfo hLogger "Preparing data for editing tag."
             let token' = E.decodeUtf8 <$> takeToken req
             (i, _) <- parseRequestBody lbsBackEnd req
             let old_tag_name = E.decodeUtf8 <$> lookup "old_tag_name" i
@@ -116,10 +139,18 @@ editTag hLogger pool token_lifetime req =
                     old_tag_name
                     new_tag_name
             case result of
-                Left "Not admin" -> return $ responseForbidden "Not admin"
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> return $ responseBadRequest bs
-                Right bs -> return $ responseOk bs
+                Left "Not admin" -> do
+                    logError hLogger "Tag not edited. Not admin."
+                    return $ responseForbidden "Not admin"
+                Left "Bad token" -> do
+                    logError hLogger "Tag not edited. Bad token."
+                    return $ responseForbidden "Bad token"
+                Left bs -> do
+                    logError hLogger "Tag not edited."
+                    return $ responseBadRequest bs
+                Right bs -> do
+                    logInfo hLogger "Tag edited."
+                    return $ responseOk bs
 
 tagsBlock ::
        Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response

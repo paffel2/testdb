@@ -3,8 +3,6 @@
 module Databaseoperations.Users where
 
 import Control.Exception (catch)
-
---import Data.ByteString as B (ByteString)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
@@ -39,20 +37,13 @@ authentication ::
     -> IO (Either LBS.ByteString LBS.ByteString)
 authentication hLogger pool login password =
     catch
-        (do logInfo hLogger $
-                T.concat ["User with login ", login, " try logging"]
-            (token', now) <- generateToken login
+        (do (token', now) <- generateToken login
             n <- executeWithPool pool q (login, password, token', now)
             if n > 0
                 then do
-                    logInfo hLogger $
-                        T.concat ["User with login ", login, " logged"]
                     return $ Right $ LBS.fromStrict $ E.encodeUtf8 token'
                 else do
-                    logError hLogger $
-                        T.concat ["User with login ", login, " cant logged"]
                     return $ Left "Wrong login or password") $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -114,13 +105,9 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
                              , False)
                      if n > 0
                          then do
-                             logInfo hLogger $
-                                 T.concat ["User ", login, " registered"]
                              firstToken hLogger pool login password
                          else do
-                             logError hLogger "Registration failed"
                              return $ Left "Registration failed") $ \e
-                 --let err = E.decodeUtf8 $ sqlErrorMsg e
               -> do
                  let errState = sqlState e
                  let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -139,41 +126,16 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
             , "values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),?,?)"
             ]
 
-{-deleteUserFromDb ::
-       Handle -> ByteString -> IO (Either LBS.ByteString LBS.ByteString)
-deleteUserFromDb hLogger login =
-    catch
-        (do logInfo hLogger $
-                T.concat ["Trying delete user ", E.decodeUtf8 login]
-            conn <-
-                connectPostgreSQL
-                    "host=localhost port=5432 user='postgres' password='123' dbname='NewsServer'"
-            let q = "delete from users where login = ?"
-            n <- execute conn q [login]
-            close conn
-            if n > 0
-                then do
-                    logInfo hLogger $
-                        T.concat ["User ", E.decodeUtf8 login, " deleted"]
-                    return $
-                        Right $
-                        LBS.concat ["User ", LBS.fromStrict login, " deleted"]
-                else return $ Left "User not exist") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
-        return $ Left "Database error"-}
 deleteUserFromDb ::
        Handle
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
-    -> BC.ByteString --ByteString
+    -> BC.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteUserFromDb hLogger pool token_lifetime token login =
     catch
-        (do logInfo hLogger $
-                T.concat ["Trying delete user ", E.decodeUtf8 login]
-            ch <- checkAdmin hLogger pool token_lifetime token
+        (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
@@ -181,21 +143,16 @@ deleteUserFromDb hLogger pool token_lifetime token login =
                     n <- executeWithPool pool q [login]
                     if n > 0
                         then do
-                            logInfo hLogger $
-                                T.concat
-                                    ["User ", E.decodeUtf8 login, " deleted"]
                             return $
                                 Right $
                                 LBS.concat
                                     ["User ", LBS.fromStrict login, " deleted"]
                         else return $ Left "User not exist") $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        --logError hLogger err
         return $ Left "Database error"
 
 firstToken ::
@@ -218,13 +175,11 @@ firstToken hLogger pool login password =
                     logError hLogger $
                         T.concat ["User with login ", login, " cant logged"]
                     return $ Left "Wrong login or password") $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        --logError hLogger err
         return $ Left "Database error"
   where
     q =
@@ -245,16 +200,12 @@ profileOnDb hLogger _ _ Nothing = do
     return $ Left "No token parameter"
 profileOnDb hLogger pool token_lifetime (Just token') =
     catch
-        (do logInfo hLogger "Sending profile information"
-            rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
+        (do rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
             if Prelude.null rows
                 then do
-                    logError hLogger "Bad token"
                     return $ Left "Bad token"
                 else do
-                    logInfo hLogger "Profile information sended"
                     return $ Right $ Prelude.head rows) $ \e
-        --let err = E.decodeUtf8 $ sqlErrorMsg e
      -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

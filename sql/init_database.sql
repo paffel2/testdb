@@ -6,4 +6,3 @@ CREATE DATABASE "ServerNews"
     LC_CTYPE = 'Russian_Russia.1251'
     TABLESPACE = pg_default
     CONNECTION LIMIT = -1;
---NewsServer
