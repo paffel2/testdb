@@ -104,4 +104,3 @@ To the run server use
     * `initDb` - initialization database and filling test data.
 
 
-* test
