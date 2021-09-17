@@ -45,17 +45,17 @@ newtype ConfigHandle =
         { getConfig :: Modules -> IO ConfigModules
         }
 
-getDbConfig, getTkConfig, getLgConfig, getSrConfig, getPlConfig ::
+getDataBaseConfig, getTokenConfig, getLoggerConfig, getServerConfig, getPoolConfig ::
        ConfigHandle -> IO ConfigModules
-getDbConfig = (`getConfig` DB)
+getDataBaseConfig = (`getConfig` DB)
 
-getTkConfig = (`getConfig` TK)
+getTokenConfig = (`getConfig` TK)
 
-getLgConfig = (`getConfig` LG)
+getLoggerConfig = (`getConfig` LG)
 
-getSrConfig = (`getConfig` SR)
+getServerConfig = (`getConfig` SR)
 
-getPlConfig = (`getConfig` PL)
+getPoolConfig = (`getConfig` PL)
 
 newConfigHandle :: IO ConfigHandle
 newConfigHandle = return $ ConfigHandle {getConfig = getconfig}
@@ -102,7 +102,6 @@ getconfig module' = do
             idle_time' <-
                 toEnum . (1000000000000 *) <$>
                 C.lookupDefault 10 conf (T.pack "pool.idle_time")
-            --let idle_time'' = toEnum idle_time'
             max_resources' <-
                 C.lookupDefault 10 conf (T.pack "pool.max_resources")
             return $ PoolConf num_sparks' idle_time' max_resources'

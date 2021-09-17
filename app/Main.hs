@@ -3,15 +3,8 @@
 module Main where
 
 import Config
-    ( ConfigModules(lifeTime, log_priority, server_maximum_body_flush,
-              server_port)
-    , getDbConfig
-    , getLgConfig
-    , getPlConfig
-    , getSrConfig
-    , getTkConfig
-    , newConfigHandle
-    )
+    
+    
 import ControllersHandle (handler)
 import HelpFunction (dbAddress, dbServerAddress)
 import Logger (Handle(Handle), logInfo, printLog)
@@ -26,11 +19,11 @@ import Router ( routes )
 main :: IO ()
 main = do
     hConfig <- newConfigHandle
-    confToken <- getTkConfig hConfig
-    confLogger <- getLgConfig hConfig
-    confServer <- getSrConfig hConfig
-    confDb <- getDbConfig hConfig
-    confPool <- getPlConfig hConfig
+    confToken <- getTokenConfig hConfig
+    confLogger <- getLoggerConfig hConfig
+    confServer <- getServerConfig hConfig
+    confDb <- getDataBaseConfig hConfig
+    confPool <- getPoolConfig hConfig
     let db_address = dbAddress confDb
     let token_lifetime = lifeTime confToken
     let hLogger = Handle (log_priority confLogger) printLog
