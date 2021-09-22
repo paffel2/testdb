@@ -6,18 +6,21 @@ import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Pool (Pool, createPool, destroyAllResources)
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple
-    ( Binary(Binary)
-    , Connection
-    , SqlError(sqlErrorMsg)
-    , close
-    , connectPostgreSQL
-    )
-import HelpFunction (getFiles, toQuery)
+    ( connectPostgreSQL,
+      close,
+      Binary(Binary),
+      SqlError(sqlState),
+      Connection,
+      sqlErrorMsg )
+import qualified Data.Text.Encoding as E
+import HelpFunction ( toQuery, getFiles, readByteStringToInt ) 
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
 import Types (DatabaseAddress)
+import qualified Data.Text as T
+import Data.Maybe ( fromMaybe )
+import System.Info(os)
 
 createDb ::
        Handle
@@ -43,11 +46,28 @@ createDb hLogger pool db_add =
                 insertDrafts hLogger pool >>=
                 insertNews hLogger pool >>=
                 insertComments hLogger pool) $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
+        {-let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
-        return $ Left $ LBS.fromStrict $ sqlErrorMsg e
+        return $ Left $ LBS.fromStrict $ sqlErrorMsg e-}
+        let err = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt err)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
 
 initDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+initDb hLogger pool = do
+    let initScript = if os == "linux" then "sql/init_db_linux.sql"
+                        else "sql/init_database.sql"
+    logDebug hLogger "Read script"
+    script <- BC.readFile initScript
+    let q = toQuery script
+    logDebug hLogger "Script readed and translated to query"
+    logDebug hLogger "Start creating"
+    _ <- execute_WithPool pool q
+    logDebug hLogger "Db created"
+    return $ Right "Database created"
+{-initDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
 initDb hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/init_database.sql"
@@ -56,8 +76,8 @@ initDb hLogger pool = do
     logDebug hLogger "Start creating"
     _ <- execute_WithPool pool q
     logDebug hLogger "Db created"
-    return $ Right "Database created"
-
+    return $ Right "Database created"-}
+    
 fillDb ::
        Either LBS.ByteString LBS.ByteString
     -> Handle
