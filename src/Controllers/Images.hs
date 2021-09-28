@@ -2,6 +2,7 @@
 
 module Controllers.Images where
 
+import Control.Monad.IO.Class (MonadIO)
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import Data.Maybe (fromMaybe)
@@ -12,6 +13,7 @@ import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodGet)
 import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import OperationsHandle (ImagesHandle(get_photo, get_photo_list))
 import Responses
     ( responseBadRequest
     , responseMethodNotAllowed
@@ -21,12 +23,18 @@ import Responses
     )
 import Types (ImageB(con_type, image_b))
 
-sendImagesList :: Handle IO -> Pool Connection -> Request -> IO Response
-sendImagesList hLogger pool req = do
+sendImagesList ::
+       MonadIO m
+    => Handle m
+    -> ImagesHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+sendImagesList hLogger operations pool req = do
     if requestMethod req == methodGet
         then do
             logInfo hLogger "Preparing data for sending images list"
-            result <- getPhotoList hLogger pool pageParam
+            result <- get_photo_list operations hLogger pool pageParam
             case result of
                 Left bs -> do
                     logError hLogger "Images list not sended"
@@ -41,12 +49,19 @@ sendImagesList hLogger pool req = do
     queryParams = queryString req
     pageParam = fromMaybe Nothing (lookup "page" queryParams)
 
-sendImage :: Handle IO -> Pool Connection -> Int -> Request -> IO Response
-sendImage hLogger pool imageId req = do
+sendImage ::
+       MonadIO m
+    => Handle m
+    -> ImagesHandle m
+    -> Pool Connection
+    -> Int
+    -> Request
+    -> m Response
+sendImage hLogger operations pool imageId req = do
     if requestMethod req == methodGet
         then do
             logInfo hLogger "Preparing data for sending image"
-            result <- getPhoto hLogger pool imageId
+            result <- get_photo operations hLogger pool imageId
             case result of
                 Left bs -> do
                     logError hLogger "Image not sended"
@@ -59,13 +74,19 @@ sendImage hLogger pool imageId req = do
             logError hLogger "Bad method request"
             return $ responseMethodNotAllowed "Bad method request"
 
-imageBlock :: Handle IO -> Pool Connection -> Request -> IO Response
-imageBlock hLogger pool req
-    | pathElemsC == 1 = sendImagesList hLogger pool req
+imagesRouter ::
+       MonadIO m
+    => Handle m
+    -> ImagesHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+imagesRouter hLogger operations pool req
+    | pathElemsC == 1 = sendImagesList hLogger operations pool req
     | pathElemsC == 2 =
         case readByteStringToInt $ last pathElems of
             Nothing -> return $ responseBadRequest "Bad image id"
-            Just n -> sendImage hLogger pool n req
+            Just n -> sendImage hLogger operations pool n req
     | otherwise = return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

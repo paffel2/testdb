@@ -2,6 +2,7 @@
 
 module Controllers.Drafts where
 
+import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
@@ -33,6 +34,11 @@ import Network.Wai.Parse
     , noLimitParseRequestBodyOptions
     , parseRequestBodyEx
     )
+import OperationsHandle
+    ( DraftsHandle(create_draft_on_db, delete_draft_from_db,
+             get_draft_by_id_from_db, get_drafts_by_author_token,
+             public_news_on_db, update_draft_in_db)
+    )
 import Responses
     ( responseBadRequest
     , responseCreated
@@ -45,8 +51,14 @@ import Responses
 import Types (Image(Image, image_content_type), TokenLifeTime)
 
 sendDrafts ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-sendDrafts hLogger pool token_liferime req =
+       MonadIO m
+    => Handle m
+    -> DraftsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+sendDrafts hLogger operations pool token_liferime req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
@@ -54,7 +66,13 @@ sendDrafts hLogger pool token_liferime req =
         else do
             logInfo hLogger "Preparing data for sending drafts"
             let token' = E.decodeUtf8 <$> takeToken req
-            drafts' <- getDraftsByAuthorToken hLogger pool token_liferime token'
+            drafts' <-
+                get_drafts_by_author_token
+                    operations
+                    hLogger
+                    pool
+                    token_liferime
+                    token'
             case drafts' of
                 Left bs -> return $ responseBadRequest bs
                 Right draftsA -> do
@@ -62,8 +80,14 @@ sendDrafts hLogger pool token_liferime req =
                     return $ responseOKJSON (encode draftsA)
 
 createDraft ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-createDraft hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> DraftsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+createDraft hLogger operations pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -71,6 +95,7 @@ createDraft hLogger pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for creating draft"
             (i, f) <-
+                liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
             let main'_image = foundParametr "main_image" f
             let images = foundParametr "images" f
@@ -104,7 +129,8 @@ createDraft hLogger pool token_lifetime req =
                     let short'_title = E.decodeUtf8 <$> lookup "short_title" i
                     let text = E.decodeUtf8 <$> lookup "news_text" i
                     result <-
-                        createDraftOnDb
+                        create_draft_on_db
+                            operations
                             hLogger
                             pool
                             token_lifetime
@@ -128,8 +154,14 @@ createDraft hLogger pool token_lifetime req =
                                 LBS.fromStrict $ BC.pack $ show n
 
 deleteDraft ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteDraft hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> DraftsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+deleteDraft hLogger operations pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -140,7 +172,13 @@ deleteDraft hLogger pool token_lifetime req =
             let draft_id =
                     fromMaybe Nothing (lookup "draft_id" $ queryString req)
             result <-
-                deleteDraftFromDb hLogger pool token_lifetime token' draft_id
+                delete_draft_from_db
+                    operations
+                    hLogger
+                    pool
+                    token_lifetime
+                    token'
+                    draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> do
@@ -151,13 +189,15 @@ deleteDraft hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 getDraftById ::
-       Handle IO
+       MonadIO m
+    => Handle m
+    -> DraftsHandle m
     -> Pool Connection
     -> TokenLifeTime
     -> Int
     -> Request
-    -> IO Response
-getDraftById hLogger pool token_lifetime draft_id req =
+    -> m Response
+getDraftById hLogger operations pool token_lifetime draft_id req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
@@ -166,7 +206,13 @@ getDraftById hLogger pool token_lifetime draft_id req =
             logInfo hLogger "Preparing data for sending draft"
             let token' = E.decodeUtf8 <$> takeToken req
             result <-
-                getDraftByIdFromDb hLogger pool token_lifetime token' draft_id
+                get_draft_by_id_from_db
+                    operations
+                    hLogger
+                    pool
+                    token_lifetime
+                    token'
+                    draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> do
@@ -177,13 +223,15 @@ getDraftById hLogger pool token_lifetime draft_id req =
                     return $ responseOKJSON $ encode draft
 
 updateDraft ::
-       Handle IO
+       MonadIO m
+    => Handle m
+    -> DraftsHandle m
     -> Pool Connection
     -> TokenLifeTime
     -> Int
     -> Request
-    -> IO Response
-updateDraft hLogger pool token_lifetime draft_id req =
+    -> m Response
+updateDraft hLogger operations pool token_lifetime draft_id req =
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
@@ -192,6 +240,7 @@ updateDraft hLogger pool token_lifetime draft_id req =
             logInfo hLogger "Preparing data for updating draft"
             let token' = takeToken req
             (i, f) <-
+                liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
             let main'_image = foundParametr "main_image" f
             let images = foundParametr "images" f
@@ -224,7 +273,8 @@ updateDraft hLogger pool token_lifetime draft_id req =
                     return $ responseBadRequest "Bad image file"
                 else do
                     result <-
-                        updateDraftInDb
+                        update_draft_in_db
+                            operations
                             hLogger
                             pool
                             token_lifetime
@@ -247,13 +297,15 @@ updateDraft hLogger pool token_lifetime draft_id req =
                             return $ responseOk bs
 
 publicNews ::
-       Handle IO
+       MonadIO m
+    => Handle m
+    -> DraftsHandle m
     -> Pool Connection
     -> TokenLifeTime
     -> Int
     -> Request
-    -> IO Response
-publicNews hLogger pool token_lifetime draft_id req =
+    -> m Response
+publicNews hLogger operations pool token_lifetime draft_id req =
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
@@ -261,7 +313,14 @@ publicNews hLogger pool token_lifetime draft_id req =
         else do
             logInfo hLogger "Preparing data for public news"
             let token' = E.decodeUtf8 <$> takeToken req
-            result <- publicNewsOnDb hLogger pool token_lifetime token' draft_id
+            result <-
+                public_news_on_db
+                    operations
+                    hLogger
+                    pool
+                    token_lifetime
+                    token'
+                    draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
                 Left bs -> do
@@ -271,17 +330,23 @@ publicNews hLogger pool token_lifetime draft_id req =
                     logInfo hLogger "News published"
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
-draftsBlock ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-draftsBlock hLogger pool token_lifetime req
-    | pathElemsC == 1 = sendDrafts hLogger pool token_lifetime req
+draftsRouter ::
+       MonadIO m
+    => Handle m
+    -> DraftsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+draftsRouter hLogger operations pool token_lifetime req
+    | pathElemsC == 1 = sendDrafts hLogger operations pool token_lifetime req
     | pathElemsC == 2 =
         case readByteStringToInt $ last pathElems of
-            Just n -> getDraftById hLogger pool token_lifetime n req
+            Just n -> getDraftById hLogger operations pool token_lifetime n req
             Nothing ->
                 case last pathElems of
                     "delete_draft" ->
-                        deleteDraft hLogger pool token_lifetime req
+                        deleteDraft hLogger operations pool token_lifetime req
                     _ -> return $ responseNotFound "Not Found"
     | pathElemsC == 3 =
         case readByteStringToInt $ head $ tail pathElems of
@@ -289,9 +354,9 @@ draftsBlock hLogger pool token_lifetime req
             Just n ->
                 case last pathElems of
                     "update_draft" ->
-                        updateDraft hLogger pool token_lifetime n req
+                        updateDraft hLogger operations pool token_lifetime n req
                     "public_news" ->
-                        publicNews hLogger pool token_lifetime n req
+                        publicNews hLogger operations pool token_lifetime n req
                     _ -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where

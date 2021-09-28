@@ -3,6 +3,7 @@
 module Controllers.NewsAndComments where
 
 import Control.Applicative (Alternative((<|>)))
+import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import Data.Maybe (fromMaybe)
@@ -36,6 +37,20 @@ import Network.Wai.Parse
     , noLimitParseRequestBodyOptions
     , parseRequestBodyEx
     )
+import OperationsHandle
+    ( NewsAndCommentsHandle(add_comment_to_db, delete_comment_from_db,
+                      get_comments_by_news_id_from_db, get_news_by_id_from_db,
+                      get_news_filter_by_after_date_from_db,
+                      get_news_filter_by_author_name_from_db,
+                      get_news_filter_by_before_date_from_db,
+                      get_news_filter_by_category_id_from_db,
+                      get_news_filter_by_content_from_db,
+                      get_news_filter_by_date_from_db,
+                      get_news_filter_by_tag_all_from_db,
+                      get_news_filter_by_tag_id_from_db,
+                      get_news_filter_by_tag_in_from_db,
+                      get_news_filter_by_title_from_db, get_news_from_db)
+    )
 import Responses
     ( responseBadRequest
     , responseCreated
@@ -49,8 +64,14 @@ import Text.Read (readMaybe)
 import Types (TokenLifeTime)
 
 deleteCommentById ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteCommentById hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> NewsAndCommentsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+deleteCommentById hLogger operations pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -62,7 +83,13 @@ deleteCommentById hLogger pool token_lifetime req =
                     fromMaybe Nothing (lookup "comment_id" $ queryString req)
             let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
             result <-
-                deleteCommentFromDb hLogger pool token_lifetime token' c_id'
+                delete_comment_from_db
+                    operations
+                    hLogger
+                    pool
+                    token_lifetime
+                    token'
+                    c_id'
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Commentary not deleted. Not admin."
@@ -78,13 +105,15 @@ deleteCommentById hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 addCommentByNewsId ::
-       Handle IO
+       MonadIO m
+    => Handle m
+    -> NewsAndCommentsHandle m
     -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> Maybe Int
-    -> IO Response
-addCommentByNewsId hLogger pool token_lifetime req news'_id =
+    -> m Response
+addCommentByNewsId hLogger operations pool token_lifetime req news'_id =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -92,11 +121,13 @@ addCommentByNewsId hLogger pool token_lifetime req news'_id =
         else do
             logInfo hLogger "Preparing data for adding commentary"
             (i, _) <-
+                liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
             let token' = takeToken req
             let comment = lookup "comment_text" i
             result <-
-                addCommentToDb
+                add_comment_to_db
+                    operations
                     hLogger
                     pool
                     token_lifetime
@@ -118,8 +149,14 @@ addCommentByNewsId hLogger pool token_lifetime req news'_id =
                     return $ responseCreated bs
 
 sendCommentsByNewsId ::
-       Handle IO -> Pool Connection -> Request -> Maybe Int -> IO Response
-sendCommentsByNewsId hLogger pool req news'_id =
+       MonadIO m
+    => Handle m
+    -> NewsAndCommentsHandle m
+    -> Pool Connection
+    -> Request
+    -> Maybe Int
+    -> m Response
+sendCommentsByNewsId hLogger operations pool req news'_id =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
@@ -127,7 +164,13 @@ sendCommentsByNewsId hLogger pool req news'_id =
         else do
             logInfo hLogger "Preparing data for sending commentary list"
             let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
-            result <- getCommentsByNewsIdFromDb hLogger pool news'_id pageParam
+            result <-
+                get_comments_by_news_id_from_db
+                    operations
+                    hLogger
+                    pool
+                    news'_id
+                    pageParam
             case result of
                 Left bs -> do
                     logError hLogger "Commentaries not sended."
@@ -137,15 +180,21 @@ sendCommentsByNewsId hLogger pool req news'_id =
                     return $ responseOKJSON $ encode ca
 
 sendNewsById ::
-       Handle IO -> Pool Connection -> Request -> Maybe Int -> IO Response
-sendNewsById hLogger pool req newsId =
+       MonadIO m
+    => Handle m
+    -> NewsAndCommentsHandle m
+    -> Pool Connection
+    -> Request
+    -> Maybe Int
+    -> m Response
+sendNewsById hLogger operations pool req newsId =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing data for sending news"
-            result <- getNewsByIdFromDb hLogger pool newsId
+            result <- get_news_by_id_from_db operations hLogger pool newsId
             case result of
                 Left "News not exist" -> do
                     logError hLogger "News not sended. News not exist."
@@ -155,76 +204,92 @@ sendNewsById hLogger pool req newsId =
                     return $ responseBadRequest bs
                 Right gn -> return $ responseOKJSON $ encode gn
 
-sendNews :: Handle IO -> Pool Connection -> Request -> IO Response
-sendNews hLogger pool req =
+sendNews ::
+       MonadIO m
+    => Handle m
+    -> NewsAndCommentsHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+sendNews hLogger operations pool req =
     if requestMethod req == methodGet
         then do
             result <-
                 case filterParamName of
                     Just "tag_in" ->
-                        getNewsFilterByTagInFromDb
+                        get_news_filter_by_tag_in_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                     Just "category" ->
-                        getNewsFilterByCategoryIdFromDb
+                        get_news_filter_by_category_id_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "title" ->
-                        getNewsFilterByTitleFromDb
+                        get_news_filter_by_title_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "author" ->
-                        getNewsFilterByAuthorNameFromDb
+                        get_news_filter_by_author_name_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "date" ->
-                        getNewsFilterByDateFromDb
+                        get_news_filter_by_date_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "tag_all" ->
-                        getNewsFilterByTagAllFromDb
+                        get_news_filter_by_tag_all_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "content" ->
-                        getNewsFilterByContentFromDb
+                        get_news_filter_by_content_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "after_date" ->
-                        getNewsFilterByAfterDateFromDb
+                        get_news_filter_by_after_date_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "before_date" ->
-                        getNewsFilterByBeforeDateFromDb
+                        get_news_filter_by_before_date_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
                             pageParam
                             sortParam'
                     Just "tag" ->
-                        getNewsFilterByTagIdFromDb
+                        get_news_filter_by_tag_id_from_db
+                            operations
                             hLogger
                             pool
                             filterParam
@@ -233,7 +298,13 @@ sendNews hLogger pool req =
                     Just _ -> do
                         logError hLogger "Bad request"
                         return $ Left "Bad request"
-                    Nothing -> getNewsFromDb hLogger pool sortParam' pageParam
+                    Nothing ->
+                        get_news_from_db
+                            operations
+                            hLogger
+                            pool
+                            sortParam'
+                            pageParam
             case result of
                 Left bs -> return $ responseBadRequest bs
                 Right na -> return $ responseOKJSON $ encode na
@@ -264,17 +335,23 @@ sendNews hLogger pool req =
             Just "category_name" -> "category_name"
             Just _ -> ""
 
-newsMethodBlock ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-newsMethodBlock hLogger pool token_lifetime req
-    | pathElemC == 1 = do sendNews hLogger pool req
+newsAndCommentsRouter ::
+       MonadIO m
+    => Handle m
+    -> NewsAndCommentsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+newsAndCommentsRouter hLogger operations pool token_lifetime req
+    | pathElemC == 1 = do sendNews hLogger operations pool req
     | pathElemC == 2 = do
         let newsId = readMaybe $ BC.unpack $ last pathElems :: Maybe Int
-        sendNewsById hLogger pool req newsId
+        sendNewsById hLogger operations pool req newsId
     | pathElemC == 3 = do
         let newsId = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
         if last pathElems == "comments"
-            then sendCommentsByNewsId hLogger pool req newsId
+            then sendCommentsByNewsId hLogger operations pool req newsId
             else do
                 logError hLogger "Bad url"
                 return $ responseNotFound "Not Found"
@@ -283,7 +360,13 @@ newsMethodBlock hLogger pool token_lifetime req
             "add_comment" -> do
                 let news'_id =
                         readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
-                addCommentByNewsId hLogger pool token_lifetime req news'_id
+                addCommentByNewsId
+                    hLogger
+                    operations
+                    pool
+                    token_lifetime
+                    req
+                    news'_id
             "delete_comment" -> do
                 let news'_id =
                         readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
@@ -291,7 +374,13 @@ newsMethodBlock hLogger pool token_lifetime req
                     Nothing -> do
                         logError hLogger "bad comment id"
                         return $ responseBadRequest "bad comment id"
-                    Just _ -> deleteCommentById hLogger pool token_lifetime req
+                    Just _ ->
+                        deleteCommentById
+                            hLogger
+                            operations
+                            pool
+                            token_lifetime
+                            req
             _ -> do
                 logError hLogger "Bad url"
                 return $ responseNotFound "Not Found"

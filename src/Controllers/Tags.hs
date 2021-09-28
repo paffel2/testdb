@@ -2,6 +2,7 @@
 
 module Controllers.Tags where
 
+import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
@@ -26,6 +27,10 @@ import Network.HTTP.Types.Method
     )
 import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
+import OperationsHandle
+    ( TagsHandle(create_tag_in_db, delete_tag_from_db, edit_tag_in_db,
+           get_tags_list_from_db)
+    )
 import Responses
     ( responseBadRequest
     , responseCreated
@@ -37,15 +42,21 @@ import Responses
     )
 import Types (TokenLifeTime)
 
-sendTagsList :: Handle IO -> Pool Connection -> Request -> IO Response
-sendTagsList hLogger pool req =
+sendTagsList ::
+       MonadIO m
+    => Handle m
+    -> TagsHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+sendTagsList hLogger operations pool req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing parameters for sending tags list."
-            tags_list <- getTagsListFromDb hLogger pool page
+            tags_list <- get_tags_list_from_db operations hLogger pool page
             case tags_list of
                 Left bs -> do
                     logError hLogger "Tags list not sended"
@@ -57,8 +68,14 @@ sendTagsList hLogger pool req =
     page = fromMaybe Nothing (lookup "page" $ queryString req)
 
 newTag ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-newTag hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> TagsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+newTag hLogger operations pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -70,7 +87,13 @@ newTag hLogger pool token_lifetime req =
                     T.toLower . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "tag_name" $ queryString req)
             result <-
-                createTagInDb hLogger pool token_lifetime token' tag_name_param
+                create_tag_in_db
+                    operations
+                    hLogger
+                    pool
+                    token_lifetime
+                    token'
+                    tag_name_param
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Tag not created. Not admin."
@@ -86,8 +109,14 @@ newTag hLogger pool token_lifetime req =
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 deleteTag ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteTag hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> TagsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+deleteTag hLogger operations pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -99,7 +128,8 @@ deleteTag hLogger pool token_lifetime req =
                     T.toLower . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "tag_name" $ queryString req)
             result <-
-                deleteTagFromDb
+                delete_tag_from_db
+                    operations
                     hLogger
                     pool
                     token_lifetime
@@ -120,8 +150,14 @@ deleteTag hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 editTag ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-editTag hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> TagsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+editTag hLogger operations pool token_lifetime req =
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
@@ -129,11 +165,12 @@ editTag hLogger pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for editing tag."
             let token' = E.decodeUtf8 <$> takeToken req
-            (i, _) <- parseRequestBody lbsBackEnd req
+            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let old_tag_name = E.decodeUtf8 <$> lookup "old_tag_name" i
             let new_tag_name = E.decodeUtf8 <$> lookup "new_tag_name" i
             result <-
-                editTagInDb
+                edit_tag_in_db
+                    operations
                     hLogger
                     pool
                     token_lifetime
@@ -154,15 +191,21 @@ editTag hLogger pool token_lifetime req =
                     logInfo hLogger "Tag edited."
                     return $ responseOk bs
 
-tagsBlock ::
-       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-tagsBlock hLogger pool token_lifetime req
-    | pathElemsC == 1 = sendTagsList hLogger pool req
+tagsRouter ::
+       MonadIO m
+    => Handle m
+    -> TagsHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+tagsRouter hLogger operations pool token_lifetime req
+    | pathElemsC == 1 = sendTagsList hLogger operations pool req
     | pathElemsC == 2 =
         case last pathElems of
-            "create_tag" -> newTag hLogger pool token_lifetime req
-            "delete_tag" -> deleteTag hLogger pool token_lifetime req
-            "edit_tag" -> editTag hLogger pool token_lifetime req
+            "create_tag" -> newTag hLogger operations pool token_lifetime req
+            "delete_tag" -> deleteTag hLogger operations pool token_lifetime req
+            "edit_tag" -> editTag hLogger operations pool token_lifetime req
             _ -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where

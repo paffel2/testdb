@@ -3,17 +3,25 @@
 module Router where
 
 import Config (ConfigModules(idle_time, max_resources, num_stripes))
-import ControllersHandle
-    ( ControllersHandle(authors_hanlder, categories_handler,
-                  delete_user_handler, draft_handler, image_handler, initDb_handler,
-                  login_handler, new_draft_handler, news_and_comments_handler,
-                  profile_handler, registration_handler, tags_handler)
-    )
+import Controllers.Authors (authorsRouter)
+import Controllers.Categories (categoriesRouter)
+import Controllers.Drafts (createDraft, draftsRouter)
+import Controllers.Images (imagesRouter)
+import Controllers.InitDb (initDb)
+import Controllers.NewsAndComments (newsAndCommentsRouter)
+import Controllers.Tags (tagsRouter)
+import Controllers.Users (deleteUser, login, profile, registration)
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (createPool)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
 import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo))
+import OperationsHandle
+    ( OperationsHandle(authors_handle, categories_handle, drafts_handle,
+                 images_handle, init_db_handle, tags_handle, users_handle)
+    , newsAndCommentsHandler
+    )
+
 import Responses (responseNotFound)
 import Types (DatabaseAddress, TokenLifeTime)
 
@@ -23,9 +31,9 @@ routes ::
     -> DatabaseAddress
     -> TokenLifeTime
     -> ConfigModules
-    -> ControllersHandle IO
+    -> OperationsHandle IO
     -> Application
-routes hLogger db_address db_server_address token_lifetime confPool methods req respond = do
+routes hLogger db_address db_server_address token_lifetime confPool operations req respond = do
     pool <-
         createPool
             (connectPostgreSQL db_address)
@@ -35,32 +43,67 @@ routes hLogger db_address db_server_address token_lifetime confPool methods req 
             (max_resources confPool)
     case pathHead of
         "news" ->
-            news_and_comments_handler methods hLogger pool token_lifetime req >>=
+            newsAndCommentsRouter
+                hLogger
+                newsAndCommentsHandler
+                pool
+                token_lifetime
+                req >>=
             respond
-        "login" -> login_handler methods hLogger pool req >>= respond
+        "login" -> login hLogger (users_handle operations) pool req >>= respond
         "registration" ->
-            registration_handler methods hLogger pool req >>= respond
+            registration hLogger (users_handle operations) pool req >>= respond
         "deleteUser" ->
-            delete_user_handler methods hLogger pool token_lifetime req >>=
+            deleteUser hLogger (users_handle operations) pool token_lifetime req >>=
             respond
         "categories" ->
-            categories_handler methods hLogger pool token_lifetime req >>=
+            categoriesRouter
+                hLogger
+                (categories_handle operations)
+                pool
+                token_lifetime
+                req >>=
             respond
         "profile" ->
-            profile_handler methods hLogger pool token_lifetime req >>= respond
+            profile hLogger (users_handle operations) pool token_lifetime req >>=
+            respond
         "drafts" ->
-            draft_handler methods hLogger pool token_lifetime req >>= respond
+            draftsRouter
+                hLogger
+                (drafts_handle operations)
+                pool
+                token_lifetime
+                req >>=
+            respond
         "new_draft" ->
-            new_draft_handler methods hLogger pool token_lifetime req >>=
+            createDraft
+                hLogger
+                (drafts_handle operations)
+                pool
+                token_lifetime
+                req >>=
             respond
         "tags" ->
-            tags_handler methods hLogger pool token_lifetime req >>= respond
-        "image" -> image_handler methods hLogger pool req >>= respond
+            tagsRouter hLogger (tags_handle operations) pool token_lifetime req >>=
+            respond
+        "image" ->
+            imagesRouter hLogger (images_handle operations) pool req >>= respond
         "initDb" ->
-            initDb_handler methods hLogger pool db_server_address req >>=
+            initDb
+                hLogger
+                (init_db_handle operations)
+                pool
+                db_server_address
+                req >>=
             respond
         "authors" ->
-            authors_hanlder methods hLogger pool token_lifetime req >>= respond
+            authorsRouter
+                hLogger
+                (authors_handle operations)
+                pool
+                token_lifetime
+                req >>=
+            respond
         _ -> respond $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

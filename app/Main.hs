@@ -12,7 +12,6 @@ import Config
     , getTkConfig
     , newConfigHandle
     )
-import ControllersHandle (handler)
 import HelpFunction (dbAddress, dbServerAddress)
 import Logger (Handle(Handle), logInfo, printLog)
 import Network.Wai.Handler.Warp
@@ -21,7 +20,8 @@ import Network.Wai.Handler.Warp
     , setMaximumBodyFlush
     , setPort
     )
-import Router ( routes )
+import OperationsHandle (operationsHandler)
+import Router (routes)
 
 main :: IO ()
 main = do
@@ -45,4 +45,4 @@ main = do
             db_server_address
             token_lifetime
             confPool
-            handler
+            operationsHandler
