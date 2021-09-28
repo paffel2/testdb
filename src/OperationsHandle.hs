@@ -2,20 +2,77 @@ module OperationsHandle where
 
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Pool
+import Data.Pool (Pool)
 import qualified Data.Text as T
-import Database.PostgreSQL.Simple
+import Database.PostgreSQL.Simple (Connection)
 import Databaseoperations.Authors
+    ( createAuthorInDb
+    , deleteAuthorInDb
+    , editAuthorInDb
+    , getAuthorsList
+    )
 import Databaseoperations.Categories
+    ( createCategoryOnDb
+    , deleteCategoryFromDb
+    , editCategoryOnDb
+    , getCategoriesListFromDb
+    )
 import Databaseoperations.Drafts
-import Databaseoperations.Images
-import Databaseoperations.InitDb
+    ( createDraftOnDb
+    , deleteDraftFromDb
+    , getDraftByIdFromDb
+    , getDraftsByAuthorToken
+    , publicNewsOnDb
+    , updateDraftInDb
+    )
+import Databaseoperations.Images (getPhoto, getPhotoList)
+import Databaseoperations.InitDb (createDb)
 import Databaseoperations.NewsAndComments
+    ( addCommentToDb
+    , deleteCommentFromDb
+    , getCommentsByNewsIdFromDb
+    , getNewsByIdFromDb
+    , getNewsFilterByAfterDateFromDb
+    , getNewsFilterByAuthorNameFromDb
+    , getNewsFilterByBeforeDateFromDb
+    , getNewsFilterByCategoryIdFromDb
+    , getNewsFilterByContentFromDb
+    , getNewsFilterByDateFromDb
+    , getNewsFilterByTagAllFromDb
+    , getNewsFilterByTagIdFromDb
+    , getNewsFilterByTagInFromDb
+    , getNewsFilterByTitleFromDb
+    , getNewsFromDb
+    )
 import Databaseoperations.Tags
+    ( createTagInDb
+    , deleteTagFromDb
+    , editTagInDb
+    , getTagsListFromDb
+    )
 import Databaseoperations.Users
-import Logger
-import Network.Wai
+    ( authentication
+    , createUserInDb
+    , deleteUserFromDb
+    , profileOnDb
+    )
+import Logger (Handle)
 import Types
+    ( AuthorsList
+    , CommentArray
+    , DatabaseAddress
+    , Draft
+    , DraftArray
+    , GetNews
+    , Image
+    , ImageArray
+    , ImageB
+    , ListOfCategories
+    , NewsArray
+    , Profile
+    , TagsList
+    , TokenLifeTime
+    )
 
 data OperationsHandle m =
     OperationsHandle

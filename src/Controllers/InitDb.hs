@@ -6,7 +6,6 @@ import Control.Monad.IO.Class (MonadIO)
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.InitDb (createDb)
 import Logger (Handle, logError, logInfo)
 import Network.Wai (Request(rawPathInfo), Response)
 import OperationsHandle (InitDbHandle(create_db))

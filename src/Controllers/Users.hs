@@ -8,12 +8,6 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.Users
-    ( authentication
-    , createUserInDb
-    , deleteUserFromDb
-    , profileOnDb
-    )
 import FromRequest (takeToken)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)

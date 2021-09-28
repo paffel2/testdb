@@ -10,14 +10,6 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Binary(Binary), Connection)
-import Databaseoperations.Drafts
-    ( createDraftOnDb
-    , deleteDraftFromDb
-    , getDraftByIdFromDb
-    , getDraftsByAuthorToken
-    , publicNewsOnDb
-    , updateDraftInDb
-    )
 import FromRequest (takeToken, toImage)
 import HelpFunction (foundParametr, readByteStringToInt)
 import Logger (Handle, logError, logInfo)

@@ -10,23 +10,6 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.NewsAndComments
-    ( addCommentToDb
-    , deleteCommentFromDb
-    , getCommentsByNewsIdFromDb
-    , getNewsByIdFromDb
-    , getNewsFilterByAfterDateFromDb
-    , getNewsFilterByAuthorNameFromDb
-    , getNewsFilterByBeforeDateFromDb
-    , getNewsFilterByCategoryIdFromDb
-    , getNewsFilterByContentFromDb
-    , getNewsFilterByDateFromDb
-    , getNewsFilterByTagAllFromDb
-    , getNewsFilterByTagIdFromDb
-    , getNewsFilterByTagInFromDb
-    , getNewsFilterByTitleFromDb
-    , getNewsFromDb
-    )
 import FromRequest (takeToken)
 import HelpFunction (myLookup)
 import Logger (Handle, logError, logInfo)

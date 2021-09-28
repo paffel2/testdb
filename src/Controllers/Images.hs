@@ -8,7 +8,6 @@ import qualified Data.ByteString.Char8 as BC
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Binary(fromBinary), Connection)
-import Databaseoperations.Images (getPhoto, getPhotoList)
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodGet)

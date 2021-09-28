@@ -10,12 +10,6 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.Authors
-    ( createAuthorInDb
-    , deleteAuthorInDb
-    , editAuthorInDb
-    , getAuthorsList
-    )
 import FromRequest (takeToken)
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logDebug, logError, logInfo)
