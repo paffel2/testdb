@@ -37,7 +37,7 @@ import Responses
     )
 import Types (TokenLifeTime)
 
-sendTagsList :: Handle -> Pool Connection -> Request -> IO Response
+sendTagsList :: Handle IO -> Pool Connection -> Request -> IO Response
 sendTagsList hLogger pool req =
     if requestMethod req /= methodGet
         then do
@@ -56,7 +56,8 @@ sendTagsList hLogger pool req =
   where
     page = fromMaybe Nothing (lookup "page" $ queryString req)
 
-newTag :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+newTag ::
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 newTag hLogger pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
@@ -85,7 +86,7 @@ newTag hLogger pool token_lifetime req =
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 deleteTag ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteTag hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
@@ -118,7 +119,8 @@ deleteTag hLogger pool token_lifetime req =
                     logInfo hLogger "Tag deleted."
                     return $ responseOk bs
 
-editTag :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+editTag ::
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 editTag hLogger pool token_lifetime req =
     if requestMethod req /= methodPut
         then do
@@ -153,7 +155,7 @@ editTag hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 tagsBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 tagsBlock hLogger pool token_lifetime req
     | pathElemsC == 1 = sendTagsList hLogger pool req
     | pathElemsC == 2 =

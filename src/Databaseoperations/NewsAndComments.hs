@@ -34,7 +34,7 @@ import Types
     )
 
 addCommentToDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> T.Text
@@ -56,8 +56,7 @@ addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) =
                 then do
                     return $ Right "Comment added"
                 else do
-                    return $ Right "Comment not added") $ \e
-     -> do
+                    return $ Right "Comment not added") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -71,7 +70,7 @@ addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) =
         "insert into users_comments (user_id, comment_text,news_id,comment_time) values (check_token(?,?),?,?,?)"
 
 deleteCommentFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -95,8 +94,7 @@ deleteCommentFromDb hLogger pool token_lifetime token' (Just comment_id) = do
                         then do
                             return $ Right "Comment deleted"
                         else do
-                            return $ Left "Comment not deleted") $ \e
-             -> do
+                            return $ Left "Comment not deleted") $ \e -> do
                 let errState = sqlState e
                 let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                 logError hLogger $
@@ -104,7 +102,7 @@ deleteCommentFromDb hLogger pool token_lifetime token' (Just comment_id) = do
                 return $ Left "Database error"
 
 getCommentsByNewsIdFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe Int
     -> Maybe BC.ByteString
@@ -115,8 +113,7 @@ getCommentsByNewsIdFromDb hLogger _ Nothing _ = do
 getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
     catch
         (do rows <- queryWithPool pool q [news_id]
-            return (Right $ CommentArray rows)) $ \e
-     -> do
+            return (Right $ CommentArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -146,7 +143,7 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
             ]
 
 getNewsByIdFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe Int
     -> IO (Either LBS.ByteString GetNews)
@@ -182,7 +179,7 @@ getNewsByIdFromDb hLogger pool (Just news'_id) =
             ]
 
 getNewsFilterByTagInFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -228,7 +225,7 @@ getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
             ]
 
 getNewsFilterByCategoryIdFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -279,7 +276,7 @@ getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
             ]
 
 getNewsFilterByTitleFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -325,7 +322,7 @@ getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
             ]
 
 getNewsFilterByAuthorNameFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -371,7 +368,7 @@ getNewsFilterByAuthorNameFromDb hLogger pool (Just authorName) page_p sortParam 
             ]
 
 getNewsFilterByDateFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -423,7 +420,7 @@ getNewsFilterByDateFromDb hLogger pool (Just date) page_p sortParam = do
             ]
 
 getNewsFilterByTagAllFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -478,7 +475,7 @@ getNewsFilterByTagAllFromDb hLogger pool (Just tag_lst) page_p sortParam = do
                      ]
 
 getNewsFilterByContentFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -524,7 +521,7 @@ getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
             ]
 
 getNewsFilterByAfterDateFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -576,7 +573,7 @@ getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
             ]
 
 getNewsFilterByBeforeDateFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -630,7 +627,7 @@ getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
             ]
 
 getNewsFilterByTagIdFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> Maybe BC.ByteString
@@ -681,7 +678,7 @@ getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
             ]
 
 getNewsFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> BC.ByteString
     -> Maybe BC.ByteString

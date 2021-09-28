@@ -18,7 +18,7 @@ import PostgreSqlWithPool (queryWithPool)
 import Types (TokenLifeTime)
 
 checkAdmin ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -40,8 +40,7 @@ checkAdmin hLogger pool token_liferime (Just token') =
                     let admin'_mark = fromOnly $ Prelude.head rows
                     if admin'_mark
                         then return (admin'_mark, "")
-                        else return (admin'_mark, "Not admin")) $ \e
-     -> do
+                        else return (admin'_mark, "Not admin")) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $

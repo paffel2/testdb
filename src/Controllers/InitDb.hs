@@ -12,7 +12,7 @@ import Responses (responseBadRequest, responseCreated, responseNotFound)
 import Types (DatabaseAddress)
 
 initDbBlock ::
-       Handle -> Pool Connection -> DatabaseAddress -> Request -> IO Response
+       Handle IO -> Pool Connection -> DatabaseAddress -> Request -> IO Response
 initDbBlock hLogger pool db_server_addres req =
     if pathElemsC == 1
         then do

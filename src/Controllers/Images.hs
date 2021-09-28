@@ -21,7 +21,7 @@ import Responses
     )
 import Types (ImageB(con_type, image_b))
 
-sendImagesList :: Handle -> Pool Connection -> Request -> IO Response
+sendImagesList :: Handle IO -> Pool Connection -> Request -> IO Response
 sendImagesList hLogger pool req = do
     if requestMethod req == methodGet
         then do
@@ -41,7 +41,7 @@ sendImagesList hLogger pool req = do
     queryParams = queryString req
     pageParam = fromMaybe Nothing (lookup "page" queryParams)
 
-sendImage :: Handle -> Pool Connection -> Int -> Request -> IO Response
+sendImage :: Handle IO -> Pool Connection -> Int -> Request -> IO Response
 sendImage hLogger pool imageId req = do
     if requestMethod req == methodGet
         then do
@@ -59,7 +59,7 @@ sendImage hLogger pool imageId req = do
             logError hLogger "Bad method request"
             return $ responseMethodNotAllowed "Bad method request"
 
-imageBlock :: Handle -> Pool Connection -> Request -> IO Response
+imageBlock :: Handle IO -> Pool Connection -> Request -> IO Response
 imageBlock hLogger pool req
     | pathElemsC == 1 = sendImagesList hLogger pool req
     | pathElemsC == 2 =

@@ -49,7 +49,7 @@ import Text.Read (readMaybe)
 import Types (TokenLifeTime)
 
 deleteCommentById ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteCommentById hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
@@ -78,7 +78,7 @@ deleteCommentById hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 addCommentByNewsId ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Request
@@ -118,7 +118,7 @@ addCommentByNewsId hLogger pool token_lifetime req news'_id =
                     return $ responseCreated bs
 
 sendCommentsByNewsId ::
-       Handle -> Pool Connection -> Request -> Maybe Int -> IO Response
+       Handle IO -> Pool Connection -> Request -> Maybe Int -> IO Response
 sendCommentsByNewsId hLogger pool req news'_id =
     if requestMethod req /= methodGet
         then do
@@ -136,7 +136,8 @@ sendCommentsByNewsId hLogger pool req news'_id =
                     logInfo hLogger "Commentaries sended."
                     return $ responseOKJSON $ encode ca
 
-sendNewsById :: Handle -> Pool Connection -> Request -> Maybe Int -> IO Response
+sendNewsById ::
+       Handle IO -> Pool Connection -> Request -> Maybe Int -> IO Response
 sendNewsById hLogger pool req newsId =
     if requestMethod req /= methodGet
         then do
@@ -154,7 +155,7 @@ sendNewsById hLogger pool req newsId =
                     return $ responseBadRequest bs
                 Right gn -> return $ responseOKJSON $ encode gn
 
-sendNews :: Handle -> Pool Connection -> Request -> IO Response
+sendNews :: Handle IO -> Pool Connection -> Request -> IO Response
 sendNews hLogger pool req =
     if requestMethod req == methodGet
         then do
@@ -264,7 +265,7 @@ sendNews hLogger pool req =
             Just _ -> ""
 
 newsMethodBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 newsMethodBlock hLogger pool token_lifetime req
     | pathElemC == 1 = do sendNews hLogger pool req
     | pathElemC == 2 = do

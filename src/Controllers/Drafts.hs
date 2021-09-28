@@ -45,7 +45,7 @@ import Responses
 import Types (Image(Image, image_content_type), TokenLifeTime)
 
 sendDrafts ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 sendDrafts hLogger pool token_liferime req =
     if requestMethod req /= methodGet
         then do
@@ -62,7 +62,7 @@ sendDrafts hLogger pool token_liferime req =
                     return $ responseOKJSON (encode draftsA)
 
 createDraft ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 createDraft hLogger pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
@@ -128,7 +128,7 @@ createDraft hLogger pool token_lifetime req =
                                 LBS.fromStrict $ BC.pack $ show n
 
 deleteDraft ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteDraft hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
@@ -151,7 +151,7 @@ deleteDraft hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 getDraftById ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Int
@@ -177,7 +177,7 @@ getDraftById hLogger pool token_lifetime draft_id req =
                     return $ responseOKJSON $ encode draft
 
 updateDraft ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Int
@@ -247,7 +247,7 @@ updateDraft hLogger pool token_lifetime draft_id req =
                             return $ responseOk bs
 
 publicNews ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Int
@@ -272,7 +272,7 @@ publicNews hLogger pool token_lifetime draft_id req =
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 draftsBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 draftsBlock hLogger pool token_lifetime req
     | pathElemsC == 1 = sendDrafts hLogger pool token_lifetime req
     | pathElemsC == 2 =

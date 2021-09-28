@@ -13,19 +13,19 @@ data Priority
     | Error
     deriving (Eq, Ord, Show)
 
-data Handle =
+data Handle m =
     Handle
         { priority :: Priority
-        , log :: Priority -> T.Text -> IO ()
+        , log :: Priority -> T.Text -> m ()
         }
 
-logging :: Priority -> Handle -> T.Text -> IO ()
+logging :: Monad m => Priority -> Handle m -> T.Text -> m ()
 logging pr h text = when (pr >= p) (somePrint pr text)
   where
     p = Logger.priority h
     somePrint = Logger.log h
 
-logDebug, logInfo, logWarning, logError :: Handle -> T.Text -> IO ()
+logDebug, logInfo, logWarning, logError :: Monad m => Handle m -> T.Text -> m ()
 logDebug = logging Debug
 
 logInfo = logging Info

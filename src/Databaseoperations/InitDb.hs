@@ -5,25 +5,26 @@ module Databaseoperations.InitDb where
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
+import Data.Maybe (fromMaybe)
 import Data.Pool (Pool, createPool, destroyAllResources)
-import Database.PostgreSQL.Simple
-    ( connectPostgreSQL,
-      close,
-      Binary(Binary),
-      SqlError(sqlState),
-      Connection,
-      sqlErrorMsg )
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
-import HelpFunction ( toQuery, getFiles, readByteStringToInt ) 
+import Database.PostgreSQL.Simple
+    ( Binary(Binary)
+    , Connection
+    , SqlError(sqlState)
+    , close
+    , connectPostgreSQL
+    , sqlErrorMsg
+    )
+import HelpFunction (getFiles, readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
+import System.Info (os)
 import Types (DatabaseAddress)
-import qualified Data.Text as T
-import Data.Maybe ( fromMaybe )
-import System.Info(os)
 
 createDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> DatabaseAddress
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -45,20 +46,24 @@ createDb hLogger pool db_add =
                 insertTags hLogger pool >>=
                 insertDrafts hLogger pool >>=
                 insertNews hLogger pool >>=
-                insertComments hLogger pool) $ \e -> do
+                insertComments hLogger pool) $ \e
         {-let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
         return $ Left $ LBS.fromStrict $ sqlErrorMsg e-}
+     -> do
         let err = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt err)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Database error"
 
-initDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+initDb ::
+       Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
 initDb hLogger pool = do
-    let initScript = if os == "linux" then "sql/init_db_linux.sql"
-                        else "sql/init_database.sql"
+    let initScript =
+            if os == "linux"
+                then "sql/init_db_linux.sql"
+                else "sql/init_database.sql"
     logDebug hLogger "Read script"
     script <- BC.readFile initScript
     let q = toQuery script
@@ -67,6 +72,7 @@ initDb hLogger pool = do
     _ <- execute_WithPool pool q
     logDebug hLogger "Db created"
     return $ Right "Database created"
+
 {-initDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
 initDb hLogger pool = do
     logDebug hLogger "Read script"
@@ -77,10 +83,9 @@ initDb hLogger pool = do
     _ <- execute_WithPool pool q
     logDebug hLogger "Db created"
     return $ Right "Database created"-}
-    
 fillDb ::
        Either LBS.ByteString LBS.ByteString
-    -> Handle
+    -> Handle IO
     -> Pool Connection
     -> IO (Either LBS.ByteString LBS.ByteString)
 fillDb (Right _) hLogger pool = do
@@ -95,7 +100,7 @@ fillDb (Right _) hLogger pool = do
 fillDb (Left mess) _ _ = return $ Left mess
 
 fillConnections ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -111,7 +116,7 @@ fillConnections hLogger pool (Right _) = do
 fillConnections _ _ (Left mess) = return $ Left mess
 
 fillImages ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -135,7 +140,7 @@ fillImages hLogger pool (Right _) = do
 fillImages _ _ (Left mess) = return $ Left mess
 
 insertUsers ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -151,7 +156,7 @@ insertUsers hLogger pool (Right _) = do
 insertUsers _ _ (Left mess) = return $ Left mess
 
 insertAuthors ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -167,7 +172,7 @@ insertAuthors hLogger pool (Right _) = do
 insertAuthors _ _ (Left mess) = return $ Left mess
 
 insertCategories ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -183,7 +188,7 @@ insertCategories hLogger pool (Right _) = do
 insertCategories _ _ (Left mess) = return $ Left mess
 
 insertTags ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -199,7 +204,7 @@ insertTags hLogger pool (Right _) = do
 insertTags _ _ (Left mess) = return $ Left mess
 
 insertDrafts ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -215,7 +220,7 @@ insertDrafts hLogger pool (Right _) = do
 insertDrafts _ _ (Left mess) = return $ Left mess
 
 insertNews ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -231,7 +236,7 @@ insertNews hLogger pool (Right _) = do
 insertNews _ _ (Left mess) = return $ Left mess
 
 insertComments ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)

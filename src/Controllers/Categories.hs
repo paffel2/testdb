@@ -36,7 +36,7 @@ import Responses
     )
 import Types (TokenLifeTime)
 
-sendCategoriesList :: Handle -> Pool Connection -> Request -> IO Response
+sendCategoriesList :: Handle IO -> Pool Connection -> Request -> IO Response
 sendCategoriesList hLogger pool req =
     if requestMethod req == methodGet
         then do
@@ -57,7 +57,7 @@ sendCategoriesList hLogger pool req =
     pageParam = fromMaybe Nothing (lookup "page" queryParams)
 
 createCategory ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 createCategory hLogger pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
@@ -95,7 +95,7 @@ createCategory hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 deleteCategory ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteCategory hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
@@ -127,9 +127,8 @@ deleteCategory hLogger pool token_lifetime req =
                     logInfo hLogger "Category deleted."
                     return $ responseOk bs
 
-
 editCategory ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 editCategory hLogger pool token_lifetime req = do
     if requestMethod req /= methodPut
         then do
@@ -162,12 +161,11 @@ editCategory hLogger pool token_lifetime req = do
                     logError hLogger "Category not edited."
                     return $ responseCreated bs
                 Right bs -> do
-                    logInfo hLogger "Category deleted."
+                    logInfo hLogger "Category edited."
                     return $ responseOk bs
 
-
 categoriesBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 categoriesBlock hLogger pool token_lifetime req
     | pathElemsC == 1 = sendCategoriesList hLogger pool req
     | pathElemsC == 2 =

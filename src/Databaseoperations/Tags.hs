@@ -20,7 +20,7 @@ import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
 import Types (TagsList(TagsList), TokenLifeTime)
 
 createTagInDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -57,7 +57,7 @@ createTagInDb hLogger pool token_lifetime token' (Just tag_name') =
         BC.concat ["insert into tags (tag_name) values (?) returning tag_id"]
 
 deleteTagFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -92,7 +92,7 @@ deleteTagFromDb hLogger pool token_lifetime token' (Just tag_name') =
     q = toQuery $ BC.concat ["delete from tags where tag_name = ?"]
 
 getTagsListFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> IO (Either LBS.ByteString TagsList)
@@ -120,7 +120,7 @@ getTagsListFromDb hLogger pool maybe_page =
     q = toQuery $ BC.concat ["select tag_name from tags order by tag_name", pg]
 
 editTagInDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text

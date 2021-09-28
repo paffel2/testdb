@@ -14,23 +14,23 @@ import Logger (Handle)
 import Network.Wai (Request, Response)
 import Types (DatabaseAddress, TokenLifeTime)
 
-data ControllersHandle =
+data ControllersHandle m =
     ControllersHandle
-        { news_and_comments_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , login_handler :: Handle -> Pool Connection -> Request -> IO Response
-        , registration_handler :: Handle -> Pool Connection -> Request -> IO Response
-        , delete_user_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , categories_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , profile_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , draft_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , new_draft_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , tags_handler :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-        , image_handler :: Handle -> Pool Connection -> Request -> IO Response
-        , initDb_handler :: Handle -> Pool Connection -> DatabaseAddress -> Request -> IO Response
-        , authors_hanlder :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+        { news_and_comments_handler :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
+        , login_handler :: Handle m -> Pool Connection -> Request -> m Response
+        , registration_handler :: Handle m -> Pool Connection -> Request -> m Response
+        , delete_user_handler :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
+        , categories_handler :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
+        , profile_handler :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
+        , draft_handler :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
+        , new_draft_handler :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
+        , tags_handler :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
+        , image_handler :: Handle m -> Pool Connection -> Request -> m Response
+        , initDb_handler :: Handle m -> Pool Connection -> DatabaseAddress -> Request -> m Response
+        , authors_hanlder :: Handle m -> Pool Connection -> TokenLifeTime -> Request -> m Response
         }
 
-handler :: ControllersHandle
+handler :: ControllersHandle IO
 handler =
     ControllersHandle
         { news_and_comments_handler = newsMethodBlock

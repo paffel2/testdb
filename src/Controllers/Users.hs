@@ -32,7 +32,7 @@ import Responses
     )
 import Types (TokenLifeTime)
 
-login :: Handle -> Pool Connection -> Request -> IO Response
+login :: Handle IO -> Pool Connection -> Request -> IO Response
 login hLogger pool req =
     if requestMethod req /= methodGet
         then do
@@ -52,7 +52,7 @@ login hLogger pool req =
                     logInfo hLogger "User logged."
                     return $ responseOk bs
 
-registration :: Handle -> Pool Connection -> Request -> IO Response
+registration :: Handle IO -> Pool Connection -> Request -> IO Response
 registration hLogger pool req =
     if requestMethod req /= methodPost
         then do
@@ -86,7 +86,7 @@ registration hLogger pool req =
                     return $ responseCreated bs
 
 deleteUser ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteUser hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
@@ -113,7 +113,8 @@ deleteUser hLogger pool token_lifetime req =
                     logInfo hLogger "User deleted."
                     return $ responseOk bs'
 
-profile :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+profile ::
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 profile hLogger pool token_lifetime req =
     if requestMethod req /= methodGet
         then do

@@ -38,7 +38,7 @@ import Responses
 import Types (TokenLifeTime)
 
 newAuthor ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 newAuthor hLogger pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
@@ -74,7 +74,7 @@ newAuthor hLogger pool token_lifetime req =
                     return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
 
 deleteAuthor ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 deleteAuthor hLogger pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
@@ -101,7 +101,7 @@ deleteAuthor hLogger pool token_lifetime req =
                     logInfo hLogger "Author deleted."
                     return $ responseOk bs
 
-sendAuthorsList :: Handle -> Pool Connection -> Request -> IO Response
+sendAuthorsList :: Handle IO -> Pool Connection -> Request -> IO Response
 sendAuthorsList hLogger pool req = do
     if requestMethod req /= methodGet
         then do
@@ -121,7 +121,7 @@ sendAuthorsList hLogger pool req = do
     pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
 
 editAuthor ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 editAuthor hLogger pool token_lifetime req = do
     if requestMethod req /= methodPut
         then do
@@ -156,7 +156,7 @@ editAuthor hLogger pool token_lifetime req = do
                     return $ responseOk bs
 
 authorsBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
+       Handle IO -> Pool Connection -> TokenLifeTime -> Request -> IO Response
 authorsBlock hLogger pool token_lifetime req
     | pathElemsC == 1 = sendAuthorsList hLogger pool req
     | pathElemsC == 2 =
