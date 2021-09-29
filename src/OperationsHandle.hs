@@ -17,6 +17,7 @@ import Databaseoperations.Categories
     , editCategoryOnDb
     , getCategoriesListFromDb
     )
+import Databaseoperations.CheckDatabase
 import Databaseoperations.Drafts
     ( createDraftOnDb
     , deleteDraftFromDb
@@ -84,6 +85,7 @@ data OperationsHandle m =
         , news_and_comments_handle :: NewsAndCommentsHandle m
         , tags_handle :: TagsHandle m
         , users_handle :: UsersHandle m
+        , check_db :: Handle m -> Pool Connection -> m Bool
         }
 
 operationsHandler :: OperationsHandle IO
@@ -97,6 +99,7 @@ operationsHandler =
         , news_and_comments_handle = newsAndCommentsHandler
         , tags_handle = tagsHandler
         , users_handle = usersHandler
+        , check_db = checkDb
         }
 
 data AuthorsHandle m =

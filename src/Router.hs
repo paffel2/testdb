@@ -12,17 +12,21 @@ import Controllers.NewsAndComments (newsAndCommentsRouter)
 import Controllers.Tags (tagsRouter)
 import Controllers.Users (deleteUser, login, profile, registration)
 import qualified Data.ByteString.Char8 as BC
-import Data.Pool (createPool)
-import Database.PostgreSQL.Simple (close, connectPostgreSQL)
+import Data.Pool (Pool, createPool)
+import Database.PostgreSQL.Simple (Connection, close, connectPostgreSQL)
 import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo), Response)
 import OperationsHandle
-    ( OperationsHandle(authors_handle, categories_handle, drafts_handle,
-                 images_handle, init_db_handle, news_and_comments_handle,
-                 tags_handle, users_handle)
+    ( OperationsHandle(authors_handle, categories_handle, check_db,
+                 drafts_handle, images_handle, init_db_handle,
+                 news_and_comments_handle, tags_handle, users_handle)
     )
-import Responses (responseNotFound)
+import Responses (responseInternalServerError, responseNotFound)
 import Types
+    ( DatabaseAddress
+    , PoolParams(idle_time, max_resources, num_stripes)
+    , TokenLifeTime
+    )
 
 routes' ::
        MonadIO m
@@ -30,19 +34,11 @@ routes' ::
     -> DatabaseAddress
     -> DatabaseAddress
     -> TokenLifeTime
-    -> PoolParams
+    -> Pool Connection
     -> OperationsHandle m
     -> Request
     -> m Response
-routes' hLogger db_address db_server_address token_lifetime confPool operations req = do
-    pool <-
-        liftIO $
-        createPool
-            (connectPostgreSQL db_address)
-            close
-            (num_stripes confPool)
-            (idle_time confPool)
-            (max_resources confPool)
+routes' hLogger db_address db_server_address token_lifetime pool operations req =
     case pathHead of
         "news" ->
             newsAndCommentsRouter
@@ -107,17 +103,17 @@ routes ::
     -> DatabaseAddress
     -> DatabaseAddress
     -> TokenLifeTime
-    -> PoolParams
+    -> Pool Connection
     -> OperationsHandle IO
     -> Application
-routes hLogger db_address db_server_address token_lifetime confPool operations req respond = do
+routes hLogger db_address db_server_address token_lifetime pool operations req respond = do
     resp <-
         routes'
             hLogger
             db_address
             db_server_address
             token_lifetime
-            confPool
+            pool
             operations
             req
     respond resp

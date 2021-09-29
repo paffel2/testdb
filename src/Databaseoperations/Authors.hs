@@ -15,7 +15,7 @@ import Database.PostgreSQL.Simple
     )
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logError)
+import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
 import Types (AuthorsList(AuthorsList), TokenLifeTime)
 
@@ -174,3 +174,20 @@ editAuthorInDb hLogger pool token_lifetime token (Just author_id) (Just new_desc
     q =
         toQuery $
         BC.concat ["update authors set description = ? where author_id = ?"]
+
+checkDb :: Handle IO -> Pool Connection -> IO Bool
+checkDb hLogger pool =
+    catch
+        (do n <- query_WithPool pool "select 1 from news" :: IO [Only Int]
+            if n /= []
+                then do
+                    logInfo hLogger "Database exist"
+                    return True
+                else do
+                    logError hLogger "Database exist"
+                    return False) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return False

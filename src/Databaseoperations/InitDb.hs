@@ -28,15 +28,15 @@ createDb ::
     -> IO (Either LBS.ByteString LBS.ByteString)
 createDb hLogger pool db_add =
     catch
-        (do logDebug hLogger "Creating connection"
-            let conn' = connectPostgreSQL db_add
-            logDebug hLogger "Creating pool"
-            pool' <- createPool conn' close 1 10 10
-            step_one <- initDb hLogger pool'
-            destroyAllResources pool'
-            c <- conn'
-            close c
-            fillDb step_one hLogger pool >>= fillConnections hLogger pool >>=
+            --logDebug hLogger "Creating connection"
+            --let conn' = connectPostgreSQL db_add
+            --logDebug hLogger "Creating pool"
+            --pool' <- createPool conn' close 1 10 10
+            --step_one <- initDb hLogger pool'
+            --destroyAllResources pool'
+            --c <- conn'
+            --close c
+        (do fillDb (Right "") hLogger pool >>= fillConnections hLogger pool >>=
                 fillImages hLogger pool >>=
                 insertUsers hLogger pool >>=
                 insertAuthors hLogger pool >>=

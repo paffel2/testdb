@@ -9,14 +9,16 @@ import Network.HTTP.Types
     , badRequest400
     , forbidden403
     , hContentType
+    , internalServerError500
     , methodNotAllowed405
     , notFound404
     , status200
     , status201
     )
+
 import Network.Wai (Response, responseLBS)
 
-responseOk, responseNotFound, responseBadRequest, responseCreated, responseForbidden, responseMethodNotAllowed ::
+responseOk, responseNotFound, responseBadRequest, responseCreated, responseForbidden, responseMethodNotAllowed, responseInternalServerError ::
        LBS.ByteString -> Response
 responseOk = responsePlainText status200
 
@@ -29,6 +31,8 @@ responseCreated = responsePlainText status201
 responseForbidden = responsePlainText forbidden403
 
 responseMethodNotAllowed = responsePlainText methodNotAllowed405
+
+responseInternalServerError = responsePlainText internalServerError500
 
 responsePlainText :: Status -> LBS.ByteString -> Response
 responsePlainText = (`responseLBS` [(hContentType, "text/plain")])
