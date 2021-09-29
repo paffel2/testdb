@@ -8,14 +8,12 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool, createPool, destroyAllResources)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple
     ( Binary(Binary)
     , Connection
     , SqlError(sqlState)
     , close
     , connectPostgreSQL
-    , sqlErrorMsg
     )
 import HelpFunction (getFiles, readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError)
