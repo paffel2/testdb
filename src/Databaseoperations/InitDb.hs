@@ -5,39 +5,23 @@ module Databaseoperations.InitDb where
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Pool (Pool, createPool, destroyAllResources)
-import Database.PostgreSQL.Simple
-    ( connectPostgreSQL,
-      close,
-      Binary(Binary),
-      SqlError(sqlState),
-      Connection,
-      sqlErrorMsg )
+import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
-import HelpFunction ( toQuery, getFiles, readByteStringToInt ) 
+import Database.PostgreSQL.Simple
+    ( Binary(Binary)
+    , Connection
+    , SqlError(sqlErrorMsg)
+    )
+
+import HelpFunction (getFiles, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
-import Types (DatabaseAddress)
-import qualified Data.Text as T
-import Data.Maybe ( fromMaybe )
-import System.Info(os)
 
 createDb ::
-       Handle
-    -> Pool Connection
-    -> DatabaseAddress
-    -> IO (Either LBS.ByteString LBS.ByteString)
-createDb hLogger pool db_add =
+       Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+createDb hLogger pool =
     catch
-        (do logDebug hLogger "Creating connection"
-            let conn' = connectPostgreSQL db_add
-            logDebug hLogger "Creating pool"
-            pool' <- createPool conn' close 1 10 10
-            step_one <- initDb hLogger pool'
-            destroyAllResources pool'
-            c <- conn'
-            close c
-            fillDb step_one hLogger pool >>= fillConnections hLogger pool >>=
+        (do fillDb hLogger pool >>= fillConnections hLogger pool >>=
                 fillImages hLogger pool >>=
                 insertUsers hLogger pool >>=
                 insertAuthors hLogger pool >>=
@@ -46,44 +30,12 @@ createDb hLogger pool db_add =
                 insertDrafts hLogger pool >>=
                 insertNews hLogger pool >>=
                 insertComments hLogger pool) $ \e -> do
-        {-let err = E.decodeUtf8 $ sqlErrorMsg e
+        let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
-        return $ Left $ LBS.fromStrict $ sqlErrorMsg e-}
-        let err = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt err)
-        logError hLogger $
-            T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left $ LBS.fromStrict $ sqlErrorMsg e
 
-initDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
-initDb hLogger pool = do
-    let initScript = if os == "linux" then "sql/init_db_linux.sql"
-                        else "sql/init_database.sql"
-    logDebug hLogger "Read script"
-    script <- BC.readFile initScript
-    let q = toQuery script
-    logDebug hLogger "Script readed and translated to query"
-    logDebug hLogger "Start creating"
-    _ <- execute_WithPool pool q
-    logDebug hLogger "Db created"
-    return $ Right "Database created"
-{-initDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
-initDb hLogger pool = do
-    logDebug hLogger "Read script"
-    script <- BC.readFile "sql/init_database.sql"
-    let q = toQuery script
-    logDebug hLogger "Script readed and translated to query"
-    logDebug hLogger "Start creating"
-    _ <- execute_WithPool pool q
-    logDebug hLogger "Db created"
-    return $ Right "Database created"-}
-    
-fillDb ::
-       Either LBS.ByteString LBS.ByteString
-    -> Handle
-    -> Pool Connection
-    -> IO (Either LBS.ByteString LBS.ByteString)
-fillDb (Right _) hLogger pool = do
+fillDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+fillDb hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_database.sql"
     let q = toQuery script
@@ -92,7 +44,6 @@ fillDb (Right _) hLogger pool = do
     _ <- execute_WithPool pool q
     logDebug hLogger "Db filled"
     return $ Right "Database filled"
-fillDb (Left mess) _ _ = return $ Left mess
 
 fillConnections ::
        Handle

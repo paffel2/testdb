@@ -9,15 +9,13 @@ import Databaseoperations.InitDb (createDb)
 import Logger (Handle, logError, logInfo)
 import Network.Wai (Request(rawPathInfo), Response)
 import Responses (responseBadRequest, responseCreated, responseNotFound)
-import Types (DatabaseAddress)
 
-initDbBlock ::
-       Handle -> Pool Connection -> DatabaseAddress -> Request -> IO Response
-initDbBlock hLogger pool db_server_addres req =
+initDbBlock :: Handle -> Pool Connection -> Request -> IO Response
+initDbBlock hLogger pool req =
     if pathElemsC == 1
         then do
             logInfo hLogger "Preparing data creating database"
-            result <- createDb hLogger pool db_server_addres
+            result <- createDb hLogger pool
             case result of
                 Left bs -> do
                     logError hLogger "Database not created"

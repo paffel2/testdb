@@ -13,7 +13,7 @@ import Config
     , newConfigHandle
     )
 import ControllersHandle (handler)
-import HelpFunction (dbAddress, dbServerAddress)
+import HelpFunction (dbAddress)
 import Logger (Handle(Handle), logInfo, printLog)
 import Network.Wai.Handler.Warp
     ( defaultSettings
@@ -21,7 +21,7 @@ import Network.Wai.Handler.Warp
     , setMaximumBodyFlush
     , setPort
     )
-import Router ( routes )
+import Router (routes)
 
 main :: IO ()
 main = do
@@ -34,15 +34,8 @@ main = do
     let db_address = dbAddress confDb
     let token_lifetime = lifeTime confToken
     let hLogger = Handle (log_priority confLogger) printLog
-    let db_server_address = dbServerAddress confDb
     logInfo hLogger "Server started"
     runSettings
         (setMaximumBodyFlush (server_maximum_body_flush confServer) $
          setPort (server_port confServer) defaultSettings) $
-        routes
-            hLogger
-            db_address
-            db_server_address
-            token_lifetime
-            confPool
-            handler
+        routes hLogger db_address token_lifetime confPool handler

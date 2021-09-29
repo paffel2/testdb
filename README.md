@@ -32,7 +32,17 @@ After installing stack, clone this repository. Install the compiler (if required
         max_resources = 10
          }
          
-The database name must match the name specified in the file `sql/init_database.sql`
+Before the run, you must create database and run postgresql server. 
+
+For Linux:
+
+    sudo service postgresql start - for starting postgresql server;
+    sudo su - postgres - for changing user;
+    createdb -D pg_default -E UTF8 -l en_US.UTF-8 -T template0 -O <login> <data_base_name>  - for creating new database.
+
+For Windows:
+
+    createdb -U <login> -D pg_default -E UTF8 -l Russian_Russia.1251 -O <login> <data_base_name>
 
 To the run server use 
 
@@ -42,7 +52,7 @@ To the run server use
 
 * `app/Main.hs` - Preparing the server settings and launch.
 * `sh/` - contains sh-scripts for testing.
-* `sql/` - contains scripts for creating a database and filling it with test data.
+* `sql/` - contains scripts for filling database with test data.
 * `src/` - contains all code used by programm.
     * `Controllers` - controllers and routers of entities and additional commands.
     * `Databaseoperations` - functions related to editing and retrieving data from the database.
@@ -101,6 +111,6 @@ To the run server use
     * `profile` - sending user information.
 
 * `Initialization endpoint`
-    * `initDb` - initialization database and filling test data.
+    * `initDb` - initialization filling test data to database.
 
 

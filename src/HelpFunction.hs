@@ -4,13 +4,13 @@ module HelpFunction where
 
 import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString.Char8 as BC
+import Data.List (sort)
 import Data.String (IsString(fromString))
 import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
+import System.Directory (getDirectoryContents)
 import Text.Read (readMaybe)
-import System.Directory ( getDirectoryContents )
-import Data.List ( sort )
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -52,8 +52,9 @@ dbAddress confDb =
         , db_name confDb
         , "'"
         ]
-dbServerAddress :: ConfigModules -> BC.ByteString 
-dbServerAddress confDb = 
+
+dbServerAddress :: ConfigModules -> BC.ByteString
+dbServerAddress confDb =
     BC.concat
         [ "host="
         , db_host confDb
@@ -63,17 +64,14 @@ dbServerAddress confDb =
         , db_login confDb
         , "' password='"
         , db_password confDb
-        , "'" 
+        , "'"
         ]
-
 
 getFiles :: IO [FilePath]
 getFiles = do
     list <- getDirectoryContents "sql/img"
-    let cleanList = takeWhile (\x -> takeEnd 4 x == ".jpg" ) list
+    let cleanList = takeWhile (\x -> takeEnd 4 x == ".jpg") list
     return $ sort cleanList
 
-
 takeEnd :: Int -> [a] -> [a]
-takeEnd n x = reverse $ take n (reverse x) 
-
+takeEnd n x = reverse $ take n (reverse x)
