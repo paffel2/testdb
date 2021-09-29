@@ -30,7 +30,7 @@ import Types
     , CommentArray(CommentArray)
     , GetNews
     , NewsArray(NewsArray)
-    , TokenLifeTime
+    , TokenLifeTime(token_life_time)
     )
 
 addCommentToDb ::
@@ -50,7 +50,13 @@ addCommentToDb hLogger _ _ _ _ Nothing = do
 addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) =
     catch
         (do now <- getCurrentTime
-            let com = Comment token' token_lifetime comment newsId now
+            let com =
+                    Comment
+                        token'
+                        (token_life_time token_lifetime)
+                        comment
+                        newsId
+                        now
             n_r <- executeWithPool pool q com
             if n_r > 0
                 then do

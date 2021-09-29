@@ -27,7 +27,7 @@ import Types
     ( Draft
     , DraftArray(DraftArray)
     , Image
-    , TokenLifeTime
+    , TokenLifeTime(token_life_time)
     , TokenProfile(TokenProfile)
     )
 

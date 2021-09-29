@@ -15,8 +15,9 @@ import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Internal as BI
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
-import Data.Time (Day, UTCTime)
+import Data.Time (Day, NominalDiffTime, UTCTime)
 import Database.PostgreSQL.Simple (Binary, FromRow, ToRow)
+import Database.PostgreSQL.Simple.ToField (ToField(..))
 import Database.PostgreSQL.Simple.Types (PGArray(fromPGArray))
 import GHC.Generics (Generic)
 
@@ -148,22 +149,21 @@ instance ToJSON Profile where
 data TokenProfile =
     TokenProfile
         { profile_token :: T.Text
-        , profile_token_lifetime :: Int
+        , profile_token_lifetime :: TokenLifeTime
         }
-    deriving (Show, Generic, ToRow, FromRow)
+    deriving (Show, Generic, ToRow)
 
 type DatabaseAddress = BC.ByteString
 
-type TokenLifeTime = Int
+type TokenLifeTimee = Int
 
-data DeleteComment =
+{-data DeleteComment =
     DeleteComment
         { delc_token :: T.Text
-        , delc_token_lifetime :: TokenLifeTime
+        , delc_token_lifetime :: TokenLifeTimee
         , delc_comment_id :: Int
         }
-    deriving (Show, Generic, ToRow, FromRow)
-
+    deriving (Show, Generic, ToRow, FromRow)-}
 newtype Tag =
     Tag
         { tag_name :: T.Text
@@ -280,3 +280,20 @@ newtype AuthorsList =
 
 instance ToJSON AuthorsList where
     toJSON = genericToJSON defaultOptions
+
+newtype TokenLifeTime =
+    TokenLifeTime
+        { token_life_time :: Int
+        }
+    deriving (Show)
+
+instance ToField TokenLifeTime where
+    toField = toField . token_life_time
+
+data PoolParams =
+    PoolParams
+        { num_stripes :: Int
+        , idle_time :: NominalDiffTime
+        , max_resources :: Int
+        }
+    deriving (Show)

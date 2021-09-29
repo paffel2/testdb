@@ -19,7 +19,11 @@ import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool)
-import Types (Profile, TokenLifeTime, TokenProfile(TokenProfile))
+import Types
+    ( Profile
+    , TokenLifeTime(token_life_time)
+    , TokenProfile(TokenProfile)
+    )
 
 generateToken :: T.Text -> IO (T.Text, UTCTime)
 generateToken login = do
