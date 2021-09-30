@@ -336,3 +336,19 @@ data CreateAuthor =
         , create_author_description :: Maybe T.Text
         }
     deriving (Show, Generic, ToRow)
+
+newtype TagName =
+    TagName
+        { from_tag_name :: T.Text
+        }
+    deriving (Show)
+
+instance ToField TagName where
+    toField = toField . from_tag_name
+
+data EditTag =
+    EditTag
+        { edit_tag_new_name :: Maybe TagName
+        , edit_tag_old_name :: Maybe TagName
+        }
+    deriving (Show, Generic, ToRow)

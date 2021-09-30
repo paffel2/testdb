@@ -11,7 +11,7 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken, toPage)
+import FromRequest
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -77,9 +77,7 @@ newTag hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for creating tag."
             let token' = takeToken req
-            let tag_name_param =
-                    T.toLower . E.decodeUtf8 <$>
-                    fromMaybe Nothing (lookup "tag_name" $ queryString req)
+            let tag_name_param = toTagName req
             result <-
                 create_tag_in_db
                     operations
@@ -118,9 +116,7 @@ deleteTag hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for deleting tag."
             let token' = takeToken req
-            let tag_name_param =
-                    T.toLower . E.decodeUtf8 <$>
-                    fromMaybe Nothing (lookup "tag_name" $ queryString req)
+            let tag_name_param = toTagName req
             result <-
                 delete_tag_from_db
                     operations
@@ -160,8 +156,7 @@ editTag hLogger operations pool token_lifetime req =
             logInfo hLogger "Preparing data for editing tag."
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let old_tag_name = E.decodeUtf8 <$> lookup "old_tag_name" i
-            let new_tag_name = E.decodeUtf8 <$> lookup "new_tag_name" i
+            let tag_edit_params = toEditTag i
             result <-
                 edit_tag_in_db
                     operations
@@ -169,8 +164,7 @@ editTag hLogger operations pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    old_tag_name
-                    new_tag_name
+                    tag_edit_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Tag not edited. Not admin."

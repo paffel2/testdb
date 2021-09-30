@@ -204,10 +204,10 @@ newsAndCommentsHandler =
 
 data TagsHandle m =
     TagsHandle
-        { create_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> m (Either LBS.ByteString Int)
-        , delete_tag_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
+        { create_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either LBS.ByteString Int)
+        , delete_tag_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either LBS.ByteString LBS.ByteString)
         , get_tags_list_from_db :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString TagsList)
-        , edit_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
+        , edit_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditTag -> m (Either LBS.ByteString LBS.ByteString)
         }
 
 tagsHandler :: TagsHandle IO

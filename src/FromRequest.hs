@@ -46,3 +46,19 @@ toCreateAuthor params =
         , create_author_description =
               E.decodeUtf8 <$> lookup "description" params
         }
+
+toTagName :: Request -> Maybe TagName
+toTagName req =
+    TagName . T.toLower . E.decodeUtf8 <$>
+    fromMaybe Nothing (lookup "tag_name" $ queryString req)
+
+toEditTag :: [Param] -> EditTag
+toEditTag params =
+    EditTag
+        { edit_tag_new_name =
+              TagName . T.toLower . E.decodeUtf8 <$>
+              lookup "new_tag_name" params
+        , edit_tag_old_name =
+              TagName . T.toLower . E.decodeUtf8 <$>
+              lookup "old_tag_name" params
+        }
