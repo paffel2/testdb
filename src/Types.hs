@@ -148,7 +148,7 @@ instance ToJSON Profile where
 
 data TokenProfile =
     TokenProfile
-        { profile_token :: T.Text
+        { profile_token :: Token
         , profile_token_lifetime :: TokenLifeTime
         }
     deriving (Show, Generic, ToRow)
@@ -304,3 +304,12 @@ newtype Page =
     Page
         { from_page :: BC.ByteString
         }
+
+newtype Token =
+    Token
+        { from_token :: T.Text
+        }
+    deriving (Show)
+
+instance ToField Token where
+    toField = toField . from_token

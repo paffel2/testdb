@@ -23,7 +23,7 @@ createAuthorInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> Maybe T.Text
     -> IO (Either LBS.ByteString Int)
@@ -70,7 +70,7 @@ deleteAuthorInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteAuthorInDb hLogger _ _ Nothing _ = do
@@ -144,7 +144,7 @@ editAuthorInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe Int
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)

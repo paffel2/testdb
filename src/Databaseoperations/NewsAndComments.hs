@@ -31,7 +31,7 @@ addCommentToDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe Int
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -49,7 +49,7 @@ addCommentToDb hLogger pool token_lifetime (Just token') (Just newsId) (Just com
         (do now <- getCurrentTime
             let com =
                     Comment
-                        token'
+                        (from_token token')
                         (token_life_time token_lifetime)
                         comment
                         newsId
@@ -76,7 +76,7 @@ deleteCommentFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe Int
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteCommentFromDb hLogger _ _ _ Nothing = do

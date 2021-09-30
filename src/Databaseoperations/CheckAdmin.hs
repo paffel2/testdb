@@ -15,13 +15,13 @@ import Database.PostgreSQL.Simple
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool)
-import Types ( TokenLifeTime(token_life_time) ) 
+import Types
 
 checkAdmin ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> IO (Bool, LBS.ByteString)
 checkAdmin hLogger _ _ Nothing = do
     logError hLogger "No token parameter"

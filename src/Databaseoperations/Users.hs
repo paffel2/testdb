@@ -20,10 +20,6 @@ import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool)
 import Types
-    ( Profile
-    , TokenLifeTime(token_life_time)
-    , TokenProfile(TokenProfile)
-    )
 
 generateToken :: T.Text -> IO (T.Text, UTCTime)
 generateToken login = do
@@ -132,7 +128,7 @@ deleteUserFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> BC.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteUserFromDb hLogger pool token_lifetime token login =
@@ -193,7 +189,7 @@ profileOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> IO (Either LBS.ByteString Profile)
 profileOnDb hLogger _ _ Nothing = do
     logError hLogger "No token parameter"

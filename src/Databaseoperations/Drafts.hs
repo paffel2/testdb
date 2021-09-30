@@ -26,18 +26,12 @@ import PostgreSqlWithPool
     , queryWithPool
     )
 import Types
-    ( Draft
-    , DraftArray(DraftArray)
-    , Image
-    , TokenLifeTime(token_life_time)
-    , TokenProfile(TokenProfile)
-    )
 
 checkAuthor ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> IO (Either LBS.ByteString Int)
 checkAuthor hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
@@ -68,7 +62,7 @@ getDraftsByAuthorToken ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> IO (Either LBS.ByteString DraftArray)
 getDraftsByAuthorToken hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
@@ -99,7 +93,7 @@ deleteDraftFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe BC.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteDraftFromDb hLogger _ _ _ Nothing = do
@@ -134,7 +128,7 @@ getDraftByIdFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Int
     -> IO (Either LBS.ByteString Draft)
 getDraftByIdFromDb hLogger _ _ Nothing _ = do
@@ -177,7 +171,7 @@ createDraftOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> Maybe BC.ByteString
     -> Maybe T.Text
@@ -327,7 +321,7 @@ updateDraftInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> Maybe BC.ByteString
     -> Maybe T.Text
@@ -557,7 +551,7 @@ publicNewsOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Int
     -> IO (Either LBS.ByteString Int)
 publicNewsOnDb hLogger pool token_lifetime token' draft_id = do

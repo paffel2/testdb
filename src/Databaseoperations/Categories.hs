@@ -54,7 +54,7 @@ createCategoryOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -114,7 +114,7 @@ deleteCategoryFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteCategoryFromDb hLogger _ _ _ Nothing = do
@@ -149,7 +149,7 @@ editCategoryOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> Maybe T.Text
     -> Maybe T.Text

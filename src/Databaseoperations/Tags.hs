@@ -23,7 +23,7 @@ createTagInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> IO (Either LBS.ByteString Int)
 createTagInDb hLogger _ _ _ Nothing = do
@@ -60,7 +60,7 @@ deleteTagFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteTagFromDb hLogger _ _ _ Nothing = do
@@ -123,7 +123,7 @@ editTagInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
+    -> Maybe Token
     -> Maybe T.Text
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)

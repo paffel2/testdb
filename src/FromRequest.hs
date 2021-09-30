@@ -12,9 +12,10 @@ import Network.Wai (Request(queryString))
 import Network.Wai.Parse (FileInfo(fileContent, fileContentType, fileName))
 import Types
 
-takeToken :: Request -> Maybe T.Text
+takeToken :: Request -> Maybe Token
 takeToken req =
-    E.decodeUtf8 <$> fromMaybe Nothing (lookup "token" $ queryString req)
+    Token . E.decodeUtf8 <$>
+    fromMaybe Nothing (lookup "token" $ queryString req)
 
 toImage :: FileInfo LBS.ByteString -> Image
 toImage file_info =
