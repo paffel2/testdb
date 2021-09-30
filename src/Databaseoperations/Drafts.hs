@@ -9,12 +9,14 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple
     ( Connection
     , In(In)
     , Only(..)
-    , SqlError(sqlState)
+    , SqlError(sqlErrorMsg, sqlState)
     )
+
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError, logInfo)
 import PostgreSqlWithPool
@@ -236,9 +238,12 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                     logError hLogger "Bad token"
                     return $ Left "Bad token"
                 _ -> do
-                    logError hLogger $
-                        T.concat ["Database error ", T.pack $ show errStateInt]
-                    return $ Left "Database error"
+                    let err = E.decodeUtf8 $ sqlErrorMsg e
+                    logError hLogger err
+                    return $ Left $ LBS.fromStrict $ sqlErrorMsg e
+                    --logError hLogger $
+                        --T.concat ["Database error ", T.pack $ show errStateInt]
+                    --return $ Left "Database error"
     createTagConnections (Left message) = return $ Left message
     createTagConnections (Right draft_id) =
         catch

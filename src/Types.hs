@@ -285,7 +285,9 @@ newtype TokenLifeTime =
     TokenLifeTime
         { token_life_time :: Int
         }
-    deriving (Show)
+
+instance Show TokenLifeTime where
+    show (TokenLifeTime tk) = show tk
 
 instance ToField TokenLifeTime where
     toField = toField . token_life_time

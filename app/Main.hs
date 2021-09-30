@@ -3,20 +3,24 @@
 module Main where
 
 import Config
-import Data.Pool (Pool, createPool)
-import Database.PostgreSQL.Simple (Connection, close, connectPostgreSQL)
+    ( ConfigModules(db_conf, lifeTime, log_priority, pool_params,
+              server_conf)
+    , ServerConf(server_maximum_body_flush, server_port)
+    , getConfig
+    )
+import Data.Pool (createPool)
+import Database.PostgreSQL.Simple (close, connectPostgreSQL)
 import HelpFunction (dbAddress, dbServerAddress)
-import Logger (Handle(Handle), logInfo, printLog)
-import Logger
+import Logger (Handle(Handle), logError, logInfo, printLog)
 import Network.Wai.Handler.Warp
     ( defaultSettings
     , runSettings
     , setMaximumBodyFlush
     , setPort
     )
-import OperationsHandle
+import OperationsHandle (OperationsHandle(check_db), operationsHandler)
 import Router (routes)
-import Types
+import Types (PoolParams(idle_time, max_resources, num_stripes))
 
 main :: IO ()
 main = do

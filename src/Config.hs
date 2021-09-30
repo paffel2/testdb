@@ -21,25 +21,20 @@ data ConfigModules =
 
 getConfig :: IO ConfigModules
 getConfig = do
-    conf <- C.load [C.Optional "server.conf"]
-    life <-
-        TokenLifeTime <$> C.lookupDefault 86400 conf (T.pack "token.lifetime") :: IO TokenLifeTime
-    host <- C.lookupDefault "" conf (T.pack "database.host") :: IO BC.ByteString
-    port <- C.lookupDefault "" conf (T.pack "database.port") :: IO BC.ByteString
-    login <-
-        C.lookupDefault "" conf (T.pack "database.login") :: IO BC.ByteString
-    password <-
-        C.lookupDefault "" conf (T.pack "database.password") :: IO BC.ByteString
-    name <- C.lookupDefault "" conf (T.pack "database.name") :: IO BC.ByteString
-    log' <- C.lookupDefault "Info" conf (T.pack "logger.priority") :: IO String
-    serv_port <- C.lookupDefault 8000 conf (T.pack "server.port") :: IO Int
-    smbf <-
-        C.lookupDefault 1048576 conf (T.pack "server.maximum_body_flush") :: IO Int
-    num_stripes' <- C.lookupDefault 1 conf (T.pack "pool.num_stripes")
+    conf <- C.load [C.Optional "config/server.conf"]
+    life <- TokenLifeTime <$> C.lookupDefault 86400 conf "token.lifetime"
+    host <- C.lookupDefault "" conf "database.host"
+    port <- C.lookupDefault "" conf "database.port"
+    login <- C.lookupDefault "" conf "database.login"
+    password <- C.lookupDefault "" conf "database.password"
+    name <- C.lookupDefault "" conf "database.name"
+    log' <- C.lookupDefault "Info" conf "logger.priority" :: IO String
+    serv_port <- C.lookupDefault 8000 conf "server.port"
+    smbf <- C.lookupDefault 1048576 conf "server.maximum_body_flush"
+    num_stripes' <- C.lookupDefault 1 conf "pool.num_stripes"
     idle_time' <-
-        toEnum . (1000000000000 *) <$>
-        C.lookupDefault 10 conf (T.pack "pool.idle_time")
-    max_resources' <- C.lookupDefault 10 conf (T.pack "pool.max_resources")
+        toEnum . (1000000000000 *) <$> C.lookupDefault 10 conf "pool.idle_time"
+    max_resources' <- C.lookupDefault 10 conf "pool.max_resources"
     return
         ConfigModules
             { lifeTime = life
