@@ -78,11 +78,7 @@ createCategory hLogger operations pool token_lifetime req =
             logInfo hLogger "Preparing data for creating category"
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let token' = takeToken req
-            let category_name =
-                    T.toLower . E.decodeUtf8 <$> lookup "category_name" i
-            let maternal_category_name =
-                    T.toLower . E.decodeUtf8 <$>
-                    lookup "maternal_category_name" i
+            let create_category_params = toCreateCategory i
             result <-
                 create_category_on_db
                     operations
@@ -90,8 +86,7 @@ createCategory hLogger operations pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    category_name
-                    maternal_category_name
+                    create_category_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Category not created. Not admin."
@@ -123,7 +118,7 @@ deleteCategory hLogger operations pool token_lifetime req =
             logInfo hLogger "Preparing data for deleting category"
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let category_name = E.decodeUtf8 <$> lookup "category_name" i
+            let category_name = toCategoryName i
             result <-
                 delete_category_from_db
                     operations
@@ -163,9 +158,7 @@ editCategory hLogger operations pool token_lifetime req = do
             logInfo hLogger "Preparing data for editing category"
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let category_name = E.decodeUtf8 <$> lookup "category_name" i
-            let new_maternal_parametr = E.decodeUtf8 <$> lookup "new_maternal" i
-            let new_name_parametr = E.decodeUtf8 <$> lookup "new_name" i
+            let edit_category_parameters = toEditCategory i
             result <-
                 edit_category_on_db
                     operations
@@ -173,9 +166,7 @@ editCategory hLogger operations pool token_lifetime req = do
                     pool
                     token_lifetime
                     token'
-                    category_name
-                    new_name_parametr
-                    new_maternal_parametr
+                    edit_category_parameters
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Category not edited. Not admin."

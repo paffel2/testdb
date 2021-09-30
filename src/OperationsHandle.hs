@@ -59,6 +59,7 @@ import Databaseoperations.Users
     )
 import Logger (Handle)
 import Types
+import Types (EditCategory)
 
 data OperationsHandle m =
     OperationsHandle
@@ -107,9 +108,9 @@ authorsHandler =
 data CategoriesHandle m =
     CategoriesHandle
         { get_categories_list_from_db :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString ListOfCategories)
-        , create_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
-        , delete_category_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
-        , edit_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
+        , create_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> CreateCategory -> m (Either LBS.ByteString LBS.ByteString)
+        , delete_category_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe CategoryName -> m (Either LBS.ByteString LBS.ByteString)
+        , edit_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditCategory -> m (Either LBS.ByteString LBS.ByteString)
         }
 
 categoriesHandler :: CategoriesHandle IO

@@ -48,29 +48,31 @@ getCategoriesListFromDb hLogger pool pageParam =
                         1) *
                        10
                      ]
-    q = toQuery $ BC.concat ["select category_name from categories", pg]
+    q =
+        toQuery $
+        BC.concat
+            ["select category_name from categories order by category_name", pg]
 
 createCategoryOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> Maybe T.Text
-    -> Maybe T.Text
+    -> CreateCategory
     -> IO (Either LBS.ByteString LBS.ByteString)
-createCategoryOnDb hLogger _ _ _ Nothing _ = do
+createCategoryOnDb hLogger _ _ _ (CreateCategory Nothing _) = do
     logError hLogger "No category_name field"
     return $ Left "No category_name field"
-createCategoryOnDb hLogger _ _ _ _ Nothing = do
+createCategoryOnDb hLogger _ _ _ (CreateCategory _ Nothing) = do
     logError hLogger "No maternal_category_name field"
     return $ Left "No maternal_category_name field"
-createCategoryOnDb hLogger pool token_lifetime token' (Just category'_name) (Just maternal_name) =
+createCategoryOnDb hLogger pool token_lifetime token' (CreateCategory (Just category'_name) (Just maternal_name)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
-                    if maternal_name == ""
+                    if from_category_name maternal_name == ""
                         then createWithoutMaternal
                         else createWithMaternal) $ \e -> do
         let errState = sqlState e
@@ -115,7 +117,7 @@ deleteCategoryFromDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> Maybe T.Text
+    -> Maybe CategoryName
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteCategoryFromDb hLogger _ _ _ Nothing = do
     logError hLogger "No category_name parametr"
@@ -137,7 +139,10 @@ deleteCategoryFromDb hLogger pool token_lifetime token (Just categoryName) =
                         else do
                             logError hLogger $
                                 T.concat
-                                    ["Category ", categoryName, " not exist"]
+                                    [ "Category "
+                                    , from_category_name categoryName
+                                    , " not exist"
+                                    ]
                             return $ Right "Category not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -150,14 +155,15 @@ editCategoryOnDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> Maybe T.Text
+    -> EditCategory
     -> IO (Either LBS.ByteString LBS.ByteString)
-editCategoryOnDb hLogger _ _ _ Nothing _ _ = do
+editCategoryOnDb hLogger _ _ _ (EditCategory Nothing _ _) = do
     logError hLogger "No old_name parametr"
     return $ Left "No old_name parametr"
-editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_name) (Just "") =
+editCategoryOnDb hLogger _ _ _ (EditCategory (Just (CategoryName "")) (Just new'_name) (Just new'_maternal)) = do
+    logError hLogger "Empty old name parameter"
+    return $ Left "Empty old name parameter"
+editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just (CategoryName ""))) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -166,7 +172,7 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                     logInfo hLogger $
                         T.concat
                             [ "Update category_name parameter on category "
-                            , old_name
+                            , from_category_name old_name
                             ]
                     n <-
                         executeWithPool
@@ -178,7 +184,11 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                             return $ Right "Category edited"
                         else do
                             logError hLogger $
-                                T.concat ["Category ", old_name, " not exist"]
+                                T.concat
+                                    [ "Category "
+                                    , from_category_name old_name
+                                    , " not exist"
+                                    ]
                             return $ Left "Category not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -187,7 +197,7 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
         case errStateInt of
             23505 -> return $ Left "Category already exist"
             _ -> return $ Left "Database error"
-editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just "") (Just new'_maternal) =
+editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name) (Just (CategoryName "")) (Just new'_maternal)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -208,7 +218,11 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just "") (Ju
                             return $ Right "Category edited"
                         else do
                             logError hLogger $
-                                T.concat ["Category ", old_name, " not exist"]
+                                T.concat
+                                    [ "Category "
+                                    , from_category_name old_name
+                                    , " not exist"
+                                    ]
                             return $ Left "Category not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -220,7 +234,7 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just "") (Ju
   where
     myHead [] = Only (-1)
     myHead (x:_) = x
-editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_name) (Just new'_maternal) =
+editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just new'_maternal)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -228,7 +242,9 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                 (True, _) -> do
                     logInfo hLogger $
                         T.concat
-                            ["Update all parameters on category ", old_name]
+                            [ "Update all parameters on category "
+                            , from_category_name old_name
+                            ]
                     m_id <-
                         queryWithPool
                             pool
@@ -246,7 +262,11 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                             return $ Right "Category edited"
                         else do
                             logError hLogger $
-                                T.concat ["Category ", old_name, " not exist"]
+                                T.concat
+                                    [ "Category "
+                                    , from_category_name old_name
+                                    , " not exist"
+                                    ]
                             return $ Left "Category not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -259,6 +279,6 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
   where
     myHead [] = Only (-1)
     myHead (x:_) = x
-editCategoryOnDb hLogger _ _ _ _ _ _ = do
+editCategoryOnDb hLogger _ _ _ _ = do
     logError hLogger "No update parameters"
     return $ Left "No update parameters"

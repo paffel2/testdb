@@ -62,3 +62,32 @@ toEditTag params =
               TagName . T.toLower . E.decodeUtf8 <$>
               lookup "old_tag_name" params
         }
+
+toCategoryName :: [Param] -> Maybe CategoryName
+toCategoryName params =
+    CategoryName . T.toLower . E.decodeUtf8 <$> lookup "category_name" params
+
+toCreateCategory :: [Param] -> CreateCategory
+toCreateCategory params =
+    CreateCategory
+        { create_categrory_name =
+              CategoryName . T.toLower . E.decodeUtf8 <$>
+              lookup "category_name" params
+        , create_categrory_maternal_category =
+              CategoryName . T.toLower . E.decodeUtf8 <$>
+              lookup "maternal_category_name" params
+        }
+
+toEditCategory :: [Param] -> EditCategory
+toEditCategory params =
+    EditCategory
+        { edit_category_name =
+              CategoryName . T.toLower . E.decodeUtf8 <$>
+              lookup "category_name" params
+        , edit_category_new_name =
+              CategoryName . T.toLower . E.decodeUtf8 <$>
+              lookup "new_name" params
+        , edit_category_new_maternal =
+              CategoryName . T.toLower . E.decodeUtf8 <$>
+              lookup "new_maternal" params
+        }

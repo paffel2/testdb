@@ -323,12 +323,12 @@ data EditAuthor =
 
 newtype Login =
     Login
-        { from_author_login :: T.Text
+        { from_login :: T.Text
         }
     deriving (Show)
 
 instance ToField Login where
-    toField = toField . from_author_login
+    toField = toField . from_login
 
 data CreateAuthor =
     CreateAuthor
@@ -350,5 +350,29 @@ data EditTag =
     EditTag
         { edit_tag_new_name :: Maybe TagName
         , edit_tag_old_name :: Maybe TagName
+        }
+    deriving (Show, Generic, ToRow)
+
+newtype CategoryName =
+    CategoryName
+        { from_category_name :: T.Text
+        }
+    deriving (Show, Eq)
+
+instance ToField CategoryName where
+    toField = toField . from_category_name
+
+data CreateCategory =
+    CreateCategory
+        { create_categrory_name :: Maybe CategoryName
+        , create_categrory_maternal_category :: Maybe CategoryName
+        }
+    deriving (Show, Generic, ToRow)
+
+data EditCategory =
+    EditCategory
+        { edit_category_name :: Maybe CategoryName
+        , edit_category_new_name :: Maybe CategoryName
+        , edit_category_new_maternal :: Maybe CategoryName
         }
     deriving (Show, Generic, ToRow)
