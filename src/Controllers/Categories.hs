@@ -5,12 +5,15 @@ module Controllers.Categories where
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
 import FromRequest
+    ( takeToken
+    , toCategoryName
+    , toCreateCategory
+    , toEditCategory
+    , toPage
+    )
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -18,7 +21,7 @@ import Network.HTTP.Types.Method
     , methodPost
     , methodPut
     )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Network.Wai (Request(rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import OperationsHandle
     ( CategoriesHandle(create_category_on_db, delete_category_from_db,

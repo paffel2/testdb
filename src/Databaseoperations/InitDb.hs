@@ -6,27 +6,21 @@ import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
-import Data.Pool (Pool, createPool, destroyAllResources)
+import Data.Pool (Pool)
 import qualified Data.Text as T
 import Database.PostgreSQL.Simple
     ( Binary(Binary)
     , Connection
     , SqlError(sqlState)
-    , close
-    , connectPostgreSQL
     )
 import HelpFunction (getFiles, readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
 import System.Info (os)
-import Types (DatabaseAddress)
 
 createDb ::
-       Handle IO
-    -> Pool Connection
-    -> DatabaseAddress
-    -> IO (Either LBS.ByteString LBS.ByteString)
-createDb hLogger pool db_add =
+       Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+createDb hLogger pool =
     catch
             --logDebug hLogger "Creating connection"
             --let conn' = connectPostgreSQL db_add

@@ -6,12 +6,15 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken, toCreateAuthor, toEditAuthor, toLogin, toPage)
-import HelpFunction (readByteStringToInt)
+import FromRequest
+    ( takeToken
+    , toAuthorLogin
+    , toCreateAuthor
+    , toEditAuthor
+    , toPage
+    )
 import Logger (Handle, logDebug, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -19,7 +22,7 @@ import Network.HTTP.Types.Method
     , methodPost
     , methodPut
     )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Network.Wai (Request(rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import OperationsHandle
     ( AuthorsHandle(create_author_in_db, delete_author_in_db,
@@ -94,8 +97,7 @@ deleteAuthor hLogger methods pool token_lifetime req =
             logInfo hLogger "Preparing parameters for deleting author."
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let author_login' = E.decodeUtf8 <$> lookup "author_login" i
-            let author_login = toLogin i
+            let author_login' = toAuthorLogin i
             result <-
                 delete_author_in_db
                     methods
@@ -103,7 +105,7 @@ deleteAuthor hLogger methods pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    author_login
+                    author_login'
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not deleted. Not admin."

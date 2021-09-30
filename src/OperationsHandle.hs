@@ -59,7 +59,6 @@ import Databaseoperations.Users
     )
 import Logger (Handle)
 import Types
-import Types (EditCategory)
 
 data OperationsHandle m =
     OperationsHandle
@@ -91,7 +90,7 @@ operationsHandler =
 data AuthorsHandle m =
     AuthorsHandle
         { create_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> CreateAuthor -> m (Either LBS.ByteString Int)
-        , delete_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either LBS.ByteString LBS.ByteString)
+        , delete_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe AuthorLogin -> m (Either LBS.ByteString LBS.ByteString)
         , get_authors_list :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString AuthorsList)
         , edit_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either LBS.ByteString LBS.ByteString)
         }
@@ -155,7 +154,7 @@ imagesHandler =
 
 newtype InitDbHandle m =
     InitDbHandle
-        { create_db :: Handle m -> Pool Connection -> DatabaseAddress -> m (Either LBS.ByteString LBS.ByteString)
+        { create_db :: Handle m -> Pool Connection -> m (Either LBS.ByteString LBS.ByteString)
         }
 
 initDbHandler :: InitDbHandle IO
@@ -222,9 +221,9 @@ tagsHandler =
 
 data UsersHandle m =
     UsersHandle
-        { auth :: Handle m -> Pool Connection -> T.Text -> T.Text -> m (Either LBS.ByteString LBS.ByteString)
-        , create_user_in_db :: Handle m -> Pool Connection -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> BC.ByteString -> BC.ByteString -> LBS.ByteString -> m (Either LBS.ByteString LBS.ByteString)
-        , delete_user_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> BC.ByteString -> m (Either LBS.ByteString LBS.ByteString)
+        { auth :: Handle m -> Pool Connection -> Maybe Login -> Maybe Password -> m (Either LBS.ByteString LBS.ByteString)
+        , create_user_in_db :: Handle m -> Pool Connection -> CreateUser -> m (Either LBS.ByteString LBS.ByteString)
+        , delete_user_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either LBS.ByteString LBS.ByteString)
         , profile_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> m (Either LBS.ByteString Profile)
         }
 

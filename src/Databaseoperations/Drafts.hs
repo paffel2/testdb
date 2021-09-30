@@ -104,11 +104,11 @@ deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) =
         (do ch <- checkAuthor hLogger pool token_lifetime token'
             case ch of
                 Left bs -> return $ Left bs
-                Right author_id -> do
+                Right author_id' -> do
                     let q =
                             "delete from drafts where draft_id = ? and author_id = ?"
                     let dr_id = fromMaybe (-1) $ readByteStringToInt draft_id
-                    n <- executeWithPool pool q (dr_id, author_id)
+                    n <- executeWithPool pool q (dr_id, author_id')
                     if n > 0
                         then do
                             return $ Right "Draft deleted"
@@ -138,9 +138,9 @@ getDraftByIdFromDb hLogger pool token_lifetime token' draft_id = do
     ch_author <- checkAuthor hLogger pool token_lifetime token'
     case ch_author of
         Left bs -> return $ Left bs
-        Right author_id ->
+        Right author_id' ->
             catch
-                (do rows <- queryWithPool pool q [author_id]
+                (do rows <- queryWithPool pool q [author_id']
                     if Prelude.null rows
                         then do
                             logError hLogger "Wrong draft id or draft not exist"
@@ -267,7 +267,7 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
             return $ Left "Database error"
     loadMainImage (Left message) _ = return $ Left message
     loadMainImage (Right draft_id) Nothing = return $ Right draft_id
-    loadMainImage (Right draft_id) (Just image) =
+    loadMainImage (Right draft_id) (Just image') =
         catch
             (do let q =
                         toQuery $
@@ -277,7 +277,7 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , BC.pack $ show draft_id
                             ]
                 logDebug hLogger "Load main image"
-                n <- executeWithPool pool q image
+                n <- executeWithPool pool q image'
                 if n < 1
                     then do
                         logError hLogger "Image not loaded"
@@ -292,7 +292,7 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
             return $ Left "Database error"
     loadImages (Left message) _ = return $ Left message
     loadImages (Right draft_id) Nothing = return $ Right draft_id
-    loadImages (Right draft_id) (Just images) =
+    loadImages (Right draft_id) (Just images') =
         catch
             (do let q =
                         toQuery $
@@ -304,8 +304,8 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , "insert into drafts_images (draft_id,image_id) select * from d_i"
                             ]
                 logDebug hLogger "Load other images"
-                n <- executeManyWithPool pool q images
-                if fromIntegral n < Prelude.length images
+                n <- executeManyWithPool pool q images'
+                if fromIntegral n < Prelude.length images'
                     then do
                         logError hLogger "Images not loaded"
                         return $ Left "Images not loaded"
@@ -504,7 +504,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
             return $ Left "Database error"
     loadImages (Left mess) _ = return $ Left mess
     loadImages (Right mess) Nothing = return $ Right mess
-    loadImages (Right mess) (Just images) =
+    loadImages (Right mess) (Just images') =
         catch
             (do logDebug hLogger "Add new images"
                 let q =
@@ -516,8 +516,8 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , " as draft_id, image_id from m_id) "
                             , "insert into drafts_images (draft_id,image_id) select * from d_i"
                             ]
-                n <- executeManyWithPool pool q images
-                if fromIntegral n < Prelude.length images
+                n <- executeManyWithPool pool q images'
+                if fromIntegral n < Prelude.length images'
                     then do
                         logError hLogger "Images not loaded"
                         return $ Left "Images not loaded"

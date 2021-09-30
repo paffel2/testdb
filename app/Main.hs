@@ -10,7 +10,7 @@ import Config
     )
 import Data.Pool (createPool)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
-import HelpFunction (dbAddress, dbServerAddress)
+import HelpFunction (dbAddress)
 import Logger (Handle(Handle), logError, logInfo, printLog)
 import Network.Wai.Handler.Warp
     ( defaultSettings
@@ -28,7 +28,6 @@ main = do
     let db_address = dbAddress . db_conf $ hConfig
     let token_lifetime = lifeTime hConfig
     let hLogger = Handle (log_priority hConfig) printLog
-    let db_server_address = dbServerAddress . db_conf $ hConfig
     let poolParams = pool_params hConfig
     logInfo hLogger "Server started"
     pool <-
@@ -44,11 +43,5 @@ main = do
                  (setMaximumBodyFlush
                       (server_maximum_body_flush . server_conf $ hConfig) $
                   setPort (server_port . server_conf $ hConfig) defaultSettings) $
-             routes
-                 hLogger
-                 db_address
-                 db_server_address
-                 token_lifetime
-                 pool
-                 operationsHandler
+             routes hLogger token_lifetime pool operationsHandler
         else logError hLogger "Database not exist"

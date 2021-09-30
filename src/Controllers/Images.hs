@@ -5,14 +5,13 @@ module Controllers.Images where
 import Control.Monad.IO.Class (MonadIO)
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Binary(fromBinary), Connection)
 import FromRequest (toPage)
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodGet)
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Network.Wai (Request(rawPathInfo, requestMethod), Response)
 import OperationsHandle (ImagesHandle(get_photo, get_photo_list))
 import Responses
     ( responseBadRequest

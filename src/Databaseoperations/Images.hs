@@ -12,18 +12,18 @@ import Database.PostgreSQL.Simple (Connection, SqlError(sqlState))
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
-import Types
+import Types (ElemImageArray, ImageArray(ImageArray), ImageB, Page(from_page))
 
 getPhoto ::
        Handle IO -> Pool Connection -> Int -> IO (Either LBS.ByteString ImageB)
-getPhoto hLogger pool image_id =
+getPhoto hLogger pool image_id' =
     catch
         (do let q =
                     toQuery $
                     BC.concat
                         [ "select image_b, content_type from images where image_id = ?"
                         ]
-            rows <- queryWithPool pool q [image_id] :: IO [ImageB]
+            rows <- queryWithPool pool q [image_id'] :: IO [ImageB]
             if Prelude.null rows
                 then return $ Left "Image not exist"
                 else return $ Right $ Prelude.head rows) $ \e -> do

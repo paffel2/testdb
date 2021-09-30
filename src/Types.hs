@@ -321,14 +321,14 @@ data EditAuthor =
         }
     deriving (Show, Generic, ToRow)
 
-newtype Login =
-    Login
-        { from_login :: T.Text
+newtype AuthorLogin =
+    AuthorLogin
+        { author_login :: T.Text
         }
     deriving (Show)
 
-instance ToField Login where
-    toField = toField . from_login
+instance ToField AuthorLogin where
+    toField = toField . author_login
 
 data CreateAuthor =
     CreateAuthor
@@ -374,5 +374,37 @@ data EditCategory =
         { edit_category_name :: Maybe CategoryName
         , edit_category_new_name :: Maybe CategoryName
         , edit_category_new_maternal :: Maybe CategoryName
+        }
+    deriving (Show, Generic, ToRow)
+
+newtype Password =
+    Password
+        { from_password :: T.Text
+        }
+    deriving (Show)
+
+instance ToField Password where
+    toField = toField . from_password
+
+newtype Login =
+    Login
+        { from_login :: T.Text
+        }
+    deriving (Show)
+
+instance ToField Login where
+    toField = toField . from_login
+
+data CreateUser =
+    CreateUser
+        { avatar_file_name :: Maybe BC.ByteString
+        , avatar_content :: Maybe (Binary LBS.ByteString)
+        , avatar_content_type :: Maybe BC.ByteString
+        , first_name :: Maybe T.Text
+        , last_name :: Maybe T.Text
+        , user_login :: Maybe Login
+        , user_password :: Maybe Password
+        , creation_date :: UTCTime
+        , admin_mark :: Bool
         }
     deriving (Show, Generic, ToRow)

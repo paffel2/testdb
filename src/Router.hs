@@ -12,33 +12,27 @@ import Controllers.NewsAndComments (newsAndCommentsRouter)
 import Controllers.Tags (tagsRouter)
 import Controllers.Users (deleteUser, login, profile, registration)
 import qualified Data.ByteString.Char8 as BC
-import Data.Pool (Pool, createPool)
-import Database.PostgreSQL.Simple (Connection, close, connectPostgreSQL)
+import Data.Pool (Pool)
+import Database.PostgreSQL.Simple (Connection)
 import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo), Response)
 import OperationsHandle
-    ( OperationsHandle(authors_handle, categories_handle, check_db,
-                 drafts_handle, images_handle, init_db_handle,
-                 news_and_comments_handle, tags_handle, users_handle)
+    ( OperationsHandle(authors_handle, categories_handle, drafts_handle,
+                 images_handle, init_db_handle, news_and_comments_handle,
+                 tags_handle, users_handle)
     )
-import Responses (responseInternalServerError, responseNotFound)
-import Types
-    ( DatabaseAddress
-    , PoolParams(idle_time, max_resources, num_stripes)
-    , TokenLifeTime
-    )
+import Responses (responseNotFound)
+import Types (TokenLifeTime)
 
 routes' ::
        MonadIO m
     => Handle m
-    -> DatabaseAddress
-    -> DatabaseAddress
     -> TokenLifeTime
     -> Pool Connection
     -> OperationsHandle m
     -> Request
     -> m Response
-routes' hLogger db_address db_server_address token_lifetime pool operations req =
+routes' hLogger token_lifetime pool operations req =
     case pathHead of
         "news" ->
             newsAndCommentsRouter
@@ -78,13 +72,7 @@ routes' hLogger db_address db_server_address token_lifetime pool operations req 
         "tags" ->
             tagsRouter hLogger (tags_handle operations) pool token_lifetime req
         "image" -> imagesRouter hLogger (images_handle operations) pool req
-        "initDb" ->
-            initDb
-                hLogger
-                (init_db_handle operations)
-                pool
-                db_server_address
-                req
+        "initDb" -> initDb hLogger (init_db_handle operations) pool req
         "authors" ->
             authorsRouter
                 hLogger
@@ -100,20 +88,10 @@ routes' hLogger db_address db_server_address token_lifetime pool operations req 
 
 routes ::
        Handle IO
-    -> DatabaseAddress
-    -> DatabaseAddress
     -> TokenLifeTime
     -> Pool Connection
     -> OperationsHandle IO
     -> Application
-routes hLogger db_address db_server_address token_lifetime pool operations req respond = do
-    resp <-
-        routes'
-            hLogger
-            db_address
-            db_server_address
-            token_lifetime
-            pool
-            operations
-            req
+routes hLogger token_lifetime pool operations req respond = do
+    resp <- routes' hLogger token_lifetime pool operations req
     respond resp

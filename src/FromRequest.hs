@@ -2,16 +2,36 @@
 
 module FromRequest where
 
+import Control.Monad.IO.Class (MonadIO(..))
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
+import Data.Time (getCurrentTime)
 import Database.PostgreSQL.Simple.Types (Binary(Binary))
-import HelpFunction
+import HelpFunction (readByteStringToInt)
 import Network.Wai (Request(queryString))
 import Network.Wai.Parse
+    ( FileInfo(fileContent, fileContentType, fileName)
+    , Param
+    )
 import Types
+    ( AuthorLogin(AuthorLogin)
+    , CategoryName(CategoryName)
+    , CreateAuthor(..)
+    , CreateCategory(..)
+    , CreateUser(..)
+    , EditAuthor(..)
+    , EditCategory(..)
+    , EditTag(..)
+    , Image(Image)
+    , Login(Login)
+    , Page(Page)
+    , Password(Password)
+    , TagName(TagName)
+    , Token(Token)
+    )
 
 takeToken :: Request -> Maybe Token
 takeToken req =
@@ -36,8 +56,9 @@ toEditAuthor params =
         , edit_author_id = lookup "author_id" params >>= readByteStringToInt
         }
 
-toLogin :: [Param] -> Maybe Login
-toLogin params = Login . E.decodeUtf8 <$> lookup "author_login" params
+toAuthorLogin :: [Param] -> Maybe AuthorLogin
+toAuthorLogin params =
+    AuthorLogin . E.decodeUtf8 <$> lookup "author_login" params
 
 toCreateAuthor :: [Param] -> CreateAuthor
 toCreateAuthor params =
@@ -91,3 +112,47 @@ toEditCategory params =
               CategoryName . T.toLower . E.decodeUtf8 <$>
               lookup "new_maternal" params
         }
+
+toPassword :: [Param] -> Maybe Password
+toPassword params = Password . E.decodeUtf8 <$> lookup "user_password" params
+
+toLogin :: [Param] -> Maybe Login
+toLogin params = Login . E.decodeUtf8 <$> lookup "login" params
+
+toCreateUser ::
+       MonadIO m
+    => [(BC.ByteString, BC.ByteString)]
+    -> [FileInfo LBS.ByteString]
+    -> m CreateUser
+toCreateUser params file = do
+    now <- liftIO getCurrentTime
+    if null file
+        then do
+            return
+                CreateUser
+                    { avatar_file_name = Nothing
+                    , avatar_content = Nothing
+                    , avatar_content_type = Nothing
+                    , first_name = E.decodeUtf8 <$> lookup "f_name" params
+                    , last_name = E.decodeUtf8 <$> lookup "l_name" params
+                    , user_login = toLogin params
+                    , user_password =
+                          Password . E.decodeUtf8 <$> lookup "password" params
+                    , creation_date = now
+                    , admin_mark = False
+                    }
+        else return
+                 CreateUser
+                     { avatar_file_name = Just . fileName . head $ file
+                     , avatar_content =
+                           Just . Binary . fileContent . head $ file
+                     , avatar_content_type =
+                           Just . fileContentType . head $ file
+                     , first_name = E.decodeUtf8 <$> lookup "f_name" params
+                     , last_name = E.decodeUtf8 <$> lookup "l_name" params
+                     , user_login = toLogin params
+                     , user_password =
+                           Password . E.decodeUtf8 <$> lookup "password" params
+                     , creation_date = now
+                     , admin_mark = False
+                     }

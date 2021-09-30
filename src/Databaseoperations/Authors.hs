@@ -15,13 +15,13 @@ import Database.PostgreSQL.Simple
     )
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logError, logInfo)
+import Logger (Handle, logError)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
 import Types
-    ( AuthorsList(AuthorsList)
+    ( AuthorLogin
+    , AuthorsList(AuthorsList)
     , CreateAuthor(CreateAuthor)
     , EditAuthor(EditAuthor)
-    , Login
     , Page(from_page)
     , Token
     , TokenLifeTime
@@ -78,7 +78,7 @@ deleteAuthorInDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> Maybe Login
+    -> Maybe AuthorLogin
     -> IO (Either LBS.ByteString LBS.ByteString)
 deleteAuthorInDb hLogger _ _ Nothing _ = do
     logError hLogger "No token param"
@@ -86,13 +86,13 @@ deleteAuthorInDb hLogger _ _ Nothing _ = do
 deleteAuthorInDb hLogger _ _ _ Nothing = do
     logError hLogger "No login field"
     return $ Left "No login field"
-deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login) =
+deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login') =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
-                    _ <- executeWithPool pool q [author_login]
+                    _ <- executeWithPool pool q [author_login']
                     return $ Right "Author deleted") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

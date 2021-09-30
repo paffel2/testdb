@@ -160,7 +160,7 @@ editCategoryOnDb ::
 editCategoryOnDb hLogger _ _ _ (EditCategory Nothing _ _) = do
     logError hLogger "No old_name parametr"
     return $ Left "No old_name parametr"
-editCategoryOnDb hLogger _ _ _ (EditCategory (Just (CategoryName "")) (Just new'_name) (Just new'_maternal)) = do
+editCategoryOnDb hLogger _ _ _ (EditCategory (Just (CategoryName "")) (Just _) (Just _)) = do
     logError hLogger "Empty old name parameter"
     return $ Left "Empty old name parameter"
 editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just (CategoryName ""))) =

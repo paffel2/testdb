@@ -10,21 +10,19 @@ import Logger (Handle, logError, logInfo)
 import Network.Wai (Request(rawPathInfo), Response)
 import OperationsHandle (InitDbHandle(create_db))
 import Responses (responseBadRequest, responseCreated, responseNotFound)
-import Types (DatabaseAddress)
 
 initDb ::
        MonadIO m
     => Handle m
     -> InitDbHandle m
     -> Pool Connection
-    -> DatabaseAddress
     -> Request
     -> m Response
-initDb hLogger operations pool db_server_addres req =
+initDb hLogger operations pool req =
     if pathElemsC == 1
         then do
             logInfo hLogger "Preparing data creating database"
-            result <- create_db operations hLogger pool db_server_addres
+            result <- create_db operations hLogger pool
             case result of
                 Left bs -> do
                     logError hLogger "Database not created"
