@@ -89,10 +89,10 @@ operationsHandler =
 
 data AuthorsHandle m =
     AuthorsHandle
-        { create_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> Maybe T.Text -> m (Either LBS.ByteString Int)
-        , delete_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
+        { create_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> CreateAuthor -> m (Either LBS.ByteString Int)
+        , delete_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either LBS.ByteString LBS.ByteString)
         , get_authors_list :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString AuthorsList)
-        , edit_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Int -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
+        , edit_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either LBS.ByteString LBS.ByteString)
         }
 
 authorsHandler :: AuthorsHandle IO

@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken, toPage)
+import FromRequest (takeToken, toCreateAuthor, toEditAuthor, toLogin, toPage)
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logDebug, logError, logInfo)
 import Network.HTTP.Types.Method
@@ -34,7 +34,7 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types
+import Types (TokenLifeTime)
 
 newAuthor ::
        MonadIO m
@@ -53,8 +53,7 @@ newAuthor hLogger methods pool token_lifetime req =
             logInfo hLogger "Preparing parameters for creating new author."
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let author_login = E.decodeUtf8 <$> lookup "author_login" i
-            let description = E.decodeUtf8 <$> lookup "description" i
+            let create_author_params = toCreateAuthor i
             logDebug hLogger "Creating Author on database"
             result <-
                 create_author_in_db
@@ -63,8 +62,7 @@ newAuthor hLogger methods pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    author_login
-                    description
+                    create_author_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not created. Not admin."
@@ -96,7 +94,8 @@ deleteAuthor hLogger methods pool token_lifetime req =
             logInfo hLogger "Preparing parameters for deleting author."
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let author_login = E.decodeUtf8 <$> lookup "author_login" i
+            let author_login' = E.decodeUtf8 <$> lookup "author_login" i
+            let author_login = toLogin i
             result <-
                 delete_author_in_db
                     methods
@@ -161,8 +160,7 @@ editAuthor hLogger methods pool token_lifetime req = do
             logInfo hLogger "Preparing data for editing author's description."
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let new_description = E.decodeUtf8 <$> lookup "new_description" i
-            let a_id = readByteStringToInt =<< lookup "author_id" i
+            let edit_params = toEditAuthor i
             result <-
                 edit_author_in_db
                     methods
@@ -170,8 +168,7 @@ editAuthor hLogger methods pool token_lifetime req = do
                     pool
                     token_lifetime
                     token'
-                    a_id
-                    new_description
+                    edit_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not edited. Not admin."

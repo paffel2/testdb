@@ -313,3 +313,26 @@ newtype Token =
 
 instance ToField Token where
     toField = toField . from_token
+
+data EditAuthor =
+    EditAuthor
+        { edit_author_description :: Maybe T.Text
+        , edit_author_id :: Maybe Int
+        }
+    deriving (Show, Generic, ToRow)
+
+newtype Login =
+    Login
+        { from_author_login :: T.Text
+        }
+    deriving (Show)
+
+instance ToField Login where
+    toField = toField . from_author_login
+
+data CreateAuthor =
+    CreateAuthor
+        { create_author_login :: Maybe Login
+        , create_author_description :: Maybe T.Text
+        }
+    deriving (Show, Generic, ToRow)
