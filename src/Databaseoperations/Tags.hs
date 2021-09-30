@@ -17,7 +17,7 @@ import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types (TagsList(TagsList), TokenLifeTime)
+import Types
 
 createTagInDb ::
        Handle IO
@@ -94,7 +94,7 @@ deleteTagFromDb hLogger pool token_lifetime token' (Just tag_name') =
 getTagsListFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> IO (Either LBS.ByteString TagsList)
 getTagsListFromDb hLogger pool maybe_page =
     catch
@@ -113,7 +113,7 @@ getTagsListFromDb hLogger pool maybe_page =
                        show $
                        (fromMaybe
                             1
-                            (readByteStringToInt (fromMaybe "" maybe_page)) -
+                            (readByteStringToInt (maybe "" from_page maybe_page)) -
                         1) *
                        10
                      ]

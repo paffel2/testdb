@@ -177,7 +177,7 @@ createDraftOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe BC.ByteString
+    -> Maybe T.Text
     -> Maybe T.Text
     -> Maybe BC.ByteString
     -> Maybe T.Text
@@ -212,9 +212,8 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
             (do let q =
                         toQuery $
                         BC.concat
-                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = '"
-                            , token'
-                            , "' and (now() - tokens.creation_date) < make_interval(secs => "
+                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = ?"
+                            , " and (now() - tokens.creation_date) < make_interval(secs => "
                             , BC.pack $ show token_lifetime
                             , ")), get_c as (select category_id from categories where category_name = ?) "
                             , "insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a),"
@@ -223,7 +222,7 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             ]
                 logDebug hLogger "Insert draft info"
                 rows <-
-                    queryWithPool pool q (category, short'_title, text) :: IO [Only Int]
+                    queryWithPool pool q (token', category, short'_title, text) :: IO [Only Int]
                 if Prelude.null rows
                     then do
                         logError hLogger "Draft not created"
@@ -328,7 +327,7 @@ updateDraftInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe BC.ByteString
+    -> Maybe T.Text
     -> Maybe T.Text
     -> Maybe BC.ByteString
     -> Maybe T.Text
@@ -368,16 +367,19 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                 let q =
                         toQuery $
                         BC.concat
-                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = '"
-                            , token'
-                            , "' and (now() - tokens.creation_date) < make_interval(secs => "
+                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = ?"
+                            , " and (now() - tokens.creation_date) < make_interval(secs => "
                             , BC.pack $ show token_lifetime
                             , ")), get_c as (select category_id from categories where category_name = ?) "
                             , "update drafts set short_title = ?, date_of_changes = now(), category_id = (select * from get_c), "
                             , "draft_text = ? where draft_id = "
                             , BC.pack $ show draft_id
                             ]
-                n <- executeWithPool pool q (category, short'_title, text)
+                n <-
+                    executeWithPool
+                        pool
+                        q
+                        (token', category, short'_title, text)
                 if n < 1
                     then do
                         return $ Left "Draft not updated"

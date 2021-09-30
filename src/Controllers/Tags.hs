@@ -11,7 +11,7 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
+import FromRequest (takeToken, toPage)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -59,7 +59,7 @@ sendTagsList hLogger operations pool req =
                     logInfo hLogger "Tags list sended"
                     return $ responseOKJSON $ encode tl
   where
-    page = fromMaybe Nothing (lookup "page" $ queryString req)
+    page = toPage req
 
 newTag ::
        MonadIO m
@@ -76,7 +76,7 @@ newTag hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for creating tag."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             let tag_name_param =
                     T.toLower . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "tag_name" $ queryString req)
@@ -117,7 +117,7 @@ deleteTag hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for deleting tag."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             let tag_name_param =
                     T.toLower . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "tag_name" $ queryString req)
@@ -158,7 +158,7 @@ editTag hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for editing tag."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let old_tag_name = E.decodeUtf8 <$> lookup "old_tag_name" i
             let new_tag_name = E.decodeUtf8 <$> lookup "new_tag_name" i

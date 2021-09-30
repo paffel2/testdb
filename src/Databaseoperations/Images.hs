@@ -12,7 +12,7 @@ import Database.PostgreSQL.Simple (Connection, SqlError(sqlState))
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
-import Types (ElemImageArray, ImageArray(ImageArray), ImageB)
+import Types
 
 getPhoto ::
        Handle IO -> Pool Connection -> Int -> IO (Either LBS.ByteString ImageB)
@@ -36,7 +36,7 @@ getPhoto hLogger pool image_id =
 getPhotoList ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> IO (Either LBS.ByteString ImageArray)
 getPhotoList hLogger pool pageParam =
     catch
@@ -57,7 +57,7 @@ getPhotoList hLogger pool pageParam =
                        show $
                        (fromMaybe
                             1
-                            (readByteStringToInt (fromMaybe "" pageParam)) -
+                            (readByteStringToInt (maybe "" from_page pageParam)) -
                         1) *
                        10
                      ]

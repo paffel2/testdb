@@ -10,7 +10,7 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
+import FromRequest
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -59,8 +59,7 @@ sendCategoriesList hLogger operations pool req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
   where
-    queryParams = queryString req
-    pageParam = fromMaybe Nothing (lookup "page" queryParams)
+    pageParam = toPage req
 
 createCategory ::
        MonadIO m
@@ -78,7 +77,7 @@ createCategory hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for creating category"
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             let category_name =
                     T.toLower . E.decodeUtf8 <$> lookup "category_name" i
             let maternal_category_name =
@@ -122,7 +121,7 @@ deleteCategory hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for deleting category"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let category_name = E.decodeUtf8 <$> lookup "category_name" i
             result <-
@@ -162,7 +161,7 @@ editCategory hLogger operations pool token_lifetime req = do
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for editing category"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let category_name = E.decodeUtf8 <$> lookup "category_name" i
             let new_maternal_parametr = E.decodeUtf8 <$> lookup "new_maternal" i

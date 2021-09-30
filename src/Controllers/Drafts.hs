@@ -57,7 +57,7 @@ sendDrafts hLogger operations pool token_liferime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for sending drafts"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             drafts' <-
                 get_drafts_by_author_token
                     operations
@@ -160,7 +160,7 @@ deleteDraft hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for deleting draft"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             let draft_id =
                     fromMaybe Nothing (lookup "draft_id" $ queryString req)
             result <-
@@ -196,7 +196,7 @@ getDraftById hLogger operations pool token_lifetime draft_id req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for sending draft"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             result <-
                 get_draft_by_id_from_db
                     operations
@@ -304,7 +304,7 @@ publicNews hLogger operations pool token_lifetime draft_id req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for public news"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             result <-
                 public_news_on_db
                     operations

@@ -113,7 +113,7 @@ deleteUser hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for deleting user."
             let login' = fromMaybe Nothing (lookup "login" $ queryString req)
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             result <-
                 delete_user_from_db
                     operations
@@ -151,7 +151,7 @@ profile hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for sending user information."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             result <-
                 profile_on_db operations hLogger pool token_lifetime token'
             case result of

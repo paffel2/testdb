@@ -26,18 +26,12 @@ import HelpFunction
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
 import Types
-    ( Comment(Comment)
-    , CommentArray(CommentArray)
-    , GetNews
-    , NewsArray(NewsArray)
-    , TokenLifeTime(token_life_time)
-    )
 
 addCommentToDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> T.Text
+    -> Maybe T.Text
     -> Maybe Int
     -> Maybe T.Text
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -47,7 +41,10 @@ addCommentToDb hLogger _ _ _ Nothing _ = do
 addCommentToDb hLogger _ _ _ _ Nothing = do
     logError hLogger "No comment parameter"
     return $ Left "No comment parameter"
-addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) =
+addCommentToDb hLogger _ _ Nothing _ _ = do
+    logError hLogger "No token parameter"
+    return $ Left "No token parameter"
+addCommentToDb hLogger pool token_lifetime (Just token') (Just newsId) (Just comment) =
     catch
         (do now <- getCurrentTime
             let com =
@@ -111,7 +108,7 @@ getCommentsByNewsIdFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe Int
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> IO (Either LBS.ByteString CommentArray)
 getCommentsByNewsIdFromDb hLogger _ Nothing _ = do
     logError hLogger "No news parameter"
@@ -136,7 +133,9 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -188,7 +187,7 @@ getNewsFilterByTagInFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByTagInFromDb hLogger _ Nothing _ = do
     logError hLogger "No tag parameter"
@@ -216,7 +215,9 @@ getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -234,7 +235,7 @@ getNewsFilterByCategoryIdFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByCategoryIdFromDb hLogger _ Nothing _ _ = do
@@ -267,7 +268,9 @@ getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -285,7 +288,7 @@ getNewsFilterByTitleFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByTitleFromDb hLogger _ Nothing _ _ = do
@@ -313,7 +316,9 @@ getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -331,7 +336,7 @@ getNewsFilterByAuthorNameFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByAuthorNameFromDb hLogger _ Nothing _ _ = do
@@ -359,7 +364,9 @@ getNewsFilterByAuthorNameFromDb hLogger pool (Just authorName) page_p sortParam 
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -377,7 +384,7 @@ getNewsFilterByDateFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByDateFromDb hLogger _ Nothing _ _ = do
@@ -411,7 +418,9 @@ getNewsFilterByDateFromDb hLogger pool (Just date) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -429,7 +438,7 @@ getNewsFilterByTagAllFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByTagAllFromDb hLogger _ Nothing _ _ = do
@@ -475,7 +484,9 @@ getNewsFilterByTagAllFromDb hLogger pool (Just tag_lst) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -484,7 +495,7 @@ getNewsFilterByContentFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByContentFromDb hLogger _ Nothing _ _ = do
@@ -512,7 +523,9 @@ getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -530,7 +543,7 @@ getNewsFilterByAfterDateFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByAfterDateFromDb hLogger _ Nothing _ _ = do
@@ -564,7 +577,9 @@ getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -582,7 +597,7 @@ getNewsFilterByBeforeDateFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByBeforeDateFromDb hLogger _ Nothing _ _ = do
@@ -618,7 +633,9 @@ getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
                      ]
@@ -636,7 +653,7 @@ getNewsFilterByTagIdFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> BC.ByteString
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFilterByTagIdFromDb hLogger _ Nothing _ _ = do
@@ -669,7 +686,9 @@ getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p')) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p')) -
                         1) *
                        10
                      ]
@@ -687,7 +706,7 @@ getNewsFromDb ::
        Handle IO
     -> Pool Connection
     -> BC.ByteString
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> IO (Either LBS.ByteString NewsArray)
 getNewsFromDb hLogger pool sortParam pageParam =
     catch
@@ -713,7 +732,7 @@ getNewsFromDb hLogger pool sortParam pageParam =
                        show $
                        (fromMaybe
                             1
-                            (readByteStringToInt (fromMaybe "" pageParam)) -
+                            (readByteStringToInt (maybe "" from_page pageParam)) -
                         1) *
                        10
                      ]

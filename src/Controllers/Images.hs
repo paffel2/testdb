@@ -8,6 +8,7 @@ import qualified Data.ByteString.Char8 as BC
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Binary(fromBinary), Connection)
+import FromRequest (toPage)
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodGet)
@@ -45,8 +46,7 @@ sendImagesList hLogger operations pool req = do
             logError hLogger "Bad method request"
             return $ responseMethodNotAllowed "Bad method request"
   where
-    queryParams = queryString req
-    pageParam = fromMaybe Nothing (lookup "page" queryParams)
+    pageParam = toPage req
 
 sendImage ::
        MonadIO m

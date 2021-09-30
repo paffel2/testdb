@@ -299,3 +299,8 @@ data PoolParams =
         , max_resources :: Int
         }
     deriving (Show)
+
+newtype Page =
+    Page
+        { from_page :: BC.ByteString
+        }

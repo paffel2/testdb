@@ -17,7 +17,7 @@ import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types (AuthorsList(AuthorsList), TokenLifeTime)
+import Types
 
 createAuthorInDb ::
        Handle IO
@@ -108,7 +108,7 @@ deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login) =
 getAuthorsList ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> IO (Either LBS.ByteString AuthorsList)
 getAuthorsList hLogger pool page_p' =
     catch
@@ -124,16 +124,18 @@ getAuthorsList hLogger pool page_p' =
         toQuery $
         BC.concat
             [ "select author_id, (concat(first_name, ' ', last_name)) as author_name, description from authors join users using (user_id) order by 2"
-            , page
+            , page'
             ]
-    page =
+    page' =
         if isNothing page_p'
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
                      , BC.pack $
                        show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p')) -
+                       (fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p')) -
                         1) *
                        10
                      ]

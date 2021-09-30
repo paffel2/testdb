@@ -18,12 +18,12 @@ import PostgreSqlWithPool
     , query_WithPool
     , returningWithPool
     )
-import Types (ListOfCategories(ListOfCategories), TokenLifeTime)
+import Types
 
 getCategoriesListFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
+    -> Maybe Page
     -> IO (Either LBS.ByteString ListOfCategories)
 getCategoriesListFromDb hLogger pool pageParam =
     catch
@@ -44,7 +44,7 @@ getCategoriesListFromDb hLogger pool pageParam =
                        show $
                        (fromMaybe
                             1
-                            (readByteStringToInt (fromMaybe "" pageParam)) -
+                            (readByteStringToInt (maybe "" from_page pageParam)) -
                         1) *
                        10
                      ]
@@ -72,8 +72,7 @@ createCategoryOnDb hLogger pool token_lifetime token' (Just category'_name) (Jus
                 (True, _) -> do
                     if maternal_name == ""
                         then createWithoutMaternal
-                        else createWithMaternal) $ \e
-     -> do
+                        else createWithMaternal) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -180,8 +179,7 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
-                            return $ Left "Category not exist") $ \e
-     -> do
+                            return $ Left "Category not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -211,8 +209,7 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just "") (Ju
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
-                            return $ Left "Category not exist") $ \e
-     -> do
+                            return $ Left "Category not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -250,8 +247,7 @@ editCategoryOnDb hLogger pool token_lifetime token (Just old_name) (Just new'_na
                         else do
                             logError hLogger $
                                 T.concat ["Category ", old_name, " not exist"]
-                            return $ Left "Category not exist") $ \e
-     -> do
+                            return $ Left "Category not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $

@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
+import FromRequest (takeToken, toPage)
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logDebug, logError, logInfo)
 import Network.HTTP.Types.Method
@@ -51,7 +51,7 @@ newAuthor hLogger methods pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing parameters for creating new author."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let author_login = E.decodeUtf8 <$> lookup "author_login" i
             let description = E.decodeUtf8 <$> lookup "description" i
@@ -94,7 +94,7 @@ deleteAuthor hLogger methods pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing parameters for deleting author."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let author_login = E.decodeUtf8 <$> lookup "author_login" i
             result <-
@@ -142,7 +142,7 @@ sendAuthorsList hLogger methods pool req = do
                     logInfo hLogger "Authors list sended."
                     return $ responseOKJSON $ encode al
   where
-    pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
+    pageParam = toPage req
 
 editAuthor ::
        MonadIO m
@@ -159,7 +159,7 @@ editAuthor hLogger methods pool token_lifetime req = do
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing data for editing author's description."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let new_description = E.decodeUtf8 <$> lookup "new_description" i
             let a_id = readByteStringToInt =<< lookup "author_id" i

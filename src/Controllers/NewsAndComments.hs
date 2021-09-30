@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
+import FromRequest (takeToken, toPage)
 import HelpFunction (myLookup)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
@@ -61,7 +61,7 @@ deleteCommentById hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing data for deleting commentary"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             let comment_id =
                     fromMaybe Nothing (lookup "comment_id" $ queryString req)
             let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
@@ -114,7 +114,7 @@ addCommentByNewsId hLogger operations pool token_lifetime req news'_id =
                     hLogger
                     pool
                     token_lifetime
-                    (E.decodeUtf8 $ fromMaybe "" token')
+                    token'
                     news'_id
                     (E.decodeUtf8 <$> comment)
             case result of
@@ -146,7 +146,7 @@ sendCommentsByNewsId hLogger operations pool req news'_id =
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing data for sending commentary list"
-            let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
+            let pageParam = toPage req
             result <-
                 get_comments_by_news_id_from_db
                     operations
@@ -296,7 +296,7 @@ sendNews hLogger operations pool req =
             return $ responseMethodNotAllowed "Bad request method"
   where
     queryParams = queryString req
-    pageParam = fromMaybe Nothing (lookup "page" queryParams)
+    pageParam = toPage req
     sortParam = fromMaybe Nothing (lookup "sort" queryParams)
     filterParamName =
         myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
