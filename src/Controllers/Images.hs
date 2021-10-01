@@ -8,7 +8,7 @@ import qualified Data.ByteString.Char8 as BC
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Binary(fromBinary), Connection)
 import FromRequest (toPage)
-import HelpFunction (readByteStringToInt)
+import HelpFunction (readByteStringToId)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodGet)
 import Network.Wai (Request(rawPathInfo, requestMethod), Response)
@@ -20,7 +20,7 @@ import Responses
     , responseOKImage
     , responseOKJSON
     )
-import Types (ImageB(con_type, image_b))
+import Types (Id, ImageB(con_type, image_b))
 
 sendImagesList ::
        MonadIO m
@@ -52,7 +52,7 @@ sendImage ::
     => Handle m
     -> ImagesHandle m
     -> Pool Connection
-    -> Int
+    -> Id
     -> Request
     -> m Response
 sendImage hLogger operations pool imageId req = do
@@ -82,7 +82,7 @@ imagesRouter ::
 imagesRouter hLogger operations pool req
     | pathElemsC == 1 = sendImagesList hLogger operations pool req
     | pathElemsC == 2 =
-        case readByteStringToInt $ last pathElems of
+        case readByteStringToId $ last pathElems of
             Nothing -> return $ responseBadRequest "Bad image id"
             Just n -> sendImage hLogger operations pool n req
     | otherwise = return $ responseNotFound "Not Found"

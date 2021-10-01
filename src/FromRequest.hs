@@ -2,6 +2,7 @@
 
 module FromRequest where
 
+import Control.Monad
 import Control.Monad.IO.Class (MonadIO(..))
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
@@ -10,28 +11,18 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Data.Time (getCurrentTime)
 import Database.PostgreSQL.Simple.Types (Binary(Binary))
-import HelpFunction (readByteStringToInt)
+import HelpFunction
+    ( readByteStringListInt
+    , readByteStringToDay
+    , readByteStringToId
+    , readByteStringToInt
+    )
 import Network.Wai (Request(queryString))
 import Network.Wai.Parse
     ( FileInfo(fileContent, fileContentType, fileName)
     , Param
     )
 import Types
-    ( AuthorLogin(AuthorLogin)
-    , CategoryName(CategoryName)
-    , CreateAuthor(..)
-    , CreateCategory(..)
-    , CreateUser(..)
-    , EditAuthor(..)
-    , EditCategory(..)
-    , EditTag(..)
-    , Image(Image)
-    , Login(Login)
-    , Page(Page)
-    , Password(Password)
-    , TagName(TagName)
-    , Token(Token)
-    )
 
 takeToken :: Request -> Maybe Token
 takeToken req =
@@ -156,3 +147,78 @@ toCreateUser params file = do
                      , creation_date = now
                      , admin_mark = False
                      }
+
+toCommentId :: Request -> Maybe Id
+toCommentId req =
+    join (lookup "comment_id" $ queryString req) >>= readByteStringToId
+
+toSort :: Request -> Sort
+toSort req = Sort . fromMaybe "" . join $ lookup "sort" (queryString req)
+
+toCommentText :: [Param] -> Maybe CommentText
+toCommentText params =
+    CommentText . E.decodeUtf8 <$> lookup "comment_text" params
+
+class FilterParam a where
+    toFilterParam :: Request -> Maybe a
+
+instance FilterParam TagInFilterParam where
+    toFilterParam req =
+        TagInFilterParam <$>
+        (readByteStringListInt =<<
+         fromMaybe Nothing (lookup "tag_in" $ queryString req))
+
+instance FilterParam CategoryFilterParam where
+    toFilterParam req =
+        CategoryFilterParam <$>
+        (join (lookup "category" $ queryString req) >>= readByteStringToId)
+
+instance FilterParam TagFilterParam where
+    toFilterParam req =
+        TagFilterParam <$>
+        (join (lookup "tag" $ queryString req) >>= readByteStringToId)
+
+instance FilterParam TagAllFilterParam where
+    toFilterParam req =
+        TagAllFilterParam <$>
+        (readByteStringListInt =<<
+         fromMaybe Nothing (lookup "tag_all" $ queryString req))
+
+instance FilterParam TitleFilterParam where
+    toFilterParam req =
+        TitleFilterParam . E.decodeUtf8 <$>
+        fromMaybe Nothing (lookup "title" $ queryString req)
+
+instance FilterParam ContentFilterParam where
+    toFilterParam req =
+        ContentFilterParam . E.decodeUtf8 <$>
+        fromMaybe Nothing (lookup "content" $ queryString req)
+
+instance FilterParam DateFilterParam where
+    toFilterParam req =
+        DateFilterParam <$>
+        (join (lookup "date" $ queryString req) >>= readByteStringToDay)
+
+instance FilterParam BeforeDateFilterParam where
+    toFilterParam req =
+        BeforeDateFilterParam <$>
+        (join (lookup "before_date" $ queryString req) >>= readByteStringToDay)
+
+instance FilterParam AfterDateFilterParam where
+    toFilterParam req =
+        AfterDateFilterParam <$>
+        (join (lookup "after_date" $ queryString req) >>= readByteStringToDay)
+
+instance FilterParam AuthorFilterParam where
+    toFilterParam req =
+        AuthorFilterParam . E.decodeUtf8 <$>
+        fromMaybe Nothing (lookup "author" $ queryString req)
+{-myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
+        myLookup "tag" queryParams <|>
+        myLookup "tag_all" queryParams <|>
+        myLookup "author" queryParams <|>
+        myLookup "title" queryParams <|>
+        myLookup "content" queryParams <|>
+        myLookup "date" queryParams <|>
+        myLookup "after_date" queryParams <|>
+        myLookup "before_date" queryParams-}

@@ -23,13 +23,23 @@ import GHC.Generics (Generic)
 
 data Comment =
     Comment
+        { comment_token :: Maybe Token
+        , comment_token_lifetime :: TokenLifeTime
+        , comment_text :: Maybe CommentText
+        , comment_news_id :: Maybe Id
+        --, comment_time :: UTCTime
+        }
+    deriving (Generic, ToRow)
+
+{-data Comment =
+    Comment
         { comment_token :: T.Text
         , comment_token_lifetime :: Int
         , comment_text :: T.Text
-        , comment_news_id :: Int
+        , comment_news_id :: Maybe Id
         , comment_time :: UTCTime
         }
-    deriving (Show, Generic, ToRow, FromRow)
+    deriving (Show, Generic, ToRow)-}
 
 data ElemOfNewsArray =
     ElemOfNewsArray
@@ -408,3 +418,99 @@ data CreateUser =
         , admin_mark :: Bool
         }
     deriving (Show, Generic, ToRow)
+
+newtype CommentText =
+    CommentText
+        { from_comment_text :: T.Text
+        }
+
+instance ToField CommentText where
+    toField = toField . from_comment_text
+
+newtype Id =
+    Id
+        { from_id :: Int
+        }
+    deriving (Show)
+
+instance ToField Id where
+    toField = toField . from_id
+
+newtype Sort =
+    Sort
+        { from_sort :: BC.ByteString
+        }
+    deriving (Show)
+
+newtype TagInFilterParam =
+    TagInFilterParam
+        { from_tag_in_fp :: [Int]
+        }
+
+newtype CategoryFilterParam =
+    CategoryFilterParam
+        { from_category_fp :: Id
+        }
+
+newtype TagFilterParam =
+    TagFilterParam
+        { from_tag_fp :: Id
+        }
+
+instance ToField TagFilterParam where
+    toField = toField . from_tag_fp
+
+newtype TagAllFilterParam =
+    TagAllFilterParam
+        { from_tag_all_fp :: [Int]
+        }
+
+newtype TitleFilterParam =
+    TitleFilterParam
+        { from_title_fp :: T.Text
+        }
+
+newtype ContentFilterParam =
+    ContentFilterParam
+        { from_content_fp :: T.Text
+        }
+
+newtype DateFilterParam =
+    DateFilterParam
+        { from_date_fp :: Day
+        }
+
+instance ToField DateFilterParam where
+    toField = toField . from_date_fp
+
+newtype BeforeDateFilterParam =
+    BeforeDateFilterParam
+        { from_before_date_fp :: Day
+        }
+
+instance ToField BeforeDateFilterParam where
+    toField = toField . from_before_date_fp
+
+newtype AfterDateFilterParam =
+    AfterDateFilterParam
+        { from_after_date_fp :: Day
+        }
+
+instance ToField AfterDateFilterParam where
+    toField = toField . from_after_date_fp
+
+newtype AuthorFilterParam =
+    AuthorFilterParam
+        { from_author_fp :: T.Text
+        }
+
+type ParamName = BC.ByteString
+{-myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
+        myLookup "tag" queryParams <|>
+        myLookup "tag_all" queryParams <|>
+        myLookup "author" queryParams <|>
+        myLookup "title" queryParams <|>
+        myLookup "content" queryParams <|>
+        myLookup "date" queryParams <|>
+        myLookup "after_date" queryParams <|>
+        myLookup "before_date" queryParams-}

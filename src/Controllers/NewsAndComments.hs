@@ -6,12 +6,17 @@ import Control.Applicative (Alternative((<|>)))
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken, toPage)
-import HelpFunction (myLookup)
+import FromRequest
+    ( FilterParam(toFilterParam)
+    , takeToken
+    , toCommentId
+    , toCommentText
+    , toPage
+    , toSort
+    )
+import HelpFunction (myLookup, readByteStringToId)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
@@ -44,7 +49,12 @@ import Responses
     , responseOk
     )
 import Text.Read (readMaybe)
-import Types (TokenLifeTime)
+import Types
+    ( Comment(Comment, comment_news_id, comment_text, comment_token,
+        comment_token_lifetime)
+    , Id
+    , TokenLifeTime
+    )
 
 deleteCommentById ::
        MonadIO m
@@ -62,9 +72,7 @@ deleteCommentById hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for deleting commentary"
             let token' = takeToken req
-            let comment_id =
-                    fromMaybe Nothing (lookup "comment_id" $ queryString req)
-            let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
+            let comment_id = toCommentId req
             result <-
                 delete_comment_from_db
                     operations
@@ -72,7 +80,7 @@ deleteCommentById hLogger operations pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    c_id'
+                    comment_id
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Commentary not deleted. Not admin."
@@ -94,7 +102,7 @@ addCommentByNewsId ::
     -> Pool Connection
     -> TokenLifeTime
     -> Request
-    -> Maybe Int
+    -> Maybe Id
     -> m Response
 addCommentByNewsId hLogger operations pool token_lifetime req news'_id =
     if requestMethod req /= methodPost
@@ -106,17 +114,14 @@ addCommentByNewsId hLogger operations pool token_lifetime req news'_id =
             (i, _) <-
                 liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-            let token' = takeToken req
-            let comment = lookup "comment_text" i
-            result <-
-                add_comment_to_db
-                    operations
-                    hLogger
-                    pool
-                    token_lifetime
-                    token'
-                    news'_id
-                    (E.decodeUtf8 <$> comment)
+            let comment =
+                    Comment
+                        { comment_token = takeToken req
+                        , comment_token_lifetime = token_lifetime
+                        , comment_text = toCommentText i
+                        , comment_news_id = news'_id
+                        }
+            result <- add_comment_to_db operations hLogger pool comment
             case result of
                 Left "News not exist" -> do
                     logError hLogger "Commentary not added. News not exist."
@@ -137,7 +142,7 @@ sendCommentsByNewsId ::
     -> NewsAndCommentsHandle m
     -> Pool Connection
     -> Request
-    -> Maybe Int
+    -> Maybe Id
     -> m Response
 sendCommentsByNewsId hLogger operations pool req news'_id =
     if requestMethod req /= methodGet
@@ -168,7 +173,7 @@ sendNewsById ::
     -> NewsAndCommentsHandle m
     -> Pool Connection
     -> Request
-    -> Maybe Int
+    -> Maybe Id
     -> m Response
 sendNewsById hLogger operations pool req newsId =
     if requestMethod req /= methodGet
@@ -204,80 +209,80 @@ sendNews hLogger operations pool req =
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
                     Just "category" ->
                         get_news_filter_by_category_id_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "title" ->
                         get_news_filter_by_title_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "author" ->
                         get_news_filter_by_author_name_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "date" ->
                         get_news_filter_by_date_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "tag_all" ->
                         get_news_filter_by_tag_all_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "content" ->
                         get_news_filter_by_content_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "after_date" ->
                         get_news_filter_by_after_date_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "before_date" ->
                         get_news_filter_by_before_date_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "tag" ->
                         get_news_filter_by_tag_id_from_db
                             operations
                             hLogger
                             pool
-                            filterParam
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just _ -> do
                         logError hLogger "Bad request"
                         return $ Left "Bad request"
@@ -286,7 +291,7 @@ sendNews hLogger operations pool req =
                             operations
                             hLogger
                             pool
-                            sortParam'
+                            sortParam
                             pageParam
             case result of
                 Left bs -> return $ responseBadRequest bs
@@ -297,7 +302,7 @@ sendNews hLogger operations pool req =
   where
     queryParams = queryString req
     pageParam = toPage req
-    sortParam = fromMaybe Nothing (lookup "sort" queryParams)
+    sortParam = toSort req
     filterParamName =
         myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
         myLookup "tag" queryParams <|>
@@ -308,15 +313,6 @@ sendNews hLogger operations pool req =
         myLookup "date" queryParams <|>
         myLookup "after_date" queryParams <|>
         myLookup "before_date" queryParams
-    filterParam =
-        fromMaybe Nothing (lookup (fromMaybe "" filterParamName) queryParams)
-    sortParam' =
-        case sortParam of
-            Nothing -> ""
-            Just "author_name" -> "author_name"
-            Just "date_creation" -> "date_creation"
-            Just "category_name" -> "category_name"
-            Just _ -> ""
 
 newsAndCommentsRouter ::
        MonadIO m
@@ -329,10 +325,10 @@ newsAndCommentsRouter ::
 newsAndCommentsRouter hLogger operations pool token_lifetime req
     | pathElemC == 1 = do sendNews hLogger operations pool req
     | pathElemC == 2 = do
-        let newsId = readMaybe $ BC.unpack $ last pathElems :: Maybe Int
+        let newsId = readByteStringToId . last $ pathElems
         sendNewsById hLogger operations pool req newsId
     | pathElemC == 3 = do
-        let newsId = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
+        let newsId = readByteStringToId . head . tail $ pathElems
         if last pathElems == "comments"
             then sendCommentsByNewsId hLogger operations pool req newsId
             else do
@@ -341,8 +337,7 @@ newsAndCommentsRouter hLogger operations pool token_lifetime req
     | pathElemC == 4 =
         case last pathElems of
             "add_comment" -> do
-                let news'_id =
-                        readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
+                let news'_id = readByteStringToId . head . tail $ pathElems
                 addCommentByNewsId
                     hLogger
                     operations
@@ -355,8 +350,8 @@ newsAndCommentsRouter hLogger operations pool token_lifetime req
                         readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
                 case news'_id of
                     Nothing -> do
-                        logError hLogger "bad comment id"
-                        return $ responseBadRequest "bad comment id"
+                        logError hLogger "Bad news id"
+                        return $ responseBadRequest "Bad news id"
                     Just _ ->
                         deleteCommentById
                             hLogger

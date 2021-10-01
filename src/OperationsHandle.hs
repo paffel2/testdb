@@ -144,7 +144,7 @@ draftsHandler =
 
 data ImagesHandle m =
     ImagesHandle
-        { get_photo :: Handle m -> Pool Connection -> Int -> m (Either LBS.ByteString ImageB)
+        { get_photo :: Handle m -> Pool Connection -> Id -> m (Either LBS.ByteString ImageB)
         , get_photo_list :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString ImageArray)
         }
 
@@ -162,21 +162,21 @@ initDbHandler = InitDbHandle createDb
 
 data NewsAndCommentsHandle m =
     NewsAndCommentsHandle
-        { add_comment_to_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Int -> Maybe T.Text -> m (Either LBS.ByteString LBS.ByteString)
-        , delete_comment_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Int -> m (Either LBS.ByteString LBS.ByteString)
-        , get_comments_by_news_id_from_db :: Handle m -> Pool Connection -> Maybe Int -> Maybe Page -> m (Either LBS.ByteString CommentArray)
-        , get_news_by_id_from_db :: Handle m -> Pool Connection -> Maybe Int -> m (Either LBS.ByteString GetNews)
-        , get_news_filter_by_tag_in_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_category_id_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_title_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_author_name_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_date_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_tag_all_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_content_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_after_date_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_before_date_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_tag_id_from_db :: Handle m -> Pool Connection -> Maybe BC.ByteString -> Maybe Page -> BC.ByteString -> m (Either LBS.ByteString NewsArray)
-        , get_news_from_db :: Handle m -> Pool Connection -> BC.ByteString -> Maybe Page -> m (Either LBS.ByteString NewsArray)
+        { add_comment_to_db :: Handle m -> Pool Connection -> Comment -> m (Either LBS.ByteString LBS.ByteString)
+        , delete_comment_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either LBS.ByteString LBS.ByteString)
+        , get_comments_by_news_id_from_db :: Handle m -> Pool Connection -> Maybe Id -> Maybe Page -> m (Either LBS.ByteString CommentArray)
+        , get_news_by_id_from_db :: Handle m -> Pool Connection -> Maybe Id -> m (Either LBS.ByteString GetNews)
+        , get_news_filter_by_tag_in_from_db :: Handle m -> Pool Connection -> Maybe TagInFilterParam -> Maybe Page -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_category_id_from_db :: Handle m -> Pool Connection -> Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_title_from_db :: Handle m -> Pool Connection -> Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_author_name_from_db :: Handle m -> Pool Connection -> Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_date_from_db :: Handle m -> Pool Connection -> Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_tag_all_from_db :: Handle m -> Pool Connection -> Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_content_from_db :: Handle m -> Pool Connection -> Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_after_date_from_db :: Handle m -> Pool Connection -> Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_before_date_from_db :: Handle m -> Pool Connection -> Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_filter_by_tag_id_from_db :: Handle m -> Pool Connection -> Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
+        , get_news_from_db :: Handle m -> Pool Connection -> Sort -> Maybe Page -> m (Either LBS.ByteString NewsArray)
         }
 
 newsAndCommentsHandler :: NewsAndCommentsHandle IO
