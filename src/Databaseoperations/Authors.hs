@@ -4,7 +4,6 @@ module Databaseoperations.Authors where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
@@ -22,7 +21,10 @@ import Types
     , AuthorsList(AuthorsList)
     , CreateAuthor(CreateAuthor)
     , EditAuthor(EditAuthor)
+    , ErrorMessage
     , Page(from_page)
+    , SendId
+    , SuccessMessage
     , Token
     , TokenLifeTime
     )
@@ -33,7 +35,7 @@ createAuthorInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> CreateAuthor
-    -> IO (Either LBS.ByteString Int)
+    -> IO (Either ErrorMessage SendId)
 createAuthorInDb hLogger _ _ Nothing _ = do
     logError hLogger "No token field"
     return $ Left "No token field"
@@ -79,7 +81,7 @@ deleteAuthorInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe AuthorLogin
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteAuthorInDb hLogger _ _ Nothing _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
@@ -116,7 +118,7 @@ getAuthorsList ::
        Handle IO
     -> Pool Connection
     -> Maybe Page
-    -> IO (Either LBS.ByteString AuthorsList)
+    -> IO (Either ErrorMessage AuthorsList)
 getAuthorsList hLogger pool page_p' =
     catch
         (do rows <- query_WithPool pool q
@@ -153,7 +155,7 @@ editAuthorInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> EditAuthor
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 editAuthorInDb hLogger _ _ _ (EditAuthor Nothing _) = do
     logError hLogger "No new_description field"
     return $ Left "No new_description field"

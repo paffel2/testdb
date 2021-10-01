@@ -27,19 +27,8 @@ data Comment =
         , comment_token_lifetime :: TokenLifeTime
         , comment_text :: Maybe CommentText
         , comment_news_id :: Maybe Id
-        --, comment_time :: UTCTime
         }
     deriving (Generic, ToRow)
-
-{-data Comment =
-    Comment
-        { comment_token :: T.Text
-        , comment_token_lifetime :: Int
-        , comment_text :: T.Text
-        , comment_news_id :: Maybe Id
-        , comment_time :: UTCTime
-        }
-    deriving (Show, Generic, ToRow)-}
 
 data ElemOfNewsArray =
     ElemOfNewsArray
@@ -167,13 +156,6 @@ type DatabaseAddress = BC.ByteString
 
 type TokenLifeTimee = Int
 
-{-data DeleteComment =
-    DeleteComment
-        { delc_token :: T.Text
-        , delc_token_lifetime :: TokenLifeTimee
-        , delc_comment_id :: Int
-        }
-    deriving (Show, Generic, ToRow, FromRow)-}
 newtype Tag =
     Tag
         { tag_name :: T.Text
@@ -504,13 +486,25 @@ newtype AuthorFilterParam =
         { from_author_fp :: T.Text
         }
 
-type ParamName = BC.ByteString
-{-myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
-        myLookup "tag" queryParams <|>
-        myLookup "tag_all" queryParams <|>
-        myLookup "author" queryParams <|>
-        myLookup "title" queryParams <|>
-        myLookup "content" queryParams <|>
-        myLookup "date" queryParams <|>
-        myLookup "after_date" queryParams <|>
-        myLookup "before_date" queryParams-}
+data DraftInf =
+    DraftInf
+        { draft_inf_token :: Maybe Token
+        , draft_inf_category :: Maybe T.Text
+        , draft_inf_title :: Maybe T.Text
+        , draft_inf_text :: Maybe T.Text
+        }
+    deriving (Generic, ToRow)
+
+newtype DraftTags =
+    DraftTags
+        { from_draft_tags :: BC.ByteString
+        }
+
+instance ToField DraftTags where
+    toField = toField . from_draft_tags
+
+type ErrorMessage = LBS.ByteString
+
+type SuccessMessage = LBS.ByteString
+
+type SendId = Int

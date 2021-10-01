@@ -22,9 +22,11 @@ import PostgreSqlWithPool (executeWithPool, queryWithPool)
 import Types
     ( CreateUser(CreateUser, creation_date, first_name, last_name,
            user_login, user_password)
+    , ErrorMessage
     , Login(from_login)
     , Password
     , Profile
+    , SuccessMessage
     , Token(..)
     , TokenLifeTime
     , TokenProfile(TokenProfile)
@@ -43,7 +45,7 @@ authentication ::
     -> Pool Connection
     -> Maybe Login
     -> Maybe Password
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 authentication hLogger _ _ Nothing = do
     logError hLogger "No login parameter."
     return $ Left "No login parameter."
@@ -78,7 +80,7 @@ createUserInDb ::
        Handle IO
     -> Pool Connection
     -> CreateUser
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 createUserInDb hLogger _ (CreateUser _ _ _ Nothing _ _ _ _ _) = do
     logError hLogger "No first_name parameter"
     return $ Left "No first_name parameter"
@@ -172,7 +174,7 @@ deleteUserFromDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Login
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteUserFromDb hLogger _ _ _ Nothing = do
     logError hLogger "No login parameter"
     return $ Left "No login parameter"
@@ -206,7 +208,7 @@ firstToken ::
     -> Pool Connection
     -> Maybe Login
     -> Maybe Password
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 firstToken hLogger pool (Just login') (Just password') =
     catch
         (do logInfo hLogger $
@@ -250,7 +252,7 @@ profileOnDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> IO (Either LBS.ByteString Profile)
+    -> IO (Either ErrorMessage Profile)
 profileOnDb hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
     return $ Left "No token parameter"

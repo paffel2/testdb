@@ -1,9 +1,6 @@
 module OperationsHandle where
 
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Pool (Pool)
-import qualified Data.Text as T
 import Database.PostgreSQL.Simple (Connection)
 import Databaseoperations.Authors
     ( createAuthorInDb
@@ -89,10 +86,10 @@ operationsHandler =
 
 data AuthorsHandle m =
     AuthorsHandle
-        { create_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> CreateAuthor -> m (Either LBS.ByteString Int)
-        , delete_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe AuthorLogin -> m (Either LBS.ByteString LBS.ByteString)
-        , get_authors_list :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString AuthorsList)
-        , edit_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either LBS.ByteString LBS.ByteString)
+        { create_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> CreateAuthor -> m (Either ErrorMessage SendId)
+        , delete_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe AuthorLogin -> m (Either ErrorMessage SuccessMessage)
+        , get_authors_list :: Handle m -> Pool Connection -> Maybe Page -> m (Either ErrorMessage AuthorsList)
+        , edit_author_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either ErrorMessage SuccessMessage)
         }
 
 authorsHandler :: AuthorsHandle IO
@@ -106,10 +103,10 @@ authorsHandler =
 
 data CategoriesHandle m =
     CategoriesHandle
-        { get_categories_list_from_db :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString ListOfCategories)
-        , create_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> CreateCategory -> m (Either LBS.ByteString LBS.ByteString)
-        , delete_category_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe CategoryName -> m (Either LBS.ByteString LBS.ByteString)
-        , edit_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditCategory -> m (Either LBS.ByteString LBS.ByteString)
+        { get_categories_list_from_db :: Handle m -> Pool Connection -> Maybe Page -> m (Either ErrorMessage ListOfCategories)
+        , create_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> CreateCategory -> m (Either ErrorMessage SuccessMessage)
+        , delete_category_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe CategoryName -> m (Either ErrorMessage SuccessMessage)
+        , edit_category_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditCategory -> m (Either ErrorMessage SuccessMessage)
         }
 
 categoriesHandler :: CategoriesHandle IO
@@ -123,12 +120,12 @@ categoriesHandler =
 
 data DraftsHandle m =
     DraftsHandle
-        { get_drafts_by_author_token :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> m (Either LBS.ByteString DraftArray)
-        , delete_draft_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe BC.ByteString -> m (Either LBS.ByteString LBS.ByteString)
-        , get_draft_by_id_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Int -> m (Either LBS.ByteString Draft)
-        , create_draft_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> Maybe BC.ByteString -> Maybe T.Text -> Maybe T.Text -> Maybe Image -> Maybe [Image] -> m (Either LBS.ByteString Int)
-        , update_draft_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe T.Text -> Maybe BC.ByteString -> Maybe T.Text -> Maybe T.Text -> Maybe Image -> Maybe [Image] -> Int -> m (Either LBS.ByteString LBS.ByteString)
-        , public_news_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Int -> m (Either LBS.ByteString Int)
+        { get_drafts_by_author_token :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> m (Either ErrorMessage DraftArray)
+        , delete_draft_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage SuccessMessage)
+        , get_draft_by_id_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Id -> m (Either ErrorMessage Draft)
+        , create_draft_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m (Either ErrorMessage SendId)
+        , update_draft_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either ErrorMessage SuccessMessage)
+        , public_news_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Id -> m (Either ErrorMessage SendId)
         }
 
 draftsHandler :: DraftsHandle IO
@@ -144,8 +141,8 @@ draftsHandler =
 
 data ImagesHandle m =
     ImagesHandle
-        { get_photo :: Handle m -> Pool Connection -> Id -> m (Either LBS.ByteString ImageB)
-        , get_photo_list :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString ImageArray)
+        { get_photo :: Handle m -> Pool Connection -> Id -> m (Either ErrorMessage ImageB)
+        , get_photo_list :: Handle m -> Pool Connection -> Maybe Page -> m (Either ErrorMessage ImageArray)
         }
 
 imagesHandler :: ImagesHandle IO
@@ -154,7 +151,7 @@ imagesHandler =
 
 newtype InitDbHandle m =
     InitDbHandle
-        { create_db :: Handle m -> Pool Connection -> m (Either LBS.ByteString LBS.ByteString)
+        { create_db :: Handle m -> Pool Connection -> m (Either ErrorMessage SuccessMessage)
         }
 
 initDbHandler :: InitDbHandle IO
@@ -162,21 +159,21 @@ initDbHandler = InitDbHandle createDb
 
 data NewsAndCommentsHandle m =
     NewsAndCommentsHandle
-        { add_comment_to_db :: Handle m -> Pool Connection -> Comment -> m (Either LBS.ByteString LBS.ByteString)
-        , delete_comment_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either LBS.ByteString LBS.ByteString)
-        , get_comments_by_news_id_from_db :: Handle m -> Pool Connection -> Maybe Id -> Maybe Page -> m (Either LBS.ByteString CommentArray)
-        , get_news_by_id_from_db :: Handle m -> Pool Connection -> Maybe Id -> m (Either LBS.ByteString GetNews)
-        , get_news_filter_by_tag_in_from_db :: Handle m -> Pool Connection -> Maybe TagInFilterParam -> Maybe Page -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_category_id_from_db :: Handle m -> Pool Connection -> Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_title_from_db :: Handle m -> Pool Connection -> Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_author_name_from_db :: Handle m -> Pool Connection -> Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_date_from_db :: Handle m -> Pool Connection -> Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_tag_all_from_db :: Handle m -> Pool Connection -> Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_content_from_db :: Handle m -> Pool Connection -> Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_after_date_from_db :: Handle m -> Pool Connection -> Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_before_date_from_db :: Handle m -> Pool Connection -> Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_filter_by_tag_id_from_db :: Handle m -> Pool Connection -> Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either LBS.ByteString NewsArray)
-        , get_news_from_db :: Handle m -> Pool Connection -> Sort -> Maybe Page -> m (Either LBS.ByteString NewsArray)
+        { add_comment_to_db :: Handle m -> Pool Connection -> Comment -> m (Either ErrorMessage SuccessMessage)
+        , delete_comment_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage SuccessMessage)
+        , get_comments_by_news_id_from_db :: Handle m -> Pool Connection -> Maybe Id -> Maybe Page -> m (Either ErrorMessage CommentArray)
+        , get_news_by_id_from_db :: Handle m -> Pool Connection -> Maybe Id -> m (Either ErrorMessage GetNews)
+        , get_news_filter_by_tag_in_from_db :: Handle m -> Pool Connection -> Maybe TagInFilterParam -> Maybe Page -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_category_id_from_db :: Handle m -> Pool Connection -> Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_title_from_db :: Handle m -> Pool Connection -> Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_author_name_from_db :: Handle m -> Pool Connection -> Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_date_from_db :: Handle m -> Pool Connection -> Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_tag_all_from_db :: Handle m -> Pool Connection -> Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_content_from_db :: Handle m -> Pool Connection -> Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_after_date_from_db :: Handle m -> Pool Connection -> Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_before_date_from_db :: Handle m -> Pool Connection -> Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_filter_by_tag_id_from_db :: Handle m -> Pool Connection -> Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
+        , get_news_from_db :: Handle m -> Pool Connection -> Sort -> Maybe Page -> m (Either ErrorMessage NewsArray)
         }
 
 newsAndCommentsHandler :: NewsAndCommentsHandle IO
@@ -204,10 +201,10 @@ newsAndCommentsHandler =
 
 data TagsHandle m =
     TagsHandle
-        { create_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either LBS.ByteString Int)
-        , delete_tag_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either LBS.ByteString LBS.ByteString)
-        , get_tags_list_from_db :: Handle m -> Pool Connection -> Maybe Page -> m (Either LBS.ByteString TagsList)
-        , edit_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditTag -> m (Either LBS.ByteString LBS.ByteString)
+        { create_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either ErrorMessage SendId)
+        , delete_tag_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either ErrorMessage SuccessMessage)
+        , get_tags_list_from_db :: Handle m -> Pool Connection -> Maybe Page -> m (Either ErrorMessage TagsList)
+        , edit_tag_in_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> EditTag -> m (Either ErrorMessage SuccessMessage)
         }
 
 tagsHandler :: TagsHandle IO
@@ -221,10 +218,10 @@ tagsHandler =
 
 data UsersHandle m =
     UsersHandle
-        { auth :: Handle m -> Pool Connection -> Maybe Login -> Maybe Password -> m (Either LBS.ByteString LBS.ByteString)
-        , create_user_in_db :: Handle m -> Pool Connection -> CreateUser -> m (Either LBS.ByteString LBS.ByteString)
-        , delete_user_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either LBS.ByteString LBS.ByteString)
-        , profile_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> m (Either LBS.ByteString Profile)
+        { auth :: Handle m -> Pool Connection -> Maybe Login -> Maybe Password -> m (Either ErrorMessage SuccessMessage)
+        , create_user_in_db :: Handle m -> Pool Connection -> CreateUser -> m (Either ErrorMessage SuccessMessage)
+        , delete_user_from_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either ErrorMessage SuccessMessage)
+        , profile_on_db :: Handle m -> Pool Connection -> TokenLifeTime -> Maybe Token -> m (Either ErrorMessage Profile)
         }
 
 usersHandler :: UsersHandle IO

@@ -3,7 +3,6 @@
 module Databaseoperations.CheckAdmin where
 
 import Control.Exception (catch)
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text as T
@@ -15,14 +14,14 @@ import Database.PostgreSQL.Simple
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool)
-import Types
+import Types (ErrorMessage, Token, TokenLifeTime(token_life_time))
 
 checkAdmin ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> IO (Bool, LBS.ByteString)
+    -> IO (Bool, ErrorMessage)
 checkAdmin hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
     return (False, "No token parameter")

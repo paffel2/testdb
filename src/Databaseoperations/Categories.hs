@@ -19,12 +19,22 @@ import PostgreSqlWithPool
     , returningWithPool
     )
 import Types
+    ( CategoryName(..)
+    , CreateCategory(CreateCategory)
+    , EditCategory(EditCategory)
+    , ErrorMessage
+    , ListOfCategories(ListOfCategories)
+    , Page(from_page)
+    , SuccessMessage
+    , Token
+    , TokenLifeTime
+    )
 
 getCategoriesListFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe Page
-    -> IO (Either LBS.ByteString ListOfCategories)
+    -> IO (Either ErrorMessage ListOfCategories)
 getCategoriesListFromDb hLogger pool pageParam =
     catch
         (do rows <- query_WithPool pool q
@@ -59,7 +69,7 @@ createCategoryOnDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> CreateCategory
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 createCategoryOnDb hLogger _ _ _ (CreateCategory Nothing _) = do
     logError hLogger "No category_name field"
     return $ Left "No category_name field"
@@ -118,7 +128,7 @@ deleteCategoryFromDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe CategoryName
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteCategoryFromDb hLogger _ _ _ Nothing = do
     logError hLogger "No category_name parametr"
     return $ Left "No category_name parametr"
@@ -156,7 +166,7 @@ editCategoryOnDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> EditCategory
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 editCategoryOnDb hLogger _ _ _ (EditCategory Nothing _ _) = do
     logError hLogger "No old_name parametr"
     return $ Left "No old_name parametr"

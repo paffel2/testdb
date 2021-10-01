@@ -4,7 +4,6 @@ module Databaseoperations.Tags where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
@@ -18,6 +17,15 @@ import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
 import Types
+    ( EditTag(EditTag)
+    , ErrorMessage
+    , Page(from_page)
+    , SuccessMessage
+    , TagName(from_tag_name)
+    , TagsList(TagsList)
+    , Token
+    , TokenLifeTime
+    )
 
 createTagInDb ::
        Handle IO
@@ -25,7 +33,7 @@ createTagInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe TagName
-    -> IO (Either LBS.ByteString Int)
+    -> IO (Either ErrorMessage Int)
 createTagInDb hLogger _ _ _ Nothing = do
     logError hLogger "No tag_name parameter"
     return $ Left "No tag_name parameter"
@@ -62,7 +70,7 @@ deleteTagFromDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe TagName
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteTagFromDb hLogger _ _ _ Nothing = do
     logError hLogger "No tag_name parameter"
     return $ Left "No tag_name parameter"
@@ -104,7 +112,7 @@ getTagsListFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe Page
-    -> IO (Either LBS.ByteString TagsList)
+    -> IO (Either ErrorMessage TagsList)
 getTagsListFromDb hLogger pool maybe_page =
     catch
         (do rows <- query_WithPool pool q
@@ -134,7 +142,7 @@ editTagInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> EditTag
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 editTagInDb hLogger _ _ _ (EditTag Nothing _) = do
     logError hLogger "No new_tag_name field"
     return $ Left "No new_tag_name field"

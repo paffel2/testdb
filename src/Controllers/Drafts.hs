@@ -8,10 +8,9 @@ import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Binary(Binary), Connection)
-import FromRequest (takeToken, toImage)
-import HelpFunction (foundParametr, readByteStringToInt)
+import FromRequest (takeToken, toDraftId, toDraftInf, toDraftTags, toImage)
+import HelpFunction (foundParametr, readByteStringToId)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -19,7 +18,7 @@ import Network.HTTP.Types.Method
     , methodPost
     , methodPut
     )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Network.Wai (Request(rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse
     ( FileInfo(fileContent)
     , lbsBackEnd
@@ -40,7 +39,7 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (Image(Image, image_content_type), TokenLifeTime)
+import Types (Id, Image(Image, image_content_type), TokenLifeTime)
 
 sendDrafts ::
        MonadIO m
@@ -89,6 +88,8 @@ createDraft hLogger operations pool token_lifetime req =
             (i, f) <-
                 liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            let draft_inf = toDraftInf req i
+            let list_of_tags = toDraftTags i
             let main'_image = foundParametr "main_image" f
             let images = foundParametr "images" f
             let main_image_triple =
@@ -115,22 +116,14 @@ createDraft hLogger operations pool token_lifetime req =
                     logError hLogger "Bad image file"
                     return $ responseBadRequest "Bad image file"
                 else do
-                    let token' = takeToken req
-                    let category = E.decodeUtf8 <$> lookup "category" i
-                    let tags_list = lookup "tags" i
-                    let short'_title = E.decodeUtf8 <$> lookup "short_title" i
-                    let text = E.decodeUtf8 <$> lookup "news_text" i
                     result <-
                         create_draft_on_db
                             operations
                             hLogger
                             pool
                             token_lifetime
-                            token'
-                            category
-                            tags_list
-                            short'_title
-                            text
+                            draft_inf
+                            list_of_tags
                             main_image_triple
                             images_list
                     case result of
@@ -161,8 +154,7 @@ deleteDraft hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for deleting draft"
             let token' = takeToken req
-            let draft_id =
-                    fromMaybe Nothing (lookup "draft_id" $ queryString req)
+            let draft_id = toDraftId req
             result <-
                 delete_draft_from_db
                     operations
@@ -186,7 +178,7 @@ getDraftById ::
     -> DraftsHandle m
     -> Pool Connection
     -> TokenLifeTime
-    -> Int
+    -> Id
     -> Request
     -> m Response
 getDraftById hLogger operations pool token_lifetime draft_id req =
@@ -220,7 +212,7 @@ updateDraft ::
     -> DraftsHandle m
     -> Pool Connection
     -> TokenLifeTime
-    -> Int
+    -> Id
     -> Request
     -> m Response
 updateDraft hLogger operations pool token_lifetime draft_id req =
@@ -230,10 +222,11 @@ updateDraft hLogger operations pool token_lifetime draft_id req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for updating draft"
-            let token' = takeToken req
             (i, f) <-
                 liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            let dr_inf_update = toDraftInf req i
+            let list_of_tags = toDraftTags i
             let main'_image = foundParametr "main_image" f
             let images = foundParametr "images" f
             let main_image_triple =
@@ -244,10 +237,6 @@ updateDraft hLogger operations pool token_lifetime draft_id req =
                     if fileContent (Prelude.head images) == ""
                         then Nothing
                         else Just $ toImage <$> images
-            let category = E.decodeUtf8 <$> lookup "category" i
-            let tags_list = lookup "tags" i
-            let short'_title = E.decodeUtf8 <$> lookup "short_title" i
-            let text = E.decodeUtf8 <$> lookup "news_text" i
             let con_type =
                     any
                         (/= "image")
@@ -270,11 +259,8 @@ updateDraft hLogger operations pool token_lifetime draft_id req =
                             hLogger
                             pool
                             token_lifetime
-                            token'
-                            category
-                            tags_list
-                            short'_title
-                            text
+                            dr_inf_update
+                            list_of_tags
                             main_image_triple
                             images_list
                             draft_id
@@ -294,7 +280,7 @@ publicNews ::
     -> DraftsHandle m
     -> Pool Connection
     -> TokenLifeTime
-    -> Int
+    -> Id
     -> Request
     -> m Response
 publicNews hLogger operations pool token_lifetime draft_id req =
@@ -333,7 +319,7 @@ draftsRouter ::
 draftsRouter hLogger operations pool token_lifetime req
     | pathElemsC == 1 = sendDrafts hLogger operations pool token_lifetime req
     | pathElemsC == 2 =
-        case readByteStringToInt $ last pathElems of
+        case readByteStringToId $ last pathElems of
             Just n -> getDraftById hLogger operations pool token_lifetime n req
             Nothing ->
                 case last pathElems of
@@ -341,7 +327,7 @@ draftsRouter hLogger operations pool token_lifetime req
                         deleteDraft hLogger operations pool token_lifetime req
                     _ -> return $ responseNotFound "Not Found"
     | pathElemsC == 3 =
-        case readByteStringToInt $ head $ tail pathElems of
+        case readByteStringToId $ head $ tail pathElems of
             Nothing -> return $ responseBadRequest "bad request"
             Just n ->
                 case last pathElems of

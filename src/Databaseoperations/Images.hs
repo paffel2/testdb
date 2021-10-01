@@ -4,7 +4,6 @@ module Databaseoperations.Images where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
@@ -14,6 +13,7 @@ import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
 import Types
     ( ElemImageArray
+    , ErrorMessage
     , Id
     , ImageArray(ImageArray)
     , ImageB
@@ -21,7 +21,7 @@ import Types
     )
 
 getPhoto ::
-       Handle IO -> Pool Connection -> Id -> IO (Either LBS.ByteString ImageB)
+       Handle IO -> Pool Connection -> Id -> IO (Either ErrorMessage ImageB)
 getPhoto hLogger pool image_id' =
     catch
         (do let q =
@@ -43,7 +43,7 @@ getPhotoList ::
        Handle IO
     -> Pool Connection
     -> Maybe Page
-    -> IO (Either LBS.ByteString ImageArray)
+    -> IO (Either ErrorMessage ImageArray)
 getPhotoList hLogger pool pageParam =
     catch
         (do rows <- query_WithPool pool q :: IO [ElemImageArray]

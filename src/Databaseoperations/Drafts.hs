@@ -26,13 +26,26 @@ import PostgreSqlWithPool
     , queryWithPool
     )
 import Types
+    ( Draft
+    , DraftArray(DraftArray)
+    , DraftInf(DraftInf)
+    , DraftTags(from_draft_tags)
+    , ErrorMessage
+    , Id(from_id)
+    , Image
+    , SendId
+    , SuccessMessage
+    , Token
+    , TokenLifeTime
+    , TokenProfile(TokenProfile)
+    )
 
 checkAuthor ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> IO (Either LBS.ByteString Int)
+    -> IO (Either ErrorMessage SendId)
 checkAuthor hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
     return $ Left "No token parameter"
@@ -63,7 +76,7 @@ getDraftsByAuthorToken ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> IO (Either LBS.ByteString DraftArray)
+    -> IO (Either ErrorMessage DraftArray)
 getDraftsByAuthorToken hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
     return $ Left "No token parameter"
@@ -94,8 +107,8 @@ deleteDraftFromDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Maybe Id
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteDraftFromDb hLogger _ _ _ Nothing = do
     logError hLogger "No draft_id parameter"
     return $ Left "No draft_id parameter"
@@ -107,8 +120,7 @@ deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) =
                 Right author_id' -> do
                     let q =
                             "delete from drafts where draft_id = ? and author_id = ?"
-                    let dr_id = fromMaybe (-1) $ readByteStringToInt draft_id
-                    n <- executeWithPool pool q (dr_id, author_id')
+                    n <- executeWithPool pool q (draft_id, author_id')
                     if n > 0
                         then do
                             return $ Right "Draft deleted"
@@ -129,8 +141,8 @@ getDraftByIdFromDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> Int
-    -> IO (Either LBS.ByteString Draft)
+    -> Id
+    -> IO (Either ErrorMessage Draft)
 getDraftByIdFromDb hLogger _ _ Nothing _ = do
     logError hLogger "No token parameter"
     return $ Left "No Token parameter"
@@ -157,44 +169,41 @@ getDraftByIdFromDb hLogger pool token_lifetime token' draft_id = do
         toQuery $
         BC.concat
             [ "with image_arr as (select array_agg(image_id) from drafts_images where draft_id = "
-            , BC.pack $ show draft_id
+            , BC.pack . show . from_id $ draft_id
             , "), "
             , " tags_arr as (select array_agg(tag_name) from draft_tags join tags using (tag_id) where draft_id = "
-            , BC.pack $ show draft_id
+            , BC.pack . show . from_id $ draft_id
             , ") "
             , "select short_title, date_of_changes, category_id, draft_text, main_image, "
             , "(select * from image_arr) as other_images, (select * from  tags_arr) as tags from drafts where author_id = ? and draft_id = "
-            , BC.pack $ show draft_id
+            , BC.pack . show . from_id $ draft_id
             ]
 
 createDraftOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe Token
-    -> Maybe T.Text
-    -> Maybe BC.ByteString
-    -> Maybe T.Text
-    -> Maybe T.Text
+    -> DraftInf
+    -> Maybe DraftTags
     -> Maybe Image
     -> Maybe [Image]
-    -> IO (Either LBS.ByteString Int)
-createDraftOnDb hLogger _ _ Nothing _ _ _ _ _ _ = do
+    -> IO (Either ErrorMessage SendId)
+createDraftOnDb hLogger _ _ (DraftInf Nothing _ _ _) _ _ _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-createDraftOnDb hLogger _ _ _ Nothing _ _ _ _ _ = do
+createDraftOnDb hLogger _ _ (DraftInf _ Nothing _ _) _ _ _ = do
     logError hLogger "No category field"
     return $ Left "No category field"
-createDraftOnDb hLogger _ _ _ _ Nothing _ _ _ _ = do
+createDraftOnDb hLogger _ _ _ Nothing _ _ = do
     logError hLogger "No tags field"
     return $ Left "No tags field"
-createDraftOnDb hLogger _ _ _ _ _ Nothing _ _ _ = do
+createDraftOnDb hLogger _ _ (DraftInf _ _ Nothing _) _ _ _ = do
     logError hLogger "No short_title field"
     return $ Left "No short_title field"
-createDraftOnDb hLogger _ _ _ _ _ _ Nothing _ _ = do
+createDraftOnDb hLogger _ _ (DraftInf _ _ _ Nothing) _ _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
-createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just tags_list) (Just short'_title) (Just text) main'_image images_list = do
+createDraftOnDb hLogger pool token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list = do
     logInfo hLogger "Someone try add new draft"
     draft_id <- newDraft
     c <- createTagConnections draft_id
@@ -215,8 +224,7 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , " ?) returning draft_id"
                             ]
                 logDebug hLogger "Insert draft info"
-                rows <-
-                    queryWithPool pool q (token', category, short'_title, text) :: IO [Only Int]
+                rows <- queryWithPool pool q draft_upd :: IO [Only Int]
                 if Prelude.null rows
                     then do
                         logError hLogger "Draft not created"
@@ -240,7 +248,7 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
     createTagConnections (Left message) = return $ Left message
     createTagConnections (Right draft_id) =
         catch
-            (do tag_ids <- getTagsIds hLogger pool tags_list
+            (do tag_ids <- getTagsIds hLogger pool (from_draft_tags tags_list)
                 case tag_ids of
                     Left bs -> return $ Left bs
                     Right ns -> do
@@ -321,31 +329,28 @@ updateDraftInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe Token
-    -> Maybe T.Text
-    -> Maybe BC.ByteString
-    -> Maybe T.Text
-    -> Maybe T.Text
+    -> DraftInf
+    -> Maybe DraftTags
     -> Maybe Image
     -> Maybe [Image]
-    -> Int
-    -> IO (Either LBS.ByteString LBS.ByteString)
-updateDraftInDb hLogger _ _ Nothing _ _ _ _ _ _ _ = do
+    -> Id
+    -> IO (Either ErrorMessage SuccessMessage)
+updateDraftInDb hLogger _ _ (DraftInf Nothing _ _ _) _ _ _ _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-updateDraftInDb hLogger _ _ _ Nothing _ _ _ _ _ _ = do
+updateDraftInDb hLogger _ _ (DraftInf _ Nothing _ _) _ _ _ _ = do
     logError hLogger "No category field"
     return $ Left "No category field"
-updateDraftInDb hLogger _ _ _ _ Nothing _ _ _ _ _ = do
+updateDraftInDb hLogger _ _ _ Nothing _ _ _ = do
     logError hLogger "No tags field"
     return $ Left "No tags field"
-updateDraftInDb hLogger _ _ _ _ _ Nothing _ _ _ _ = do
+updateDraftInDb hLogger _ _ (DraftInf _ _ Nothing _) _ _ _ _ = do
     logError hLogger "No short_title field"
     return $ Left "No short_title field"
-updateDraftInDb hLogger _ _ _ _ _ _ Nothing _ _ _ = do
+updateDraftInDb hLogger _ _ (DraftInf _ _ _ Nothing) _ _ _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
-updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just tags_list) (Just short'_title) (Just text) main'_image images_list draft_id = do
+updateDraftInDb hLogger pool token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list draft_id = do
     logInfo hLogger "Someone try update draft"
     u <- updateDraft
     dt <- deleteTagConnections u
@@ -367,13 +372,9 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , ")), get_c as (select category_id from categories where category_name = ?) "
                             , "update drafts set short_title = ?, date_of_changes = now(), category_id = (select * from get_c), "
                             , "draft_text = ? where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             ]
-                n <-
-                    executeWithPool
-                        pool
-                        q
-                        (token', category, short'_title, text)
+                n <- executeWithPool pool q draft_upd
                 if n < 1
                     then do
                         return $ Left "Draft not updated"
@@ -393,7 +394,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         toQuery $
                         BC.concat
                             [ "delete from draft_tags where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             ]
                 n <- execute_WithPool pool q
                 if n < 1
@@ -411,7 +412,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
     createTagConnections (Left message) = return $ Left message
     createTagConnections (Right mess) =
         catch
-            (do tag_ids <- getTagsIds hLogger pool tags_list
+            (do tag_ids <- getTagsIds hLogger pool (from_draft_tags tags_list)
                 case tag_ids of
                     Left bs -> return $ Left bs
                     Right ns -> do
@@ -445,7 +446,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         toQuery $
                         BC.concat
                             [ "with m_id as (select main_image from drafts where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , ") "
                             , "delete from images where image_id = (select * from m_id)"
                             ]
@@ -467,7 +468,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         BC.concat
                             [ "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) "
                             , "update drafts set main_image = (select * from m_id) where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             ]
                 n <- executeWithPool pool q image
                 if n < 1
@@ -491,7 +492,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         toQuery $
                         BC.concat
                             [ "delete from images where image_id in (select image_id from drafts_images where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , ")"
                             ]
                 _ <- execute_WithPool pool q
@@ -512,7 +513,7 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         BC.concat
                             [ "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id), "
                             , "d_i as (select "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , " as draft_id, image_id from m_id) "
                             , "insert into drafts_images (draft_id,image_id) select * from d_i"
                             ]
@@ -534,7 +535,7 @@ getTagsIds ::
        Handle IO
     -> Pool Connection
     -> BC.ByteString
-    -> IO (Either LBS.ByteString [Int])
+    -> IO (Either ErrorMessage [Int])
 getTagsIds hLogger pool tags_bs = do
     let n = Prelude.length $ BC.split ' ' tags_bs
     let l = BC.split ' ' tags_bs
@@ -552,8 +553,8 @@ publicNewsOnDb ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> Int
-    -> IO (Either LBS.ByteString Int)
+    -> Id
+    -> IO (Either ErrorMessage SendId)
 publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
     ch <- checkAuthor hLogger pool token_lifetime token'
     case ch of
@@ -599,7 +600,7 @@ publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
                         toQuery $
                         BC.concat
                             [ "with tags_ids as (select tag_id from draft_tags where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , " ), "
                             , "tag_n as (select "
                             , BC.pack $ show news_id
@@ -622,7 +623,7 @@ publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
                         toQuery $
                         BC.concat
                             [ "with images_ids as (select image_id from drafts_images where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , "), "
                             , "image_n as (select "
                             , BC.pack $ show news_id

@@ -152,6 +152,10 @@ toCommentId :: Request -> Maybe Id
 toCommentId req =
     join (lookup "comment_id" $ queryString req) >>= readByteStringToId
 
+toDraftId :: Request -> Maybe Id
+toDraftId req =
+    join (lookup "draft_id" $ queryString req) >>= readByteStringToId
+
 toSort :: Request -> Sort
 toSort req = Sort . fromMaybe "" . join $ lookup "sort" (queryString req)
 
@@ -213,12 +217,15 @@ instance FilterParam AuthorFilterParam where
     toFilterParam req =
         AuthorFilterParam . E.decodeUtf8 <$>
         fromMaybe Nothing (lookup "author" $ queryString req)
-{-myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
-        myLookup "tag" queryParams <|>
-        myLookup "tag_all" queryParams <|>
-        myLookup "author" queryParams <|>
-        myLookup "title" queryParams <|>
-        myLookup "content" queryParams <|>
-        myLookup "date" queryParams <|>
-        myLookup "after_date" queryParams <|>
-        myLookup "before_date" queryParams-}
+
+toDraftInf :: Request -> [Param] -> DraftInf
+toDraftInf req params =
+    DraftInf
+        { draft_inf_token = takeToken req
+        , draft_inf_category = E.decodeUtf8 <$> lookup "category" params
+        , draft_inf_title = E.decodeUtf8 <$> lookup "short_title" params
+        , draft_inf_text = E.decodeUtf8 <$> lookup "news_text" params
+        }
+
+toDraftTags :: [Param] -> Maybe DraftTags
+toDraftTags params = DraftTags <$> lookup "tags" params

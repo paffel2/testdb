@@ -17,9 +17,10 @@ import HelpFunction (getFiles, readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
 import System.Info (os)
+import Types (ErrorMessage, SuccessMessage)
 
 createDb ::
-       Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+       Handle IO -> Pool Connection -> IO (Either ErrorMessage SuccessMessage)
 createDb hLogger pool =
     catch
             --logDebug hLogger "Creating connection"
@@ -50,7 +51,7 @@ createDb hLogger pool =
         return $ Left "Database error"
 
 initDb ::
-       Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+       Handle IO -> Pool Connection -> IO (Either ErrorMessage SuccessMessage)
 initDb hLogger pool = do
     let initScript =
             if os == "linux"
@@ -76,10 +77,10 @@ initDb hLogger pool = do
     logDebug hLogger "Db created"
     return $ Right "Database created"-}
 fillDb ::
-       Either LBS.ByteString LBS.ByteString
+       Either ErrorMessage SuccessMessage
     -> Handle IO
     -> Pool Connection
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 fillDb (Right _) hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_database.sql"
@@ -94,8 +95,8 @@ fillDb (Left mess) _ _ = return $ Left mess
 fillConnections ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 fillConnections hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_connections.sql"
@@ -110,8 +111,8 @@ fillConnections _ _ (Left mess) = return $ Left mess
 fillImages ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 fillImages hLogger pool (Right _) = do
     let q =
             toQuery
@@ -134,8 +135,8 @@ fillImages _ _ (Left mess) = return $ Left mess
 insertUsers ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 insertUsers hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/insert_users.sql"
@@ -150,8 +151,8 @@ insertUsers _ _ (Left mess) = return $ Left mess
 insertAuthors ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 insertAuthors hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/insert_authors.sql"
@@ -166,8 +167,8 @@ insertAuthors _ _ (Left mess) = return $ Left mess
 insertCategories ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 insertCategories hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/insert_categories.sql"
@@ -182,8 +183,8 @@ insertCategories _ _ (Left mess) = return $ Left mess
 insertTags ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 insertTags hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/insert_tags.sql"
@@ -198,8 +199,8 @@ insertTags _ _ (Left mess) = return $ Left mess
 insertDrafts ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 insertDrafts hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/insert_drafts.sql"
@@ -214,8 +215,8 @@ insertDrafts _ _ (Left mess) = return $ Left mess
 insertNews ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 insertNews hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/insert_news.sql"
@@ -230,8 +231,8 @@ insertNews _ _ (Left mess) = return $ Left mess
 insertComments ::
        Handle IO
     -> Pool Connection
-    -> Either LBS.ByteString LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Either ErrorMessage SuccessMessage
+    -> IO (Either ErrorMessage SuccessMessage)
 insertComments hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/insert_comments.sql"

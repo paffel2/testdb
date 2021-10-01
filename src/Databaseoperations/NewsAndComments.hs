@@ -4,7 +4,6 @@ module Databaseoperations.NewsAndComments where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
@@ -29,11 +28,13 @@ import Types
     , CommentArray(CommentArray)
     , ContentFilterParam(from_content_fp)
     , DateFilterParam
+    , ErrorMessage
     , GetNews
     , Id(from_id)
     , NewsArray(NewsArray)
     , Page(from_page)
     , Sort(from_sort)
+    , SuccessMessage
     , TagAllFilterParam(from_tag_all_fp)
     , TagFilterParam
     , TagInFilterParam(from_tag_in_fp)
@@ -46,7 +47,7 @@ addCommentToDb ::
        Handle IO
     -> Pool Connection
     -> Comment
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 addCommentToDb hLogger _ (Comment _ _ Nothing _) = do
     logError hLogger "No news id parameter"
     return $ Left "No news id parameter"
@@ -82,7 +83,7 @@ deleteCommentFromDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Id
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteCommentFromDb hLogger _ _ _ Nothing = do
     logError hLogger "Bad comment id"
     return $ Left "Bad comment id"
@@ -113,7 +114,7 @@ getCommentsByNewsIdFromDb ::
     -> Pool Connection
     -> Maybe Id
     -> Maybe Page
-    -> IO (Either LBS.ByteString CommentArray)
+    -> IO (Either ErrorMessage CommentArray)
 getCommentsByNewsIdFromDb hLogger _ Nothing _ = do
     logError hLogger "No news parameter"
     return $ Left "No news parameter"
@@ -155,7 +156,7 @@ getNewsByIdFromDb ::
        Handle IO
     -> Pool Connection
     -> Maybe Id
-    -> IO (Either LBS.ByteString GetNews)
+    -> IO (Either ErrorMessage GetNews)
 getNewsByIdFromDb hLogger _ Nothing = do
     logError hLogger "Bad news_id parameter"
     return $ Left "Bad news_id parameter"
@@ -192,7 +193,7 @@ getNewsFilterByTagInFromDb ::
     -> Pool Connection
     -> Maybe TagInFilterParam
     -> Maybe Page
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByTagInFromDb hLogger _ Nothing _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
@@ -236,7 +237,7 @@ getNewsFilterByCategoryIdFromDb ::
     -> Maybe CategoryFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByCategoryIdFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No category parameter"
     return $ Left "No category parameter"
@@ -284,7 +285,7 @@ getNewsFilterByTitleFromDb ::
     -> Maybe TitleFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByTitleFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No title parameter"
     return $ Left "No title parameter"
@@ -332,7 +333,7 @@ getNewsFilterByAuthorNameFromDb ::
     -> Maybe AuthorFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByAuthorNameFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No author_name parameter"
     return $ Left "No author_name parameter"
@@ -380,7 +381,7 @@ getNewsFilterByDateFromDb ::
     -> Maybe DateFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByDateFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
@@ -428,7 +429,7 @@ getNewsFilterByTagAllFromDb ::
     -> Maybe TagAllFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByTagAllFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
@@ -481,7 +482,7 @@ getNewsFilterByContentFromDb ::
     -> Maybe ContentFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByContentFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No content parameter"
     return $ Left "No content parameter"
@@ -533,7 +534,7 @@ getNewsFilterByAfterDateFromDb ::
     -> Maybe AfterDateFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByAfterDateFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
@@ -581,7 +582,7 @@ getNewsFilterByBeforeDateFromDb ::
     -> Maybe BeforeDateFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByBeforeDateFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
@@ -631,17 +632,12 @@ getNewsFilterByTagIdFromDb ::
     -> Maybe TagFilterParam
     -> Maybe Page
     -> Sort
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByTagIdFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
 getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
     logInfo hLogger "Someone try get news list filtered by tag"
-    {-case readByteStringToInt tag_id of
-        Nothing -> do
-            logError hLogger "Bad tag parameter"
-            return $ Left "Bad tag parameter"
-        Just n -> -}
     catch
         (do rows <- queryWithPool pool q [tag_id]
             return (Right $ NewsArray rows)) $ \e -> do
@@ -683,7 +679,7 @@ getNewsFromDb ::
     -> Pool Connection
     -> Sort
     -> Maybe Page
-    -> IO (Either LBS.ByteString NewsArray)
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFromDb hLogger pool sortParam pageParam =
     catch
         (do logInfo hLogger "Someone try get news list"
