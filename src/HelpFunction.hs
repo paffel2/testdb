@@ -2,7 +2,7 @@
 
 module HelpFunction where
 
-import Config
+import Config (DatabaseConf(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString.Char8 as BC
 import Data.List (sort)
 import Data.String (IsString(fromString))
@@ -11,7 +11,7 @@ import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
 import System.Directory (getDirectoryContents)
 import Text.Read (readMaybe)
-import Types (Id(Id))
+import Types.Other (Id(Id))
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing

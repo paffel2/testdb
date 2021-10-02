@@ -36,7 +36,7 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (TokenLifeTime)
+import Types.Other (TokenLifeTime)
 
 sendCategoriesList ::
        (Monad m, MonadIO m)

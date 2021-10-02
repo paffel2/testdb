@@ -22,7 +22,18 @@ import Network.Wai.Parse
     ( FileInfo(fileContent, fileContentType, fileName)
     , Param
     )
-import Types
+import Types.Authors
+    ( AuthorLogin(AuthorLogin)
+    , CreateAuthor(..)
+    , EditAuthor(..)
+    )
+import Types.Categories
+import Types.Drafts
+import Types.Images
+import Types.NewsAndComments
+import Types.Other
+import Types.Tags
+import Types.Users
 
 takeToken :: Request -> Maybe Token
 takeToken req =

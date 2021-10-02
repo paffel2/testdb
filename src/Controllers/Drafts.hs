@@ -39,7 +39,8 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (Id, Image(Image, image_content_type), TokenLifeTime)
+import Types.Images (Image(Image, image_content_type))
+import Types.Other (Id, TokenLifeTime)
 
 sendDrafts ::
        MonadIO m

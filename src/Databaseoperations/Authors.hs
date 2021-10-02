@@ -16,12 +16,14 @@ import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types
+import Types.Authors
     ( AuthorLogin
     , AuthorsList(AuthorsList)
     , CreateAuthor(CreateAuthor)
     , EditAuthor(EditAuthor)
-    , ErrorMessage
+    )
+import Types.Other
+    ( ErrorMessage
     , Page(from_page)
     , SendId
     , SuccessMessage

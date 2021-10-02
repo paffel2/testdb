@@ -17,7 +17,7 @@ import HelpFunction (getFiles, readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
 import System.Info (os)
-import Types (ErrorMessage, SuccessMessage)
+import Types.Other (ErrorMessage, SuccessMessage)
 
 createDb ::
        Handle IO -> Pool Connection -> IO (Either ErrorMessage SuccessMessage)

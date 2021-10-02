@@ -19,18 +19,8 @@ import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool)
-import Types
-    ( CreateUser(CreateUser, creation_date, first_name, last_name,
-           user_login, user_password)
-    , ErrorMessage
-    , Login(from_login)
-    , Password
-    , Profile
-    , SuccessMessage
-    , Token(..)
-    , TokenLifeTime
-    , TokenProfile(TokenProfile)
-    )
+import Types.Other (ErrorMessage, SuccessMessage, Token(..), TokenLifeTime)
+import Types.Users
 
 generateToken :: Login -> IO (Token, UTCTime)
 generateToken login = do

@@ -49,12 +49,8 @@ import Responses
     , responseOk
     )
 import Text.Read (readMaybe)
-import Types
-    ( Comment(Comment, comment_news_id, comment_text, comment_token,
-        comment_token_lifetime)
-    , Id
-    , TokenLifeTime
-    )
+import Types.NewsAndComments
+import Types.Other (Id, TokenLifeTime)
 
 deleteCommentById ::
        MonadIO m

@@ -25,20 +25,17 @@ import PostgreSqlWithPool
     , execute_WithPool
     , queryWithPool
     )
-import Types
-    ( Draft
-    , DraftArray(DraftArray)
-    , DraftInf(DraftInf)
-    , DraftTags(from_draft_tags)
-    , ErrorMessage
+import Types.Other
+    ( ErrorMessage
     , Id(from_id)
-    , Image
     , SendId
     , SuccessMessage
     , Token
     , TokenLifeTime
-    , TokenProfile(TokenProfile)
     )
+import Types.Drafts
+import Types.Images
+import Types.Users
 
 checkAuthor ::
        Handle IO

@@ -55,7 +55,14 @@ import Databaseoperations.Users
     , profileOnDb
     )
 import Logger (Handle)
-import Types
+import Types.Authors
+import Types.Categories
+import Types.Drafts
+import Types.Images
+import Types.NewsAndComments
+import Types.Other
+import Types.Tags
+import Types.Users
 
 data OperationsHandle m =
     OperationsHandle

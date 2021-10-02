@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 93052be4fc07999d12f43024cb10f392c75a1bad08ad4ea37f55f29e45b059d9
+-- hash: 9b3dad5c2e331163f54ba93ac10ddbf59d578d3b9b2f16bcfa7a46400d6ede8a
 
 name:           testdb
 version:        0.1.0.0
@@ -53,7 +53,14 @@ library
       PostgreSqlWithPool
       Responses
       Router
-      Types
+      Types.Authors
+      Types.Categories
+      Types.Drafts
+      Types.Images
+      Types.NewsAndComments
+      Types.Other
+      Types.Tags
+      Types.Users
   other-modules:
       Paths_testdb
   hs-source-dirs:

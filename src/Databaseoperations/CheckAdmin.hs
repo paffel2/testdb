@@ -14,7 +14,7 @@ import Database.PostgreSQL.Simple
 import HelpFunction (readByteStringToInt)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool)
-import Types (ErrorMessage, Token, TokenLifeTime(token_life_time))
+import Types.Other (ErrorMessage, Token, TokenLifeTime(token_life_time))
 
 checkAdmin ::
        Handle IO

@@ -18,12 +18,9 @@ import PostgreSqlWithPool
     , query_WithPool
     , returningWithPool
     )
-import Types
-    ( CategoryName(..)
-    , CreateCategory(CreateCategory)
-    , EditCategory(EditCategory)
-    , ErrorMessage
-    , ListOfCategories(ListOfCategories)
+import Types.Categories
+import Types.Other
+    ( ErrorMessage
     , Page(from_page)
     , SuccessMessage
     , Token

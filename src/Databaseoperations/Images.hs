@@ -11,14 +11,8 @@ import Database.PostgreSQL.Simple (Connection, SqlError(sqlState))
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
-import Types
-    ( ElemImageArray
-    , ErrorMessage
-    , Id
-    , ImageArray(ImageArray)
-    , ImageB
-    , Page(from_page)
-    )
+import Types.Images
+import Types.Other (ErrorMessage, Id, Page(from_page))
 
 getPhoto ::
        Handle IO -> Pool Connection -> Id -> IO (Either ErrorMessage ImageB)

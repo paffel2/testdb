@@ -20,7 +20,8 @@ import Responses
     , responseOKImage
     , responseOKJSON
     )
-import Types (Id, ImageB(con_type, image_b))
+import Types.Images
+import Types.Other (Id)
 
 sendImagesList ::
        MonadIO m

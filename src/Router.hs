@@ -22,7 +22,7 @@ import OperationsHandle
                  tags_handle, users_handle)
     )
 import Responses (responseNotFound)
-import Types (TokenLifeTime)
+import Types.Other (TokenLifeTime)
 
 routes' ::
        MonadIO m

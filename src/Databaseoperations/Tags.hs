@@ -16,16 +16,14 @@ import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types
-    ( EditTag(EditTag)
-    , ErrorMessage
+import Types.Other
+    ( ErrorMessage
     , Page(from_page)
     , SuccessMessage
-    , TagName(from_tag_name)
-    , TagsList(TagsList)
     , Token
     , TokenLifeTime
     )
+import Types.Tags
 
 createTagInDb ::
        Handle IO

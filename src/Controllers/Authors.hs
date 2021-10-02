@@ -37,7 +37,7 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (TokenLifeTime)
+import Types.Other (TokenLifeTime)
 
 newAuthor ::
        MonadIO m

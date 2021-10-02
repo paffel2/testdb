@@ -27,7 +27,8 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (Login(Login, from_login), Password(from_password), TokenLifeTime)
+import Types.Other (TokenLifeTime)
+import Types.Users
 
 login ::
        MonadIO m

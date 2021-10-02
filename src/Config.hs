@@ -5,7 +5,7 @@ module Config where
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.Configurator as C
 import Logger (Priority(..))
-import Types (PoolParams(..), TokenLifeTime(TokenLifeTime))
+import Types.Other (PoolParams(..), TokenLifeTime(TokenLifeTime))
 
 data ConfigModules =
     ConfigModules

@@ -20,7 +20,7 @@ import Network.Wai.Handler.Warp
     )
 import OperationsHandle (OperationsHandle(check_db), operationsHandler)
 import Router (routes)
-import Types (PoolParams(idle_time, max_resources, num_stripes))
+import Types.Other (PoolParams(idle_time, max_resources, num_stripes))
 
 main :: IO ()
 main = do

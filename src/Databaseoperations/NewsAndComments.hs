@@ -19,29 +19,8 @@ import HelpFunction (readByteStringToInt, toQuery)
 
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types
-    ( AfterDateFilterParam
-    , AuthorFilterParam(from_author_fp)
-    , BeforeDateFilterParam
-    , CategoryFilterParam(from_category_fp)
-    , Comment(Comment)
-    , CommentArray(CommentArray)
-    , ContentFilterParam(from_content_fp)
-    , DateFilterParam
-    , ErrorMessage
-    , GetNews
-    , Id(from_id)
-    , NewsArray(NewsArray)
-    , Page(from_page)
-    , Sort(from_sort)
-    , SuccessMessage
-    , TagAllFilterParam(from_tag_all_fp)
-    , TagFilterParam
-    , TagInFilterParam(from_tag_in_fp)
-    , TitleFilterParam(from_title_fp)
-    , Token
-    , TokenLifeTime
-    )
+import Types.NewsAndComments
+import Types.Other
 
 addCommentToDb ::
        Handle IO
