@@ -1,7 +1,7 @@
 insert into images (image_name,image_b,content_type)
 values ('img (1).jpg',pg_read_binary_file('D:\Haskell\testdb\sql\img\img (1).jpg')::bytea,'image/jpeg');
 
-/*insert into images (image_name,image_b)
+insert into images (image_name,image_b)
 values ('avatar (2).jpg',pg_read_binary_file('D:\Desktop\Users\avatar (2).jpg')::bytea);
 
 insert into images (image_name,image_b)
@@ -65,4 +65,4 @@ insert into images (image_name,image_b)
 values ('avatar (22).jpg',pg_read_binary_file('D:\Desktop\Users\avatar (22).jpg')::bytea);
 
 insert into images (image_name,image_b)
-values ('avatar (23).jpg',pg_read_binary_file('D:\Desktop\Users\avatar (23).jpg')::bytea);*/
+values ('avatar (23).jpg',pg_read_binary_file('D:\Desktop\Users\avatar (23).jpg')::bytea);
