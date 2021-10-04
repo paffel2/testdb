@@ -8,13 +8,13 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool, createPool, destroyAllResources)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple
     ( Binary(Binary)
     , Connection
-    , SqlError(sqlState)
-    , close
-    , connectPostgreSQL
+    , SqlError(sqlErrorMsg)
     )
+
 import HelpFunction (getFiles, readByteStringToInt, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
@@ -29,14 +29,14 @@ createDb ::
 createDb hLogger pool db_add =
     catch
         (do logDebug hLogger "Creating connection"
-            let conn' = connectPostgreSQL db_add
+            {-let conn' = connectPostgreSQL db_add
             logDebug hLogger "Creating pool"
             pool' <- createPool conn' close 1 10 10
             step_one <- initDb hLogger pool'
             destroyAllResources pool'
             c <- conn'
-            close c
-            fillDb step_one hLogger pool >>= fillConnections hLogger pool >>=
+            close c-}
+            fillDb (Right "") hLogger pool >>= fillConnections hLogger pool >>=
                 fillImages hLogger pool >>=
                 insertUsers hLogger pool >>=
                 insertAuthors hLogger pool >>=
@@ -44,16 +44,18 @@ createDb hLogger pool db_add =
                 insertTags hLogger pool >>=
                 insertDrafts hLogger pool >>=
                 insertNews hLogger pool >>=
-                insertComments hLogger pool) $ \e
+                insertComments hLogger pool) $ \e -> do
+        let err = E.decodeUtf8 $ sqlErrorMsg e
+        logError hLogger err
+        return $ Left $ LBS.fromStrict $ sqlErrorMsg e
         {-let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
         return $ Left $ LBS.fromStrict $ sqlErrorMsg e-}
-     -> do
-        let err = sqlState e
+        {-let err = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt err)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left "Database error"-}
 
 initDb ::
        Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
