@@ -6,6 +6,9 @@ import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString.Char8 as BC
 import Data.List (sort)
 import Data.String (IsString(fromString))
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
+import qualified Data.Text.IO as TIO
 import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
@@ -75,3 +78,10 @@ getFiles = do
 
 takeEnd :: Int -> [a] -> [a]
 takeEnd n x = reverse $ take n (reverse x)
+
+getMaybeLine :: IO (Maybe T.Text)
+getMaybeLine = do
+    line <- TIO.getLine
+    if T.null line
+        then return Nothing
+        else return $ Just line

@@ -10,8 +10,8 @@ import ControllersHandle
                   profile_handler, registration_handler, tags_handler)
     )
 import qualified Data.ByteString.Char8 as BC
-import Data.Pool (createPool)
-import Database.PostgreSQL.Simple (close, connectPostgreSQL)
+import Data.Pool (Pool, createPool)
+import Database.PostgreSQL.Simple (Connection, close, connectPostgreSQL)
 import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo))
 import Responses (responseNotFound)
@@ -21,17 +21,10 @@ routes ::
        Handle
     -> DatabaseAddress
     -> TokenLifeTime
-    -> ConfigModules
+    -> Pool Connection
     -> ControllersHandle
     -> Application
-routes hLogger db_address token_lifetime confPool methods req respond = do
-    pool <-
-        createPool
-            (connectPostgreSQL db_address)
-            close
-            (num_stripes confPool)
-            (idle_time confPool)
-            (max_resources confPool)
+routes hLogger db_address token_lifetime pool methods req respond = do
     case pathHead of
         "news" ->
             news_and_comments_handler methods hLogger pool token_lifetime req >>=
