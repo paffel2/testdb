@@ -3,19 +3,22 @@
 module Databaseoperations.CheckDatabase where
 
 import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple
-import Databaseoperations.InitDb
-import Databaseoperations.Users
+    ( Connection
+    , Only(fromOnly)
+    , SqlError(sqlErrorMsg, sqlState)
+    )
+import Databaseoperations.InitDb (fillConnections, fillDb)
+import Databaseoperations.Users (firstToken)
 import HelpFunction (getMaybeLine, readByteStringToInt)
 import Logger (Handle, logError, logInfo)
-import PostgreSqlWithPool
-import Types
+import PostgreSqlWithPool (executeWithPool, query_WithPool)
+import Types (AdminData(..))
 
 checkFill :: Handle -> Pool Connection -> IO (Either String String)
 checkFill hLogger pool =
@@ -56,11 +59,6 @@ checkDb hLogger pool =
         let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
         return False
-        {-let errState = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            T.concat ["Database error ", T.pack $ show errStateInt]
-        return False-}
 
 createDbClear :: Handle -> Pool Connection -> IO Bool
 createDbClear hLogger pool = do
@@ -82,15 +80,15 @@ createDbClear hLogger pool = do
                 }
     result <- fillDb hLogger pool >>= fillConnections hLogger pool
     case result of
-        Left bs -> return False
-        Right bs -> do
+        Left _ -> return False
+        Right _ -> do
             add_admin <- addAdminToDB hLogger pool admin_information
             case add_admin of
-                Left bs' -> return False
-                Right bs' -> do
+                Left _ -> return False
+                Right bs -> do
                     logInfo hLogger $
                         T.concat
-                            ["admin token ", E.decodeUtf8 $ LBS.toStrict bs']
+                            ["admin token ", E.decodeUtf8 $ LBS.toStrict bs]
                     return True
 
 addAdminToDB ::
@@ -98,8 +96,11 @@ addAdminToDB ::
     -> Pool Connection
     -> AdminData
     -> IO (Either LBS.ByteString LBS.ByteString)
-addAdminToDB hLogger pool (AdminData Nothing _ _ _ _) = return $ Left "No Login"
-addAdminToDB hLogger pool (AdminData _ Nothing _ _ _) =
+addAdminToDB hLogger _ (AdminData Nothing _ _ _ _) = do
+    logError hLogger "No login"
+    return $ Left "No Login"
+addAdminToDB hLogger _ (AdminData _ Nothing _ _ _) = do
+    logError hLogger "No password"
     return $ Left "No password"
 addAdminToDB hLogger pool admin_data = do
     n <-

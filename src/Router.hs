@@ -2,7 +2,6 @@
 
 module Router where
 
-import Config (ConfigModules(idle_time, max_resources, num_stripes))
 import ControllersHandle
     ( ControllersHandle(authors_hanlder, categories_handler,
                   delete_user_handler, draft_handler, image_handler, initDb_handler,
@@ -10,21 +9,20 @@ import ControllersHandle
                   profile_handler, registration_handler, tags_handler)
     )
 import qualified Data.ByteString.Char8 as BC
-import Data.Pool (Pool, createPool)
-import Database.PostgreSQL.Simple (Connection, close, connectPostgreSQL)
+import Data.Pool (Pool)
+import Database.PostgreSQL.Simple (Connection)
 import Logger (Handle)
 import Network.Wai (Application, Request(rawPathInfo))
 import Responses (responseNotFound)
-import Types (DatabaseAddress, TokenLifeTime)
+import Types (TokenLifeTime)
 
 routes ::
        Handle
-    -> DatabaseAddress
     -> TokenLifeTime
     -> Pool Connection
     -> ControllersHandle
     -> Application
-routes hLogger db_address token_lifetime pool methods req respond = do
+routes hLogger token_lifetime pool methods req respond = do
     case pathHead of
         "news" ->
             news_and_comments_handler methods hLogger pool token_lifetime req >>=

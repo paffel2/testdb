@@ -7,7 +7,6 @@ import qualified Data.ByteString.Char8 as BC
 import Data.List (sort)
 import Data.String (IsString(fromString))
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import qualified Data.Text.IO as TIO
 import Data.Time.Calendar (Day)
 import Database.PostgreSQL.Simple.Types (Query)
