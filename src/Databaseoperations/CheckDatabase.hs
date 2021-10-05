@@ -3,6 +3,7 @@
 module Databaseoperations.CheckDatabase where
 
 import Control.Exception (catch)
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
@@ -13,11 +14,10 @@ import Database.PostgreSQL.Simple
     , Only(fromOnly)
     , SqlError(sqlErrorMsg, sqlState)
     )
-import Databaseoperations.InitDb (fillConnections, fillDb)
 import Databaseoperations.Users (firstToken)
-import HelpFunction (getMaybeLine, readByteStringToInt)
-import Logger (Handle, logError, logInfo)
-import PostgreSqlWithPool (executeWithPool, query_WithPool)
+import HelpFunction (getMaybeLine, readByteStringToInt, toQuery)
+import Logger (Handle, logDebug, logError, logInfo)
+import PostgreSqlWithPool (executeWithPool, execute_WithPool, query_WithPool)
 import Types (AdminData(..))
 
 checkFill :: Handle IO -> Pool Connection -> IO (Either String String)
@@ -116,3 +116,31 @@ addAdminToDB hLogger pool admin_data = do
                  (fromMaybe "" $ admin_password admin_data)
         else do
             return $ Left "Registration failed"
+
+fillDb ::
+       Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+fillDb hLogger pool = do
+    logDebug hLogger "Read script"
+    script <- BC.readFile "sql/fill_database.sql"
+    let q = toQuery script
+    logDebug hLogger "Script readed and translated to query"
+    logDebug hLogger "Start filling"
+    _ <- execute_WithPool pool q
+    logDebug hLogger "Db filled"
+    return $ Right "Database filled"
+
+fillConnections ::
+       Handle IO
+    -> Pool Connection
+    -> Either LBS.ByteString LBS.ByteString
+    -> IO (Either LBS.ByteString LBS.ByteString)
+fillConnections hLogger pool (Right _) = do
+    logDebug hLogger "Read script"
+    script <- BC.readFile "sql/fill_connections.sql"
+    let q = toQuery script
+    logDebug hLogger "Script readed and translated to query"
+    logDebug hLogger "Start filling connections"
+    _ <- execute_WithPool pool q
+    logDebug hLogger "Connections created"
+    return $ Right "Connections created"
+fillConnections _ _ (Left mess) = return $ Left mess

@@ -26,7 +26,6 @@ import Databaseoperations.Drafts
     , updateDraftInDb
     )
 import Databaseoperations.Images (getPhoto, getPhotoList)
-import Databaseoperations.InitDb (createDb)
 import Databaseoperations.NewsAndComments
     ( addCommentToDb
     , deleteCommentFromDb
@@ -79,7 +78,6 @@ data OperationsHandle m =
         , categories_handle :: CategoriesHandle m
         , drafts_handle :: DraftsHandle m
         , images_handle :: ImagesHandle m
-        , init_db_handle :: InitDbHandle m
         , news_and_comments_handle :: NewsAndCommentsHandle m
         , tags_handle :: TagsHandle m
         , users_handle :: UsersHandle m
@@ -92,7 +90,6 @@ operationsHandler =
         , categories_handle = categoriesHandler
         , drafts_handle = draftsHandler
         , images_handle = imagesHandler
-        , init_db_handle = initDbHandler
         , news_and_comments_handle = newsAndCommentsHandler
         , tags_handle = tagsHandler
         , users_handle = usersHandler
@@ -162,14 +159,6 @@ data ImagesHandle m =
 imagesHandler :: ImagesHandle IO
 imagesHandler =
     ImagesHandle {get_photo = getPhoto, get_photo_list = getPhotoList}
-
-newtype InitDbHandle m =
-    InitDbHandle
-        { create_db :: Handle m -> Pool Connection -> m (Either LBS.ByteString LBS.ByteString)
-        }
-
-initDbHandler :: InitDbHandle IO
-initDbHandler = InitDbHandle createDb
 
 data NewsAndCommentsHandle m =
     NewsAndCommentsHandle
