@@ -17,18 +17,19 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import Data.Time (Day, UTCTime)
 import Database.PostgreSQL.Simple (Binary, FromRow, ToRow)
+import Database.PostgreSQL.Simple.ToField (ToField(..))
 import Database.PostgreSQL.Simple.Types (PGArray(fromPGArray))
 import GHC.Generics (Generic)
 
 data Comment =
     Comment
         { comment_token :: T.Text
-        , comment_token_lifetime :: Int
+        , comment_token_lifetime :: TokenLifeTime
         , comment_text :: T.Text
         , comment_news_id :: Int
         , comment_time :: UTCTime
         }
-    deriving (Show, Generic, ToRow, FromRow)
+    deriving (Show, Generic, ToRow)
 
 data ElemOfNewsArray =
     ElemOfNewsArray
@@ -148,13 +149,22 @@ instance ToJSON Profile where
 data TokenProfile =
     TokenProfile
         { profile_token :: T.Text
-        , profile_token_lifetime :: Int
+        , profile_token_lifetime :: TokenLifeTime
         }
-    deriving (Show, Generic, ToRow, FromRow)
+    deriving (Show, Generic, ToRow)
 
 type DatabaseAddress = BC.ByteString
 
-type TokenLifeTime = Int
+newtype TokenLifeTime =
+    TokenLifeTime
+        { token_life_time :: Int
+        }
+
+instance Show TokenLifeTime where
+    show (TokenLifeTime tk) = show tk
+
+instance ToField TokenLifeTime where
+    toField = toField . token_life_time
 
 data DeleteComment =
     DeleteComment
@@ -162,7 +172,7 @@ data DeleteComment =
         , delc_token_lifetime :: TokenLifeTime
         , delc_comment_id :: Int
         }
-    deriving (Show, Generic, ToRow, FromRow)
+    deriving (Show, Generic, ToRow)
 
 newtype Tag =
     Tag

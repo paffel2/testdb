@@ -21,7 +21,7 @@ data ConfigModules =
 getConfig :: IO ConfigModules
 getConfig = do
     conf <- C.load [C.Optional "config/server.conf"]
-    life <- C.lookupDefault 86400 conf "token.lifetime"
+    life <- TokenLifeTime <$> C.lookupDefault 86400 conf "token.lifetime"
     host <- C.lookupDefault "" conf "database.host"
     port <- C.lookupDefault "" conf "database.port"
     login <- C.lookupDefault "" conf "database.login"
