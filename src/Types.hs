@@ -280,3 +280,13 @@ newtype AuthorsList =
 
 instance ToJSON AuthorsList where
     toJSON = genericToJSON defaultOptions
+
+data AdminData =
+    AdminData
+        { admin_login :: Maybe T.Text
+        , admin_password :: Maybe T.Text
+        , admin_first_name :: Maybe T.Text
+        , admin_last_name :: Maybe T.Text
+        , admin_mark :: Bool
+        }
+    deriving (Show, Generic, ToRow)

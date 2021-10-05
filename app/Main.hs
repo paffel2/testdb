@@ -3,25 +3,19 @@
 module Main where
 
 import Config
-    ( ConfigModules(lifeTime, log_priority, server_maximum_body_flush,
-              server_port)
-    , getDbConfig
-    , getLgConfig
-    , getPlConfig
-    , getSrConfig
-    , getTkConfig
-    , newConfigHandle
-    )
 import ControllersHandle (handler)
-import HelpFunction (dbAddress, dbServerAddress)
-import Logger (Handle(Handle), logInfo, printLog)
+import Data.Pool
+import Database.PostgreSQL.Simple
+import Databaseoperations.CheckDatabase
+import HelpFunction (dbAddress)
+import Logger (Handle(Handle), logError, logInfo, printLog)
 import Network.Wai.Handler.Warp
     ( defaultSettings
     , runSettings
     , setMaximumBodyFlush
     , setPort
     )
-import Router ( routes )
+import Router (routes)
 
 main :: IO ()
 main = do
@@ -34,15 +28,19 @@ main = do
     let db_address = dbAddress confDb
     let token_lifetime = lifeTime confToken
     let hLogger = Handle (log_priority confLogger) printLog
-    let db_server_address = dbServerAddress confDb
     logInfo hLogger "Server started"
-    runSettings
-        (setMaximumBodyFlush (server_maximum_body_flush confServer) $
-         setPort (server_port confServer) defaultSettings) $
-        routes
-            hLogger
-            db_address
-            db_server_address
-            token_lifetime
-            confPool
-            handler
+    pool <-
+        createPool
+            (connectPostgreSQL db_address)
+            close
+            (num_stripes confPool)
+            (idle_time confPool)
+            (max_resources confPool)
+    logInfo hLogger "Checking database"
+    ch_db <- checkDb hLogger pool
+    if ch_db
+        then runSettings
+                 (setMaximumBodyFlush (server_maximum_body_flush confServer) $
+                  setPort (server_port confServer) defaultSettings) $
+             routes hLogger token_lifetime pool handler
+        else logError hLogger "Database not exist"

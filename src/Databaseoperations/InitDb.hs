@@ -5,36 +5,23 @@ module Databaseoperations.InitDb where
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Pool (Pool, createPool, destroyAllResources)
+import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple
     ( Binary(Binary)
     , Connection
     , SqlError(sqlErrorMsg)
-    , close
-    , connectPostgreSQL
     )
+
 import HelpFunction (getFiles, toQuery)
 import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
-import Types (DatabaseAddress)
 
 createDb ::
-       Handle
-    -> Pool Connection
-    -> DatabaseAddress
-    -> IO (Either LBS.ByteString LBS.ByteString)
-createDb hLogger pool db_add =
+       Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+createDb hLogger pool =
     catch
-        (do logDebug hLogger "Creating connection"
-            let conn' = connectPostgreSQL db_add
-            logDebug hLogger "Creating pool"
-            pool' <- createPool conn' close 1 10 10
-            step_one <- initDb hLogger pool'
-            destroyAllResources pool'
-            c <- conn'
-            close c
-            fillDb step_one hLogger pool >>= fillConnections hLogger pool >>=
+        (do fillDb hLogger pool >>= fillConnections hLogger pool >>=
                 fillImages hLogger pool >>=
                 insertUsers hLogger pool >>=
                 insertAuthors hLogger pool >>=
@@ -47,23 +34,8 @@ createDb hLogger pool db_add =
         logError hLogger err
         return $ Left $ LBS.fromStrict $ sqlErrorMsg e
 
-initDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
-initDb hLogger pool = do
-    logDebug hLogger "Read script"
-    script <- BC.readFile "sql/init_database.sql"
-    let q = toQuery script
-    logDebug hLogger "Script readed and translated to query"
-    logDebug hLogger "Start creating"
-    _ <- execute_WithPool pool q
-    logDebug hLogger "Db created"
-    return $ Right "Database created"
-
-fillDb ::
-       Either LBS.ByteString LBS.ByteString
-    -> Handle
-    -> Pool Connection
-    -> IO (Either LBS.ByteString LBS.ByteString)
-fillDb (Right _) hLogger pool = do
+fillDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+fillDb hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_database.sql"
     let q = toQuery script
@@ -72,7 +44,6 @@ fillDb (Right _) hLogger pool = do
     _ <- execute_WithPool pool q
     logDebug hLogger "Db filled"
     return $ Right "Database filled"
-fillDb (Left mess) _ _ = return $ Left mess
 
 fillConnections ::
        Handle
