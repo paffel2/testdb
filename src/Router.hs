@@ -4,9 +4,9 @@ module Router where
 
 import ControllersHandle
     ( ControllersHandle(authors_hanlder, categories_handler,
-                  delete_user_handler, draft_handler, image_handler, initDb_handler,
-                  login_handler, new_draft_handler, news_and_comments_handler,
-                  profile_handler, registration_handler, tags_handler)
+                  delete_user_handler, draft_handler, image_handler, login_handler,
+                  new_draft_handler, news_and_comments_handler, profile_handler,
+                  registration_handler, tags_handler)
     )
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (Pool)
@@ -46,7 +46,7 @@ routes hLogger token_lifetime pool methods req respond = do
         "tags" ->
             tags_handler methods hLogger pool token_lifetime req >>= respond
         "image" -> image_handler methods hLogger pool req >>= respond
-        "initDb" -> initDb_handler methods hLogger pool req >>= respond
+        --"initDb" -> initDb_handler methods hLogger pool req >>= respond
         "authors" ->
             authors_hanlder methods hLogger pool token_lifetime req >>= respond
         _ -> respond $ responseNotFound "Not Found"
