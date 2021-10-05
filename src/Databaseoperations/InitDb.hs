@@ -18,7 +18,7 @@ import Logger (Handle, logDebug, logError)
 import PostgreSqlWithPool (executeWithPool, execute_WithPool)
 
 createDb ::
-       Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+       Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
 createDb hLogger pool =
     catch
         (do fillDb hLogger pool >>= fillConnections hLogger pool >>=
@@ -34,7 +34,8 @@ createDb hLogger pool =
         logError hLogger err
         return $ Left $ LBS.fromStrict $ sqlErrorMsg e
 
-fillDb :: Handle -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
+fillDb ::
+       Handle IO -> Pool Connection -> IO (Either LBS.ByteString LBS.ByteString)
 fillDb hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_database.sql"
@@ -46,7 +47,7 @@ fillDb hLogger pool = do
     return $ Right "Database filled"
 
 fillConnections ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -62,7 +63,7 @@ fillConnections hLogger pool (Right _) = do
 fillConnections _ _ (Left mess) = return $ Left mess
 
 fillImages ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -86,7 +87,7 @@ fillImages hLogger pool (Right _) = do
 fillImages _ _ (Left mess) = return $ Left mess
 
 insertUsers ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -102,7 +103,7 @@ insertUsers hLogger pool (Right _) = do
 insertUsers _ _ (Left mess) = return $ Left mess
 
 insertAuthors ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -118,7 +119,7 @@ insertAuthors hLogger pool (Right _) = do
 insertAuthors _ _ (Left mess) = return $ Left mess
 
 insertCategories ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -134,7 +135,7 @@ insertCategories hLogger pool (Right _) = do
 insertCategories _ _ (Left mess) = return $ Left mess
 
 insertTags ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -150,7 +151,7 @@ insertTags hLogger pool (Right _) = do
 insertTags _ _ (Left mess) = return $ Left mess
 
 insertDrafts ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -166,7 +167,7 @@ insertDrafts hLogger pool (Right _) = do
 insertDrafts _ _ (Left mess) = return $ Left mess
 
 insertNews ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)
@@ -182,7 +183,7 @@ insertNews hLogger pool (Right _) = do
 insertNews _ _ (Left mess) = return $ Left mess
 
 insertComments ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Either LBS.ByteString LBS.ByteString
     -> IO (Either LBS.ByteString LBS.ByteString)

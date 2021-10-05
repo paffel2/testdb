@@ -15,7 +15,7 @@ import PostgreSqlWithPool (queryWithPool, query_WithPool)
 import Types (ElemImageArray, ImageArray(ImageArray), ImageB)
 
 getPhoto ::
-       Handle -> Pool Connection -> Int -> IO (Either LBS.ByteString ImageB)
+       Handle IO -> Pool Connection -> Int -> IO (Either LBS.ByteString ImageB)
 getPhoto hLogger pool image_id =
     catch
         (do let q =
@@ -34,7 +34,7 @@ getPhoto hLogger pool image_id =
         return $ Left "Database error"
 
 getPhotoList ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> IO (Either LBS.ByteString ImageArray)

@@ -20,7 +20,7 @@ import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
 import Types (AuthorsList(AuthorsList), TokenLifeTime)
 
 createAuthorInDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -67,7 +67,7 @@ createAuthorInDb hLogger pool token_lifetime token' (Just author_login) (Just au
             ]
 
 deleteAuthorInDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -106,7 +106,7 @@ deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login) =
             ]
 
 getAuthorsList ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe BC.ByteString
     -> IO (Either LBS.ByteString AuthorsList)
@@ -139,7 +139,7 @@ getAuthorsList hLogger pool page_p' =
                      ]
 
 editAuthorInDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text

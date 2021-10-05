@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1079de543e50422af1e8b4fb3cf5d6f9d214571c44a885109cd0f46ef9431ca3
+-- hash: 93052be4fc07999d12f43024cb10f392c75a1bad08ad4ea37f55f29e45b059d9
 
 name:           testdb
 version:        0.1.0.0
@@ -36,7 +36,6 @@ library
       Controllers.NewsAndComments
       Controllers.Tags
       Controllers.Users
-      ControllersHandle
       Databaseoperations.Authors
       Databaseoperations.Categories
       Databaseoperations.CheckAdmin
@@ -50,6 +49,7 @@ library
       FromRequest
       HelpFunction
       Logger
+      OperationsHandle
       PostgreSqlWithPool
       Responses
       Router

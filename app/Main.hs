@@ -3,7 +3,6 @@
 module Main where
 
 import Config
-import ControllersHandle (handler)
 import Data.Pool
 import Database.PostgreSQL.Simple
 import Databaseoperations.CheckDatabase
@@ -15,6 +14,7 @@ import Network.Wai.Handler.Warp
     , setMaximumBodyFlush
     , setPort
     )
+import OperationsHandle (operationsHandler)
 import Router (routes)
 
 main :: IO ()
@@ -42,5 +42,5 @@ main = do
         then runSettings
                  (setMaximumBodyFlush (server_maximum_body_flush confServer) $
                   setPort (server_port confServer) defaultSettings) $
-             routes hLogger token_lifetime pool handler
+             routes hLogger token_lifetime pool operationsHandler
         else logError hLogger "Database not exist"

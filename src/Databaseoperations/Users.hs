@@ -30,7 +30,7 @@ generateToken login = do
     filt = " :.-UTC" :: String
 
 authentication ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> T.Text
     -> T.Text
@@ -43,8 +43,7 @@ authentication hLogger pool login password =
                 then do
                     return $ Right $ LBS.fromStrict $ E.encodeUtf8 token'
                 else do
-                    return $ Left "Wrong login or password") $ \e
-     -> do
+                    return $ Left "Wrong login or password") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -59,7 +58,7 @@ authentication hLogger pool login password =
             ]
 
 createUserInDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> Maybe T.Text
     -> Maybe T.Text
@@ -107,8 +106,7 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
                          then do
                              firstToken hLogger pool login password
                          else do
-                             return $ Left "Registration failed") $ \e
-              -> do
+                             return $ Left "Registration failed") $ \e -> do
                  let errState = sqlState e
                  let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                  logError hLogger $
@@ -127,7 +125,7 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
             ]
 
 deleteUserFromDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -147,8 +145,7 @@ deleteUserFromDb hLogger pool token_lifetime token login =
                                 Right $
                                 LBS.concat
                                     ["User ", LBS.fromStrict login, " deleted"]
-                        else return $ Left "User not exist") $ \e
-     -> do
+                        else return $ Left "User not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -156,7 +153,7 @@ deleteUserFromDb hLogger pool token_lifetime token login =
         return $ Left "Database error"
 
 firstToken ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> T.Text
     -> T.Text
@@ -174,8 +171,7 @@ firstToken hLogger pool login password =
                 else do
                     logError hLogger $
                         T.concat ["User with login ", login, " cant logged"]
-                    return $ Left "Wrong login or password") $ \e
-     -> do
+                    return $ Left "Wrong login or password") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -190,7 +186,7 @@ firstToken hLogger pool login password =
             ]
 
 profileOnDb ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe T.Text
@@ -205,8 +201,7 @@ profileOnDb hLogger pool token_lifetime (Just token') =
                 then do
                     return $ Left "Bad token"
                 else do
-                    return $ Right $ Prelude.head rows) $ \e
-     -> do
+                    return $ Right $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $

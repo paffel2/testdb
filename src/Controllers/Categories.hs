@@ -2,6 +2,7 @@
 
 module Controllers.Categories where
 
+import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import Data.Maybe (fromMaybe)
@@ -9,12 +10,6 @@ import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.Categories
-    ( createCategoryOnDb
-    , deleteCategoryFromDb
-    , editCategoryOnDb
-    , getCategoriesListFromDb
-    )
 import FromRequest (takeToken)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
@@ -25,6 +20,10 @@ import Network.HTTP.Types.Method
     )
 import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
+import OperationsHandle
+    ( CategoriesHandle(create_category_on_db, delete_category_from_db,
+                 edit_category_on_db, get_categories_list_from_db)
+    )
 import Responses
     ( responseBadRequest
     , responseCreated
@@ -36,12 +35,19 @@ import Responses
     )
 import Types (TokenLifeTime)
 
-sendCategoriesList :: Handle -> Pool Connection -> Request -> IO Response
-sendCategoriesList hLogger pool req =
+sendCategoriesList ::
+       (Monad m, MonadIO m)
+    => Handle m
+    -> CategoriesHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+sendCategoriesList hLogger operations pool req =
     if requestMethod req == methodGet
         then do
             logInfo hLogger "Preparing data for sending categories list"
-            result <- getCategoriesListFromDb hLogger pool pageParam
+            result <-
+                get_categories_list_from_db operations hLogger pool pageParam
             case result of
                 Left bs -> do
                     logError hLogger "Categories list not sended."
@@ -57,15 +63,21 @@ sendCategoriesList hLogger pool req =
     pageParam = fromMaybe Nothing (lookup "page" queryParams)
 
 createCategory ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-createCategory hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> CategoriesHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+createCategory hLogger operations pool token_lifetime req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for creating category"
-            (i, _) <- parseRequestBody lbsBackEnd req
+            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let token' = E.decodeUtf8 <$> takeToken req
             let category_name =
                     T.toLower . E.decodeUtf8 <$> lookup "category_name" i
@@ -73,7 +85,8 @@ createCategory hLogger pool token_lifetime req =
                     T.toLower . E.decodeUtf8 <$>
                     lookup "maternal_category_name" i
             result <-
-                createCategoryOnDb
+                create_category_on_db
+                    operations
                     hLogger
                     pool
                     token_lifetime
@@ -95,8 +108,14 @@ createCategory hLogger pool token_lifetime req =
                     return $ responseOk bs
 
 deleteCategory ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteCategory hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> CategoriesHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+deleteCategory hLogger operations pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -104,10 +123,11 @@ deleteCategory hLogger pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for deleting category"
             let token' = E.decodeUtf8 <$> takeToken req
-            (i, _) <- parseRequestBody lbsBackEnd req
+            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let category_name = E.decodeUtf8 <$> lookup "category_name" i
             result <-
-                deleteCategoryFromDb
+                delete_category_from_db
+                    operations
                     hLogger
                     pool
                     token_lifetime
@@ -127,10 +147,15 @@ deleteCategory hLogger pool token_lifetime req =
                     logInfo hLogger "Category deleted."
                     return $ responseOk bs
 
-
 editCategory ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-editCategory hLogger pool token_lifetime req = do
+       MonadIO m
+    => Handle m
+    -> CategoriesHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+editCategory hLogger operations pool token_lifetime req = do
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
@@ -138,12 +163,13 @@ editCategory hLogger pool token_lifetime req = do
         else do
             logInfo hLogger "Preparing data for editing category"
             let token' = E.decodeUtf8 <$> takeToken req
-            (i, _) <- parseRequestBody lbsBackEnd req
+            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let category_name = E.decodeUtf8 <$> lookup "category_name" i
             let new_maternal_parametr = E.decodeUtf8 <$> lookup "new_maternal" i
             let new_name_parametr = E.decodeUtf8 <$> lookup "new_name" i
             result <-
-                editCategoryOnDb
+                edit_category_on_db
+                    operations
                     hLogger
                     pool
                     token_lifetime
@@ -162,19 +188,27 @@ editCategory hLogger pool token_lifetime req = do
                     logError hLogger "Category not edited."
                     return $ responseCreated bs
                 Right bs -> do
-                    logInfo hLogger "Category deleted."
+                    logInfo hLogger "Category edited."
                     return $ responseOk bs
 
-
-categoriesBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-categoriesBlock hLogger pool token_lifetime req
-    | pathElemsC == 1 = sendCategoriesList hLogger pool req
+categoriesRouter ::
+       MonadIO m
+    => Handle m
+    -> CategoriesHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+categoriesRouter hLogger operations pool token_lifetime req
+    | pathElemsC == 1 = sendCategoriesList hLogger operations pool req
     | pathElemsC == 2 =
         case last pathElems of
-            "delete_category" -> deleteCategory hLogger pool token_lifetime req
-            "create_category" -> createCategory hLogger pool token_lifetime req
-            "edit_category" -> editCategory hLogger pool token_lifetime req
+            "delete_category" ->
+                deleteCategory hLogger operations pool token_lifetime req
+            "create_category" ->
+                createCategory hLogger operations pool token_lifetime req
+            "edit_category" ->
+                editCategory hLogger operations pool token_lifetime req
             _ -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where

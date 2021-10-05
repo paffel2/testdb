@@ -2,20 +2,27 @@
 
 module Controllers.InitDb where
 
+import Control.Monad.IO.Class (MonadIO)
 import qualified Data.ByteString.Char8 as BC
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.InitDb (createDb)
 import Logger (Handle, logError, logInfo)
 import Network.Wai (Request(rawPathInfo), Response)
+import OperationsHandle (InitDbHandle(create_db))
 import Responses (responseBadRequest, responseCreated, responseNotFound)
 
-initDbBlock :: Handle -> Pool Connection -> Request -> IO Response
-initDbBlock hLogger pool req =
+initDb ::
+       MonadIO m
+    => Handle m
+    -> InitDbHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+initDb hLogger operations pool req =
     if pathElemsC == 1
         then do
             logInfo hLogger "Preparing data creating database"
-            result <- createDb hLogger pool
+            result <- create_db operations hLogger pool
             case result of
                 Left bs -> do
                     logError hLogger "Database not created"

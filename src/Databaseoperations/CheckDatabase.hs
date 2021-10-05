@@ -20,7 +20,7 @@ import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, query_WithPool)
 import Types (AdminData(..))
 
-checkFill :: Handle -> Pool Connection -> IO (Either String String)
+checkFill :: Handle IO -> Pool Connection -> IO (Either String String)
 checkFill hLogger pool =
     catch
         (do n <-
@@ -41,7 +41,7 @@ checkFill hLogger pool =
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Something Wrong"
 
-checkDb :: Handle -> Pool Connection -> IO Bool
+checkDb :: Handle IO -> Pool Connection -> IO Bool
 checkDb hLogger pool =
     catch
         (do n <- query_WithPool pool "select 1" :: IO [Only Int]
@@ -60,7 +60,7 @@ checkDb hLogger pool =
         logError hLogger err
         return False
 
-createDbClear :: Handle -> Pool Connection -> IO Bool
+createDbClear :: Handle IO -> Pool Connection -> IO Bool
 createDbClear hLogger pool = do
     logInfo hLogger "Input new admin login"
     new_admin_login <- getMaybeLine
@@ -92,7 +92,7 @@ createDbClear hLogger pool = do
                     return True
 
 addAdminToDB ::
-       Handle
+       Handle IO
     -> Pool Connection
     -> AdminData
     -> IO (Either LBS.ByteString LBS.ByteString)

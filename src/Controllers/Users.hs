@@ -2,17 +2,12 @@
 
 module Controllers.Users where
 
+import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.Users
-    ( authentication
-    , createUserInDb
-    , deleteUserFromDb
-    , profileOnDb
-    )
 import FromRequest (takeToken)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
@@ -21,6 +16,10 @@ import Network.Wai.Parse
     ( FileInfo(fileContent, fileContentType, fileName)
     , lbsBackEnd
     , parseRequestBody
+    )
+import OperationsHandle
+    ( UsersHandle(auth, create_user_in_db, delete_user_from_db,
+            profile_on_db)
     )
 import Responses
     ( responseBadRequest
@@ -32,18 +31,24 @@ import Responses
     )
 import Types (TokenLifeTime)
 
-login :: Handle -> Pool Connection -> Request -> IO Response
-login hLogger pool req =
+login ::
+       MonadIO m
+    => Handle m
+    -> UsersHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+login hLogger operations pool req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for sign in."
-            (i, _) <- parseRequestBody lbsBackEnd req
+            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let login' = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
             let pass = E.decodeUtf8 $ fromMaybe "" (lookup "user_password" i)
-            check <- authentication hLogger pool login' pass
+            check <- auth operations hLogger pool login' pass
             case check of
                 Left bs -> do
                     logError hLogger "User not logged."
@@ -52,22 +57,29 @@ login hLogger pool req =
                     logInfo hLogger "User logged."
                     return $ responseOk bs
 
-registration :: Handle -> Pool Connection -> Request -> IO Response
-registration hLogger pool req =
+registration ::
+       MonadIO m
+    => Handle m
+    -> UsersHandle m
+    -> Pool Connection
+    -> Request
+    -> m Response
+registration hLogger operations pool req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for registration new user."
-            (i, f) <- parseRequestBody lbsBackEnd req
+            (i, f) <- liftIO $ parseRequestBody lbsBackEnd req
             let [(_, file)] = f
             let f_name = E.decodeUtf8 <$> lookup "f_name" i
             let l_name = E.decodeUtf8 <$> lookup "l_name" i
             let login' = E.decodeUtf8 <$> lookup "login" i
             let password = E.decodeUtf8 <$> lookup "password" i
             result <-
-                createUserInDb
+                create_user_in_db
+                    operations
                     hLogger
                     pool
                     login'
@@ -86,8 +98,14 @@ registration hLogger pool req =
                     return $ responseCreated bs
 
 deleteUser ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteUser hLogger pool token_lifetime req =
+       MonadIO m
+    => Handle m
+    -> UsersHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+deleteUser hLogger operations pool token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -97,7 +115,12 @@ deleteUser hLogger pool token_lifetime req =
             let login' = fromMaybe Nothing (lookup "login" $ queryString req)
             let token' = E.decodeUtf8 <$> takeToken req
             result <-
-                deleteUserFromDb hLogger pool token_lifetime token' $
+                delete_user_from_db
+                    operations
+                    hLogger
+                    pool
+                    token_lifetime
+                    token' $
                 fromMaybe "" login'
             case result of
                 Left "Not admin" -> do
@@ -113,8 +136,15 @@ deleteUser hLogger pool token_lifetime req =
                     logInfo hLogger "User deleted."
                     return $ responseOk bs'
 
-profile :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-profile hLogger pool token_lifetime req =
+profile ::
+       MonadIO m
+    => Handle m
+    -> UsersHandle m
+    -> Pool Connection
+    -> TokenLifeTime
+    -> Request
+    -> m Response
+profile hLogger operations pool token_lifetime req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
@@ -122,7 +152,8 @@ profile hLogger pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for sending user information."
             let token' = E.decodeUtf8 <$> takeToken req
-            result <- profileOnDb hLogger pool token_lifetime token'
+            result <-
+                profile_on_db operations hLogger pool token_lifetime token'
             case result of
                 Left "Bad token" -> do
                     logError hLogger "Information not sended. Bad token."
