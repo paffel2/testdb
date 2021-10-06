@@ -4,7 +4,6 @@ module Databaseoperations.Authors where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
@@ -17,33 +16,45 @@ import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types (AuthorsList(AuthorsList), TokenLifeTime)
+import Types.Authors
+    ( AuthorLogin
+    , AuthorsList(AuthorsList)
+    , CreateAuthor(CreateAuthor)
+    , EditAuthor(EditAuthor)
+    )
+import Types.Other
+    ( ErrorMessage
+    , Page(from_page)
+    , SendId
+    , SuccessMessage
+    , Token
+    , TokenLifeTime
+    )
 
 createAuthorInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString Int)
-createAuthorInDb hLogger _ _ Nothing _ _ = do
+    -> Maybe Token
+    -> CreateAuthor
+    -> IO (Either ErrorMessage SendId)
+createAuthorInDb hLogger _ _ Nothing _ = do
     logError hLogger "No token field"
     return $ Left "No token field"
-createAuthorInDb hLogger _ _ _ Nothing _ = do
+createAuthorInDb hLogger _ _ _ (CreateAuthor Nothing _) = do
     logError hLogger "No login field"
     return $ Left "No login field"
-createAuthorInDb hLogger _ _ _ _ Nothing = do
+createAuthorInDb hLogger _ _ _ (CreateAuthor _ Nothing) = do
     logError hLogger "No description field"
     return $ Left "No description field"
-createAuthorInDb hLogger pool token_lifetime token' (Just author_login) (Just author_description) =
+createAuthorInDb hLogger pool token_lifetime token' create_author_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
                     rows <-
-                        queryWithPool pool q (author_login, author_description) :: IO [Only Int]
+                        queryWithPool pool q create_author_params :: IO [Only Int]
                     if Prelude.null rows
                         then do
                             return $ Left "Author not created"
@@ -70,22 +81,22 @@ deleteAuthorInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Maybe Token
+    -> Maybe AuthorLogin
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteAuthorInDb hLogger _ _ Nothing _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
 deleteAuthorInDb hLogger _ _ _ Nothing = do
     logError hLogger "No login field"
     return $ Left "No login field"
-deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login) =
+deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login') =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
-                    _ <- executeWithPool pool q [author_login]
+                    _ <- executeWithPool pool q [author_login']
                     return $ Right "Author deleted") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -108,8 +119,8 @@ deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login) =
 getAuthorsList ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString AuthorsList)
+    -> Maybe Page
+    -> IO (Either ErrorMessage AuthorsList)
 getAuthorsList hLogger pool page_p' =
     catch
         (do rows <- query_WithPool pool q
@@ -124,44 +135,45 @@ getAuthorsList hLogger pool page_p' =
         toQuery $
         BC.concat
             [ "select author_id, (concat(first_name, ' ', last_name)) as author_name, description from authors join users using (user_id) order by 2"
-            , page
+            , page'
             ]
-    page =
+    page' =
         if isNothing page_p'
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p')) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p' - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p')) -
                         1) *
                        10
-                     ]
+                     ]-}
 
 editAuthorInDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe Int
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString LBS.ByteString)
-editAuthorInDb hLogger _ _ _ _ Nothing = do
+    -> Maybe Token
+    -> EditAuthor
+    -> IO (Either ErrorMessage SuccessMessage)
+editAuthorInDb hLogger _ _ _ (EditAuthor Nothing _) = do
     logError hLogger "No new_description field"
     return $ Left "No new_description field"
-editAuthorInDb hLogger _ _ _ Nothing _ = do
+editAuthorInDb hLogger _ _ _ (EditAuthor _ Nothing) = do
     logError hLogger "No author_id field"
     return $ Left "No author_id field"
-editAuthorInDb hLogger _ _ Nothing _ _ = do
+editAuthorInDb hLogger _ _ Nothing _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-editAuthorInDb hLogger pool token_lifetime token (Just author_id) (Just new_description) =
+editAuthorInDb hLogger pool token_lifetime token edit_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
-                    n <- executeWithPool pool q (new_description, author_id)
+                    n <- executeWithPool pool q edit_params
                     if n > 0
                         then return $ Right "Author edited"
                         else return $ Left "Author not edited") $ \e -> do

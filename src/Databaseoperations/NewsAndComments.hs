@@ -4,12 +4,10 @@ module Databaseoperations.NewsAndComments where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
-import Data.Time (getCurrentTime)
 import Database.PostgreSQL.Simple
     ( Connection
     , In(In)
@@ -17,41 +15,53 @@ import Database.PostgreSQL.Simple
     , SqlError(sqlErrorMsg, sqlState)
     )
 import Databaseoperations.CheckAdmin (checkAdmin)
-import HelpFunction
-    ( readByteStringListInt
-    , readByteStringToDay
-    , readByteStringToInt
-    , toQuery
-    )
+import HelpFunction (readByteStringToInt, toQuery)
+
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types
-    ( Comment(Comment)
+import Types.NewsAndComments
+    ( AfterDateFilterParam
+    , AuthorFilterParam(from_author_fp)
+    , BeforeDateFilterParam
+    , CategoryFilterParam(from_category_fp)
+    , Comment(Comment)
     , CommentArray(CommentArray)
+    , ContentFilterParam(from_content_fp)
+    , DateFilterParam
     , GetNews
     , NewsArray(NewsArray)
+    , Sort(from_sort)
+    , TagAllFilterParam(from_tag_all_fp)
+    , TagFilterParam
+    , TagInFilterParam(from_tag_in_fp)
+    , TitleFilterParam(from_title_fp)
+    )
+import Types.Other
+    ( ErrorMessage
+    , Id(from_id)
+    , Page(from_page)
+    , SuccessMessage
+    , Token
     , TokenLifeTime
     )
 
 addCommentToDb ::
        Handle IO
     -> Pool Connection
-    -> TokenLifeTime
-    -> T.Text
-    -> Maybe Int
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString LBS.ByteString)
-addCommentToDb hLogger _ _ _ Nothing _ = do
-    logError hLogger "No comment id parameter"
-    return $ Left "No comment id parameter"
-addCommentToDb hLogger _ _ _ _ Nothing = do
+    -> Comment
+    -> IO (Either ErrorMessage SuccessMessage)
+addCommentToDb hLogger _ (Comment _ _ Nothing _) = do
+    logError hLogger "No news id parameter"
+    return $ Left "No news id parameter"
+addCommentToDb hLogger _ (Comment _ _ _ Nothing) = do
     logError hLogger "No comment parameter"
     return $ Left "No comment parameter"
-addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) =
+addCommentToDb hLogger _ (Comment Nothing _ _ _) = do
+    logError hLogger "No token parameter"
+    return $ Left "No token parameter"
+addCommentToDb hLogger pool com =
     catch
-        (do now <- getCurrentTime
-            let com = Comment token' token_lifetime comment newsId now
-            n_r <- executeWithPool pool q com
+        (do n_r <- executeWithPool pool q com
             if n_r > 0
                 then do
                     return $ Right "Comment added"
@@ -67,15 +77,15 @@ addCommentToDb hLogger pool token_lifetime token' (Just newsId) (Just comment) =
             _ -> return $ Left "Database error"
   where
     q =
-        "insert into users_comments (user_id, comment_text,news_id,comment_time) values (check_token(?,?),?,?,?)"
+        "insert into users_comments (user_id, comment_text,news_id,comment_time) values (check_token(?,?),?,?,now())"
 
 deleteCommentFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe Int
-    -> IO (Either LBS.ByteString LBS.ByteString)
+    -> Maybe Token
+    -> Maybe Id
+    -> IO (Either ErrorMessage SuccessMessage)
 deleteCommentFromDb hLogger _ _ _ Nothing = do
     logError hLogger "Bad comment id"
     return $ Left "Bad comment id"
@@ -104,9 +114,9 @@ deleteCommentFromDb hLogger pool token_lifetime token' (Just comment_id) = do
 getCommentsByNewsIdFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe Int
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString CommentArray)
+    -> Maybe Id
+    -> Maybe Page
+    -> IO (Either ErrorMessage CommentArray)
 getCommentsByNewsIdFromDb hLogger _ Nothing _ = do
     logError hLogger "No news parameter"
     return $ Left "No news parameter"
@@ -128,12 +138,14 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
@@ -145,8 +157,8 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
 getNewsByIdFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe Int
-    -> IO (Either LBS.ByteString GetNews)
+    -> Maybe Id
+    -> IO (Either ErrorMessage GetNews)
 getNewsByIdFromDb hLogger _ Nothing = do
     logError hLogger "Bad news_id parameter"
     return $ Left "Bad news_id parameter"
@@ -168,57 +180,54 @@ getNewsByIdFromDb hLogger pool (Just news'_id) =
         toQuery $
         BC.concat
             [ "with image_arr as (select array_agg(image_id) from news_images where news_id = "
-            , BC.pack $ show news'_id
+            , BC.pack . show . from_id $ news'_id
             , "), "
             , " tags_arr as (select array_agg(tag_name) from news_tags join tags using (tag_id) where news_id = "
-            , BC.pack $ show news'_id
+            , BC.pack . show . from_id $ news'_id
             , ") "
-            , "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text, main_image, "
+            , "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id) as category_name, news_text, main_image, "
             , "(select * from image_arr) as other_images, (select * from  tags_arr) as tags from news join authors using (author_id) join users using (user_id) where news_id = "
-            , BC.pack $ show news'_id
+            , BC.pack . show . from_id $ news'_id
             ]
 
 getNewsFilterByTagInFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe TagInFilterParam
+    -> Maybe Page
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByTagInFromDb hLogger _ Nothing _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
 getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
     logInfo hLogger "Someone try get news list filtered by tag_in parameter"
-    case readByteStringListInt tag_lst of
-        Nothing -> do
-            logError hLogger "Bad tag parameter"
-            return $ Left "bad tag parameter"
-        Just n ->
-            catch
-                (do rows <- queryWithPool pool q (Only (In n))
-                    return (Right $ NewsArray rows)) $ \e -> do
-                let errState = sqlState e
-                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
+    catch
+        (do rows <- queryWithPool pool q (Only (In (from_tag_in_fp tag_lst)))
+            return (Right $ NewsArray rows)) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
   where
     pg =
         if isNothing page_p
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) "
             , "join users using (user_id) join news_tags using (news_id) where tag_id in ? "
             , "group by news_id,author_name order by 2 DESC"
             , pg
@@ -227,49 +236,46 @@ getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
 getNewsFilterByCategoryIdFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe CategoryFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByCategoryIdFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No category parameter"
     return $ Left "No category parameter"
 getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by category id"
-    case readByteStringToInt cat_id of
-        Nothing -> do
-            logError hLogger "Bad category parameter"
-            return $ Left "Bad category parameter"
-        Just n ->
-            catch
-                (do rows <- queryWithPool pool q [n]
-                    return (Right $ NewsArray rows)) $ \e -> do
-                let errState = sqlState e
-                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
+    catch
+        (do rows <- queryWithPool pool q [from_category_fp cat_id]
+            return (Right $ NewsArray rows)) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing page_p
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text  from news  join authors using (author_id) join users using (user_id) "
+            , "take_categories_list(category_id) as category_name, news_text  from news  join authors using (author_id) join users using (user_id) "
             , "where category_id = ? "
             , sort'
             , pg
@@ -278,17 +284,17 @@ getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
 getNewsFilterByTitleFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe TitleFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByTitleFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No title parameter"
     return $ Left "No title parameter"
 getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
     catch
         (do logInfo hLogger "Someone try get news list filtered by title"
-            rows <- queryWithPool pool q [titleName]
+            rows <- queryWithPool pool q [from_title_fp titleName]
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -297,25 +303,27 @@ getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
         return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing page_p
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) "
             , "where short_title = ? "
             , sort'
             , pg
@@ -324,10 +332,10 @@ getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
 getNewsFilterByAuthorNameFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe AuthorFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByAuthorNameFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No author_name parameter"
     return $ Left "No author_name parameter"
@@ -336,32 +344,34 @@ getNewsFilterByAuthorNameFromDb hLogger pool (Just authorName) page_p sortParam 
         (do logInfo
                 hLogger
                 "Someone try get news list filtered by author's name"
-            rows <- queryWithPool pool q [authorName]
+            rows <- queryWithPool pool q [from_author_fp authorName]
             return (Right $ NewsArray rows)) $ \e -> do
         let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
         return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing page_p
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select * from (select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id)) as temp_t "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id)) as temp_t "
             , "where author_name = ? "
             , sort'
             , pg
@@ -370,124 +380,17 @@ getNewsFilterByAuthorNameFromDb hLogger pool (Just authorName) page_p sortParam 
 getNewsFilterByDateFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe DateFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByDateFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
 getNewsFilterByDateFromDb hLogger pool (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by date"
-    let date' = readByteStringToDay date
-    case date' of
-        Nothing -> do
-            logError hLogger "Bad date parameter"
-            return (Left "Bad date parameter")
-        Just day ->
-            catch
-                (do rows <- queryWithPool pool q [day]
-                    return (Right $ NewsArray rows)) $ \e -> do
-                let errState = sqlState e
-                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
-  where
-    sort' =
-        if sortParam == ""
-            then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
-    pg =
-        if isNothing page_p
-            then " limit 10 offset 0"
-            else BC.concat
-                     [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
-                        1) *
-                       10
-                     ]
-    q =
-        toQuery $
-        BC.concat
-            [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) "
-            , "where date_creation = ? "
-            , sort'
-            , pg
-            ]
-
-getNewsFilterByTagAllFromDb ::
-       Handle IO
-    -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
-getNewsFilterByTagAllFromDb hLogger _ Nothing _ _ = do
-    logError hLogger "No tag parameter"
-    return $ Left "No tag parameter"
-getNewsFilterByTagAllFromDb hLogger pool (Just tag_lst) page_p sortParam = do
-    logInfo hLogger "Someone try get news list filtered by tag_all parameter"
-    case readByteStringListInt tag_lst of
-        Nothing -> do
-            logError hLogger "Bad tag parameter"
-            return (Left "bad tag_all parameter")
-        Just tag_list ->
-            catch
-                (do let cn = BC.pack $ show $ Prelude.length tag_list - 1
-                    let q =
-                            toQuery $
-                            BC.concat
-                                [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-                                , "take_categories_list(category_id), news_text  from news join authors using (author_id) "
-                                , "join users using (user_id) join news_tags using (news_id) where tag_id in ? "
-                                , "group by news_id,author_name having count(*) > "
-                                , cn
-                                , " "
-                                , sort'
-                                , pg
-                                ]
-                    rows <- queryWithPool pool q (Only (In tag_list))
-                    return (Right $ NewsArray rows)) $ \e -> do
-                let errState = sqlState e
-                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
-  where
-    sort' =
-        if sortParam == ""
-            then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
-    pg =
-        if isNothing page_p
-            then " limit 10 offset 0"
-            else BC.concat
-                     [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
-                        1) *
-                       10
-                     ]
-
-getNewsFilterByContentFromDb ::
-       Handle IO
-    -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
-getNewsFilterByContentFromDb hLogger _ Nothing _ _ = do
-    logError hLogger "No content parameter"
-    return $ Left "No content parameter"
-getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
     catch
-        (do logInfo hLogger "Someone try get news list filtered by content"
-            rows <- queryWithPool pool q [BC.concat ["%", content_c, "%"]]
+        (do rows <- queryWithPool pool q [date]
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -496,25 +399,132 @@ getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
         return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing page_p
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) "
+            , "where date_creation = ? "
+            , sort'
+            , pg
+            ]
+
+getNewsFilterByTagAllFromDb ::
+       Handle IO
+    -> Pool Connection
+    -> Maybe TagAllFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
+getNewsFilterByTagAllFromDb hLogger _ Nothing _ _ = do
+    logError hLogger "No tag parameter"
+    return $ Left "No tag parameter"
+getNewsFilterByTagAllFromDb hLogger pool (Just tag_lst) page_p sortParam = do
+    logInfo hLogger "Someone try get news list filtered by tag_all parameter"
+    catch
+        (do let tag_list = from_tag_all_fp tag_lst
+            let cn = BC.pack $ show $ Prelude.length tag_list - 1
+            let q =
+                    toQuery $
+                    BC.concat
+                        [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
+                        , "take_categories_list(category_id) as category_name, news_text  from news join authors using (author_id) "
+                        , "join users using (user_id) join news_tags using (news_id) where tag_id in ? "
+                        , "group by news_id,author_name having count(*) > "
+                        , cn
+                        , " "
+                        , sort'
+                        , pg
+                        ]
+            rows <- queryWithPool pool q (Only (In tag_list))
+            return (Right $ NewsArray rows)) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
+  where
+    sort' =
+        if from_sort sortParam == ""
+            then ""
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
+    pg =
+        if isNothing page_p
+            then " limit 10 offset 0"
+            else BC.concat
+                     [ " limit 10 offset "
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
+                        1) *
+                       10
+                     ]-}
+
+getNewsFilterByContentFromDb ::
+       Handle IO
+    -> Pool Connection
+    -> Maybe ContentFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
+getNewsFilterByContentFromDb hLogger _ Nothing _ _ = do
+    logError hLogger "No content parameter"
+    return $ Left "No content parameter"
+getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
+    catch
+        (do logInfo hLogger "Someone try get news list filtered by content"
+            rows <-
+                queryWithPool
+                    pool
+                    q
+                    [T.concat ["%", from_content_fp content_c, "%"]]
+            return (Right $ NewsArray rows)) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
+  where
+    sort' =
+        if from_sort sortParam == ""
+            then ""
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
+    pg =
+        if isNothing page_p
+            then " limit 10 offset 0"
+            else BC.concat
+                     [ " limit 10 offset "
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
+                        1) *
+                       10
+                     ]-}
+    q =
+        toQuery $
+        BC.concat
+            [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) "
             , "where news_text like ? "
             , sort'
             , pg
@@ -523,50 +533,46 @@ getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
 getNewsFilterByAfterDateFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe AfterDateFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByAfterDateFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
 getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by after_date parameter"
-    let date' = readByteStringToDay date
-    case date' of
-        Nothing -> do
-            logError hLogger "Bad date parameter"
-            return $ Left "Bad date parameter"
-        Just day ->
-            catch
-                (do rows <- queryWithPool pool q [day]
-                    return (Right $ NewsArray rows)) $ \e -> do
-                let errState = sqlState e
-                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
+    catch
+        (do rows <- queryWithPool pool q [date]
+            return (Right $ NewsArray rows)) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing page_p
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) "
             , "where date_creation > ? "
             , sort'
             , pg
@@ -575,10 +581,10 @@ getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
 getNewsFilterByBeforeDateFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe BeforeDateFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByBeforeDateFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
@@ -586,41 +592,37 @@ getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
     logInfo
         hLogger
         "Someone try get news list filtered by before_date parameter"
-    let date' = readByteStringToDay date
-    case date' of
-        Nothing -> do
-            logError hLogger "Bad date parameter"
-            return $ Left "Bad date parameter"
-        Just day ->
-            catch
-                (do rows <- queryWithPool pool q [day]
-                    return (Right $ NewsArray rows)) $ \e -> do
-                let errState = sqlState e
-                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
+    catch
+        (do rows <- queryWithPool pool q [date]
+            return (Right $ NewsArray rows)) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing page_p
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p)) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) "
             , "where date_creation < ? "
             , sort'
             , pg
@@ -629,49 +631,46 @@ getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
 getNewsFilterByTagIdFromDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> Maybe BC.ByteString
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Maybe TagFilterParam
+    -> Maybe Page
+    -> Sort
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFilterByTagIdFromDb hLogger _ Nothing _ _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
 getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
     logInfo hLogger "Someone try get news list filtered by tag"
-    case readByteStringToInt tag_id of
-        Nothing -> do
-            logError hLogger "Bad tag parameter"
-            return $ Left "Bad tag parameter"
-        Just n ->
-            catch
-                (do rows <- queryWithPool pool q [n]
-                    return (Right $ NewsArray rows)) $ \e -> do
-                let errState = sqlState e
-                let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
+    catch
+        (do rows <- queryWithPool pool q [tag_id]
+            return (Right $ NewsArray rows)) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing page_p'
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe 1 (readByteStringToInt (fromMaybe "" page_p')) -
+                     , BC.pack $ show $ (maybe 1 from_page page_p' - 1) * 10
+                     ]
+                       {-(fromMaybe
+                            1
+                            (readByteStringToInt (maybe "" from_page page_p')) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
             [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, "
-            , "take_categories_list(category_id), news_text from news join authors using (author_id) join users using (user_id) "
+            , "take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) "
             , "join news_tags using (news_id) where tag_id = ?"
             , sort'
             , pg
@@ -680,9 +679,9 @@ getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
 getNewsFromDb ::
        Handle IO
     -> Pool Connection
-    -> BC.ByteString
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString NewsArray)
+    -> Sort
+    -> Maybe Page
+    -> IO (Either ErrorMessage NewsArray)
 getNewsFromDb hLogger pool sortParam pageParam =
     catch
         (do logInfo hLogger "Someone try get news list"
@@ -695,26 +694,26 @@ getNewsFromDb hLogger pool sortParam pageParam =
         return $ Left "Database error"
   where
     sort' =
-        if sortParam == ""
+        if from_sort sortParam == ""
             then ""
-            else BC.concat [" order by ", sortParam, " DESC"]
+            else BC.concat [" order by ", from_sort sortParam, " DESC"]
     pg =
         if isNothing pageParam
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe
+                     , BC.pack $ show $ (maybe 1 from_page pageParam - 1) * 10
+                     ]
+                       {-(fromMaybe
                             1
-                            (readByteStringToInt (fromMaybe "" pageParam)) -
+                            (readByteStringToInt (maybe "" from_page pageParam)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat
-            [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id), news_text  from news join authors using (author_id) join users using (user_id)"
+            [ "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, take_categories_list(category_id) as category_name, news_text  from news join authors using (author_id) join users using (user_id)"
             , sort'
             , pg
             ]

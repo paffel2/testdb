@@ -6,7 +6,7 @@ import qualified Data.ByteString.Char8 as BC
 import qualified Data.Configurator as C
 import Data.Time (NominalDiffTime)
 import Logger (Priority(..))
-import Types
+import Types.Other (TokenLifeTime(TokenLifeTime))
 
 data ConfigModules =
     ConfigModules

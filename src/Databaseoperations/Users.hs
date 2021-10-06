@@ -11,37 +11,50 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Data.Time (UTCTime, getCurrentTime)
 import Database.PostgreSQL.Simple
-    ( Binary(Binary)
-    , Connection
-    , SqlError(sqlState)
-    )
+
 import Databaseoperations.CheckAdmin (checkAdmin)
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError, logInfo)
 import PostgreSqlWithPool (executeWithPool, queryWithPool)
-import Types (Profile, TokenLifeTime, TokenProfile(TokenProfile))
+import Types.Other (ErrorMessage, SuccessMessage, Token(..), TokenLifeTime)
+import Types.Users
+    ( CreateUser(CreateUser, creation_date, first_name, last_name,
+           user_login, user_password)
+    , Login(from_login)
+    , Password
+    , Profile
+    , TokenProfile(TokenProfile)
+    )
 
-generateToken :: T.Text -> IO (T.Text, UTCTime)
+generateToken :: Login -> IO (Token, UTCTime)
 generateToken login = do
     now <- getCurrentTime
     let token' = Prelude.filter (`Prelude.notElem` filt) (show now)
-    return (T.concat [login, T.pack token'], now)
+    return (Token $ T.concat [from_login login, T.pack token'], now)
   where
     filt = " :.-UTC" :: String
 
 authentication ::
        Handle IO
     -> Pool Connection
-    -> T.Text
-    -> T.Text
-    -> IO (Either LBS.ByteString LBS.ByteString)
-authentication hLogger pool login password =
+    -> Maybe Login
+    -> Maybe Password
+    -> IO (Either ErrorMessage SuccessMessage)
+authentication hLogger _ _ Nothing = do
+    logError hLogger "No login parameter."
+    return $ Left "No login parameter."
+authentication hLogger _ Nothing _ = do
+    logError hLogger "No password parameter."
+    return $ Left "No password parameter."
+authentication hLogger pool (Just login) (Just password) =
     catch
         (do (token', now) <- generateToken login
             n <- executeWithPool pool q (login, password, token', now)
             if n > 0
                 then do
-                    return $ Right $ LBS.fromStrict $ E.encodeUtf8 token'
+                    return $
+                        Right $
+                        LBS.fromStrict $ E.encodeUtf8 $ from_token token'
                 else do
                     return $ Left "Wrong login or password") $ \e -> do
         let errState = sqlState e
@@ -60,57 +73,42 @@ authentication hLogger pool login password =
 createUserInDb ::
        Handle IO
     -> Pool Connection
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> BC.ByteString
-    -> BC.ByteString
-    -> LBS.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
-createUserInDb hLogger _ Nothing _ _ _ _ _ _ = do
+    -> CreateUser
+    -> IO (Either ErrorMessage SuccessMessage)
+createUserInDb hLogger _ (CreateUser _ _ _ Nothing _ _ _ _ _) = do
+    logError hLogger "No first_name parameter"
+    return $ Left "No first_name parameter"
+createUserInDb hLogger _ (CreateUser _ _ _ _ Nothing _ _ _ _) = do
+    logError hLogger "No last_name parameter"
+    return $ Left "No last_name parameter"
+createUserInDb hLogger _ (CreateUser _ _ _ _ _ Nothing _ _ _) = do
     logError hLogger "No login parameter"
     return $ Left "No login parameter"
-createUserInDb hLogger _ _ Nothing _ _ _ _ _ = do
+createUserInDb hLogger _ (CreateUser _ _ _ _ _ _ Nothing _ _) = do
     logError hLogger "No password parameter"
     return $ Left "No password parameter"
-createUserInDb hLogger _ _ _ Nothing _ _ _ _ = do
-    logError hLogger "No first name parameter"
-    return $ Left "No first name parameter"
-createUserInDb hLogger _ _ _ _ Nothing _ _ _ = do
-    logError hLogger "No second name parameter"
-    return $ Left "No second name parameter"
-createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_name) avatar_name avatar_contentType avatar_b = do
-    if avatar_name == "" ||
-       avatar_contentType == "" ||
-       avatar_b == "" || BC.take 5 avatar_contentType /= "image"
+createUserInDb hLogger pool c_user@(CreateUser (Just av_file_name) (Just av_con) (Just av_con_type) (Just _) (Just _) (Just _) (Just _) _ _) = do
+    if av_file_name == "" ||
+       av_con_type == "" ||
+       fromBinary av_con == "" || BC.take 5 av_con_type /= "image"
         then do
             logError hLogger "Bad image file"
             return $ Left "Bad image file"
         else catch
-                 (do now <- getCurrentTime
-                     n <-
-                         executeWithPool
-                             pool
-                             q
-                             ( avatar_name
-                             , Binary avatar_b
-                             , avatar_contentType
-                             , f'_name
-                             , l_name
-                             , login
-                             , password
-                             , now
-                             , False)
+                 (do n <- executeWithPool pool q c_user
                      if n > 0
                          then do
-                             firstToken hLogger pool login password
+                             firstToken
+                                 hLogger
+                                 pool
+                                 (user_login c_user)
+                                 (user_password c_user)
                          else do
                              return $ Left "Registration failed") $ \e -> do
                  let errState = sqlState e
                  let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-                 logError hLogger $
-                     T.concat ["Database error ", T.pack $ show errStateInt]
+                 let err = E.decodeUtf8 $ sqlErrorMsg e
+                 logError hLogger err
                  case errStateInt of
                      22001 -> return $ Left "One or more parameter too long"
                      23505 -> return $ Left "User with that login already exist"
@@ -123,15 +121,58 @@ createUserInDb hLogger pool (Just login) (Just password) (Just f'_name) (Just l_
             , "insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) "
             , "values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),?,?)"
             ]
+createUserInDb hLogger pool c_user@(CreateUser Nothing Nothing Nothing (Just _) (Just _) (Just _) (Just _) _ _) =
+    catch
+        (do logInfo hLogger "registartion without avatar"
+            n <-
+                executeWithPool
+                    pool
+                    q
+                    ( first_name c_user
+                    , last_name c_user
+                    , user_login c_user
+                    , user_password c_user
+                    , creation_date c_user
+                    , False)
+            if n > 0
+                then do
+                    firstToken
+                        hLogger
+                        pool
+                        (user_login c_user)
+                        (user_password c_user)
+                else do
+                    return $ Left "Registration failed") $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        let err = E.decodeUtf8 $ sqlErrorMsg e
+        logError hLogger err
+        case errStateInt of
+            22001 -> return $ Left "One or more parameter too long"
+            23505 -> return $ Left "User with that login already exist"
+            _ -> return $ Left "Database error in registration"
+  where
+    q =
+        toQuery $
+        BC.concat
+            [ "insert into users (first_name, last_name, login, user_password, creation_date, admin_mark) "
+            , "values (?,?,?,crypt(?,gen_salt('md5')),?,?)"
+            ]
+createUserInDb hLogger _ _ = do
+    logError hLogger "Unexpected error"
+    return $ Left "Unexpected error"
 
 deleteUserFromDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> BC.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
-deleteUserFromDb hLogger pool token_lifetime token login =
+    -> Maybe Token
+    -> Maybe Login
+    -> IO (Either ErrorMessage SuccessMessage)
+deleteUserFromDb hLogger _ _ _ Nothing = do
+    logError hLogger "No login parameter"
+    return $ Left "No login parameter"
+deleteUserFromDb hLogger pool token_lifetime token (Just login) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -144,39 +185,57 @@ deleteUserFromDb hLogger pool token_lifetime token login =
                             return $
                                 Right $
                                 LBS.concat
-                                    ["User ", LBS.fromStrict login, " deleted"]
+                                    [ "User "
+                                    , LBS.fromStrict $
+                                      E.encodeUtf8 $ from_login login
+                                    , " deleted"
+                                    ]
                         else return $ Left "User not exist") $ \e -> do
-        let errState = sqlState e
+        let err = E.decodeUtf8 $ sqlErrorMsg e
+        logError hLogger err
+        return $ Left $ LBS.fromStrict $ sqlErrorMsg e
+        {-let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left "Database error"-}
 
 firstToken ::
        Handle IO
     -> Pool Connection
-    -> T.Text
-    -> T.Text
-    -> IO (Either LBS.ByteString LBS.ByteString)
-firstToken hLogger pool login password =
+    -> Maybe Login
+    -> Maybe Password
+    -> IO (Either ErrorMessage SuccessMessage)
+firstToken hLogger pool (Just login') (Just password') =
     catch
-        (do logInfo hLogger $ T.concat ["Generate first token for user ", login]
-            (token', now) <- generateToken login
-            n <- executeWithPool pool q (login, password, token', now)
+        (do logInfo hLogger $
+                T.concat ["Generate first token for user ", from_login login']
+            (token', now) <- generateToken login'
+            n <- executeWithPool pool q (login', password', token', now)
             if n > 0
                 then do
                     logInfo hLogger $
-                        T.concat ["User with login ", login, " logged"]
-                    return $ Right $ LBS.fromStrict $ E.encodeUtf8 token'
+                        T.concat
+                            ["User with login ", from_login login', " logged"]
+                    return $
+                        Right $
+                        LBS.fromStrict $ E.encodeUtf8 $ from_token token'
                 else do
                     logError hLogger $
-                        T.concat ["User with login ", login, " cant logged"]
+                        T.concat
+                            [ "User with login "
+                            , from_login login'
+                            , " cant logged"
+                            ]
                     return $ Left "Wrong login or password") $ \e -> do
-        let errState = sqlState e
+        let err = E.decodeUtf8 $ sqlErrorMsg e
+        logError hLogger err
+        return $ Left $ LBS.fromStrict $ sqlErrorMsg e
+        {-let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left "Database error"-}
   where
     q =
         toQuery $
@@ -184,13 +243,16 @@ firstToken hLogger pool login password =
             [ "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) "
             , "insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"
             ]
+firstToken hLogger _ _ _ = do
+    logError hLogger "Bad login password parameters"
+    return $ Left "Bad login password parameters"
 
 profileOnDb ::
        Handle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString Profile)
+    -> Maybe Token
+    -> IO (Either ErrorMessage Profile)
 profileOnDb hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
     return $ Left "No token parameter"

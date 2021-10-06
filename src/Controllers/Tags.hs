@@ -6,12 +6,9 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
+import FromRequest (takeToken, toEditTag, toPage, toTagName)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -19,7 +16,7 @@ import Network.HTTP.Types.Method
     , methodPost
     , methodPut
     )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Network.Wai (Request(rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import OperationsHandle
     ( TagsHandle(create_tag_in_db, delete_tag_from_db, edit_tag_in_db,
@@ -34,7 +31,7 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (TokenLifeTime)
+import Types.Other (TokenLifeTime)
 
 sendTagsList ::
        MonadIO m
@@ -59,7 +56,7 @@ sendTagsList hLogger operations pool req =
                     logInfo hLogger "Tags list sended"
                     return $ responseOKJSON $ encode tl
   where
-    page = fromMaybe Nothing (lookup "page" $ queryString req)
+    page = toPage req
 
 newTag ::
        MonadIO m
@@ -76,10 +73,8 @@ newTag hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for creating tag."
-            let token' = E.decodeUtf8 <$> takeToken req
-            let tag_name_param =
-                    T.toLower . E.decodeUtf8 <$>
-                    fromMaybe Nothing (lookup "tag_name" $ queryString req)
+            let token' = takeToken req
+            let tag_name_param = toTagName req
             result <-
                 create_tag_in_db
                     operations
@@ -117,10 +112,8 @@ deleteTag hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for deleting tag."
-            let token' = E.decodeUtf8 <$> takeToken req
-            let tag_name_param =
-                    T.toLower . E.decodeUtf8 <$>
-                    fromMaybe Nothing (lookup "tag_name" $ queryString req)
+            let token' = takeToken req
+            let tag_name_param = toTagName req
             result <-
                 delete_tag_from_db
                     operations
@@ -158,10 +151,9 @@ editTag hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for editing tag."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let old_tag_name = E.decodeUtf8 <$> lookup "old_tag_name" i
-            let new_tag_name = E.decodeUtf8 <$> lookup "new_tag_name" i
+            let tag_edit_params = toEditTag i
             result <-
                 edit_tag_in_db
                     operations
@@ -169,8 +161,7 @@ editTag hLogger operations pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    old_tag_name
-                    new_tag_name
+                    tag_edit_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Tag not edited. Not admin."

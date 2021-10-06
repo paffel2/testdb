@@ -5,12 +5,15 @@ module Controllers.Categories where
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
+import FromRequest
+    ( takeToken
+    , toCategoryName
+    , toCreateCategory
+    , toEditCategory
+    , toPage
+    )
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -18,7 +21,7 @@ import Network.HTTP.Types.Method
     , methodPost
     , methodPut
     )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Network.Wai (Request(rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import OperationsHandle
     ( CategoriesHandle(create_category_on_db, delete_category_from_db,
@@ -33,7 +36,7 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (TokenLifeTime)
+import Types.Other (TokenLifeTime)
 
 sendCategoriesList ::
        (Monad m, MonadIO m)
@@ -59,8 +62,7 @@ sendCategoriesList hLogger operations pool req =
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
   where
-    queryParams = queryString req
-    pageParam = fromMaybe Nothing (lookup "page" queryParams)
+    pageParam = toPage req
 
 createCategory ::
        MonadIO m
@@ -78,12 +80,8 @@ createCategory hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for creating category"
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let token' = E.decodeUtf8 <$> takeToken req
-            let category_name =
-                    T.toLower . E.decodeUtf8 <$> lookup "category_name" i
-            let maternal_category_name =
-                    T.toLower . E.decodeUtf8 <$>
-                    lookup "maternal_category_name" i
+            let token' = takeToken req
+            let create_category_params = toCreateCategory i
             result <-
                 create_category_on_db
                     operations
@@ -91,8 +89,7 @@ createCategory hLogger operations pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    category_name
-                    maternal_category_name
+                    create_category_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Category not created. Not admin."
@@ -102,10 +99,10 @@ createCategory hLogger operations pool token_lifetime req =
                     return $ responseForbidden "Bad token"
                 Left bs -> do
                     logError hLogger "Category not created."
-                    return $ responseCreated bs
+                    return $ responseBadRequest bs
                 Right bs -> do
                     logInfo hLogger "Category created."
-                    return $ responseOk bs
+                    return $ responseCreated bs
 
 deleteCategory ::
        MonadIO m
@@ -122,9 +119,9 @@ deleteCategory hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for deleting category"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let category_name = E.decodeUtf8 <$> lookup "category_name" i
+            let category_name = toCategoryName i
             result <-
                 delete_category_from_db
                     operations
@@ -142,7 +139,7 @@ deleteCategory hLogger operations pool token_lifetime req =
                     return $ responseForbidden "Bad token"
                 Left bs -> do
                     logError hLogger "Category not deleted."
-                    return $ responseCreated bs
+                    return $ responseBadRequest bs
                 Right bs -> do
                     logInfo hLogger "Category deleted."
                     return $ responseOk bs
@@ -162,11 +159,9 @@ editCategory hLogger operations pool token_lifetime req = do
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for editing category"
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let category_name = E.decodeUtf8 <$> lookup "category_name" i
-            let new_maternal_parametr = E.decodeUtf8 <$> lookup "new_maternal" i
-            let new_name_parametr = E.decodeUtf8 <$> lookup "new_name" i
+            let edit_category_parameters = toEditCategory i
             result <-
                 edit_category_on_db
                     operations
@@ -174,9 +169,7 @@ editCategory hLogger operations pool token_lifetime req = do
                     pool
                     token_lifetime
                     token'
-                    category_name
-                    new_name_parametr
-                    new_maternal_parametr
+                    edit_category_parameters
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Category not edited. Not admin."
@@ -186,10 +179,10 @@ editCategory hLogger operations pool token_lifetime req = do
                     return $ responseForbidden "Bad token"
                 Left bs -> do
                     logError hLogger "Category not edited."
-                    return $ responseCreated bs
+                    return $ responseBadRequest bs
                 Right bs -> do
                     logInfo hLogger "Category edited."
-                    return $ responseOk bs
+                    return $ responseCreated bs
 
 categoriesRouter ::
        MonadIO m

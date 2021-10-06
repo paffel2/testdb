@@ -2,7 +2,7 @@
 
 module Router where
 
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO(..))
 import Controllers.Authors (authorsRouter)
 import Controllers.Categories (categoriesRouter)
 import Controllers.Drafts (createDraft, draftsRouter)
@@ -20,7 +20,7 @@ import OperationsHandle
                  images_handle, news_and_comments_handle, tags_handle, users_handle)
     )
 import Responses (responseNotFound)
-import Types (TokenLifeTime)
+import Types.Other (TokenLifeTime)
 
 routes' ::
        MonadIO m
@@ -30,7 +30,7 @@ routes' ::
     -> OperationsHandle m
     -> Request
     -> m Response
-routes' hLogger token_lifetime pool operations req = do
+routes' hLogger token_lifetime pool operations req =
     case pathHead of
         "news" ->
             newsAndCommentsRouter
@@ -70,6 +70,7 @@ routes' hLogger token_lifetime pool operations req = do
         "tags" ->
             tagsRouter hLogger (tags_handle operations) pool token_lifetime req
         "image" -> imagesRouter hLogger (images_handle operations) pool req
+        --"initDb" -> initDb hLogger (init_db_handle operations) pool req
         "authors" ->
             authorsRouter
                 hLogger
@@ -89,5 +90,6 @@ routes ::
     -> Pool Connection
     -> OperationsHandle IO
     -> Application
-routes hLogger token_lifetime pool operations req respond =
-    routes' hLogger token_lifetime pool operations req >>= respond
+routes hLogger token_lifetime pool operations req respond = do
+    resp <- routes' hLogger token_lifetime pool operations req
+    respond resp

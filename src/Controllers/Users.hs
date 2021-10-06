@@ -8,15 +8,12 @@ import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
 import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
+import FromRequest (takeToken, toCreateUser, toLogin, toPassword)
+import HelpFunction (foundParametr)
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import Network.Wai (Request(queryString, requestMethod), Response)
-import Network.Wai.Parse
-    ( FileInfo(fileContent, fileContentType, fileName)
-    , lbsBackEnd
-    , parseRequestBody
-    )
+import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import OperationsHandle
     ( UsersHandle(auth, create_user_in_db, delete_user_from_db,
             profile_on_db)
@@ -29,7 +26,8 @@ import Responses
     , responseOKJSON
     , responseOk
     )
-import Types (TokenLifeTime)
+import Types.Other (TokenLifeTime)
+import Types.Users (Login(Login))
 
 login ::
        MonadIO m
@@ -46,8 +44,12 @@ login hLogger operations pool req =
         else do
             logInfo hLogger "Preparing data for sign in."
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let login' = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
-            let pass = E.decodeUtf8 $ fromMaybe "" (lookup "user_password" i)
+            --let login' = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
+            --let pass = E.decodeUtf8 $ fromMaybe "" (lookup "user_password" i)
+            let login' = toLogin i
+            let pass = toPassword i
+            --logInfo hLogger $ maybe "" from_login login'
+            --logInfo hLogger $ maybe "" from_password pass
             check <- auth operations hLogger pool login' pass
             case check of
                 Left bs -> do
@@ -72,23 +74,9 @@ registration hLogger operations pool req =
         else do
             logInfo hLogger "Preparing data for registration new user."
             (i, f) <- liftIO $ parseRequestBody lbsBackEnd req
-            let [(_, file)] = f
-            let f_name = E.decodeUtf8 <$> lookup "f_name" i
-            let l_name = E.decodeUtf8 <$> lookup "l_name" i
-            let login' = E.decodeUtf8 <$> lookup "login" i
-            let password = E.decodeUtf8 <$> lookup "password" i
-            result <-
-                create_user_in_db
-                    operations
-                    hLogger
-                    pool
-                    login'
-                    password
-                    f_name
-                    l_name
-                    (fileName file)
-                    (fileContentType file)
-                    (fileContent file)
+            let avatar = foundParametr "avatar" f
+            user_params <- toCreateUser i avatar
+            result <- create_user_in_db operations hLogger pool user_params
             case result of
                 Left bs -> do
                     logError hLogger "User not registered."
@@ -112,16 +100,18 @@ deleteUser hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for deleting user."
-            let login' = fromMaybe Nothing (lookup "login" $ queryString req)
-            let token' = E.decodeUtf8 <$> takeToken req
+            let login' =
+                    Login . E.decodeUtf8 <$>
+                    fromMaybe Nothing (lookup "login" $ queryString req)
+            let token' = takeToken req
             result <-
                 delete_user_from_db
                     operations
                     hLogger
                     pool
                     token_lifetime
-                    token' $
-                fromMaybe "" login'
+                    token'
+                    login'
             case result of
                 Left "Not admin" -> do
                     logError hLogger "User not deleted. Not admin."
@@ -151,7 +141,7 @@ profile hLogger operations pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing data for sending user information."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             result <-
                 profile_on_db operations hLogger pool token_lifetime token'
             case result of
