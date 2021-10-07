@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 752d353ffc6af1b1b06256024149c5dbd56fa60476a26ff4931d79c35d4c952c
+-- hash: e85c65924f6fdf76858a2001c301dcfcb33d2616debe95d796f5cdf7506f603f
 
 name:           testdb
 version:        0.1.0.0
@@ -114,10 +114,11 @@ test-suite testdb-test
   other-modules:
       FromRequestTests
       HelpFunctionTests
+      OperationsHandleTest
       Paths_testdb
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -125,6 +126,7 @@ test-suite testdb-test
     , configurator
     , directory
     , hspec
+    , hspec-wai
     , http-client
     , http-types
     , postgresql-simple

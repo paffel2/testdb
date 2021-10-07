@@ -6,11 +6,12 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
+import Data.Maybe
 import Data.Pool (Pool)
+import qualified Data.Text as T
 import Database.PostgreSQL.Simple (Binary(Binary), Connection)
-import FromRequest (takeToken, toDraftId, toDraftInf, toDraftTags, toImage)
-import HelpFunction (foundParametr, readByteStringToId)
+import FromRequest
+import HelpFunction
 import Logger (Handle, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -94,25 +95,15 @@ createDraft hLogger operations pool token_lifetime req =
             let main'_image = foundParametr "main_image" f
             let images = foundParametr "images" f
             let main_image_triple =
-                    if fileContent (Prelude.head main'_image) == ""
+                    if isNothing $ fileContent <$> saveHead main'_image
                         then Nothing
                         else Just $ toImage $ Prelude.head main'_image
             let images_list =
-                    if fileContent (Prelude.head images) == ""
+                    if isNothing $ fileContent <$> saveHead images
                         then Nothing
                         else Just $ toImage <$> images
-            let con_type =
-                    any
-                        (/= "image")
-                        (BC.take 5 . image_content_type <$>
-                         fromMaybe [Image "" "" (Binary "")] images_list)
-            if ((BC.take
-                     5
-                     (image_content_type $
-                      fromMaybe (Image "" "" (Binary "")) main_image_triple) /=
-                 "image") &&
-                main_image_triple /= Just (Image "" "" (Binary ""))) ||
-               (fromMaybe [] images_list /= [] && con_type)
+            if checkNotImageMaybe main_image_triple ||
+               checkNotImages images_list
                 then do
                     logError hLogger "Bad image file"
                     return $ responseBadRequest "Bad image file"
@@ -170,7 +161,7 @@ deleteDraft hLogger operations pool token_lifetime req =
                     logError hLogger "Draft not deleted."
                     return $ responseBadRequest bs
                 Right bs -> do
-                    logInfo hLogger "Draft deletedd."
+                    logInfo hLogger "Draft deleted."
                     return $ responseOk bs
 
 getDraftById ::
@@ -231,25 +222,15 @@ updateDraft hLogger operations pool token_lifetime draft_id req =
             let main'_image = foundParametr "main_image" f
             let images = foundParametr "images" f
             let main_image_triple =
-                    if fileContent (Prelude.head main'_image) == ""
+                    if isNothing $ fileContent <$> saveHead main'_image
                         then Nothing
                         else Just $ toImage $ Prelude.head main'_image
             let images_list =
-                    if fileContent (Prelude.head images) == ""
+                    if isNothing $ fileContent <$> saveHead images
                         then Nothing
                         else Just $ toImage <$> images
-            let con_type =
-                    any
-                        (/= "image")
-                        (BC.take 5 . image_content_type <$>
-                         fromMaybe [Image "" "" (Binary "")] images_list)
-            if ((BC.take
-                     5
-                     (image_content_type $
-                      fromMaybe (Image "" "" (Binary "")) main_image_triple) /=
-                 "image") &&
-                main_image_triple /= Just (Image "" "" (Binary ""))) ||
-               (fromMaybe [] images_list /= [] && con_type)
+            if checkNotImageMaybe main_image_triple ||
+               checkNotImages images_list
                 then do
                     logError hLogger "Bad image file"
                     return $ responseBadRequest "Bad image file"
