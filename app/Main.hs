@@ -40,5 +40,5 @@ main = do
                  (setMaximumBodyFlush
                       (server_maximum_body_flush . server_conf $ hConfig) $
                   setPort (server_port . server_conf $ hConfig) defaultSettings) $
-             routes hLogger token_lifetime hOperations
+             routes token_lifetime hOperations
         else logError hLogger "Database not exist"
