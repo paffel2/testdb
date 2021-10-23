@@ -12,56 +12,84 @@ import           Controllers.Tags            (tagsRouter)
 import           Controllers.Users           (deleteUser, login, profile,
                                               registration)
 import qualified Data.ByteString.Char8       as BC
-import           Logger                      (LoggerHandle)
 import           Network.Wai                 (Application,
                                               Request (rawPathInfo), Response)
-import           OperationsHandle            (OperationsHandle (authors_handle, categories_handle, drafts_handle, images_handle, news_and_comments_handle, tags_handle, users_handle))
+import           OperationsHandle            (OperationsHandle (authors_handle, categories_handle, drafts_handle, images_handle, logger_handle, news_and_comments_handle, tags_handle, users_handle))
 import           Responses                   (responseNotFound)
 import           Types.Other                 (TokenLifeTime)
 
 routes' ::
-       MonadIO m
-    => LoggerHandle m
-    -> TokenLifeTime
-    -> OperationsHandle m
-    -> Request
-    -> m Response
-routes' hLogger token_lifetime operations req =
+       MonadIO m => TokenLifeTime -> OperationsHandle m -> Request -> m Response
+routes' token_lifetime operations req =
     case pathHead of
         "news" ->
             newsAndCommentsRouter
-                hLogger
+                (logger_handle operations)
                 (news_and_comments_handle operations)
                 token_lifetime
                 req
-        "login" -> login hLogger (users_handle operations) req
-        "registration" -> registration hLogger (users_handle operations) req
+        "login" ->
+            login (logger_handle operations) (users_handle operations) req
+        "registration" ->
+            registration
+                (logger_handle operations)
+                (users_handle operations)
+                req
         "deleteUser" ->
-            deleteUser hLogger (users_handle operations) token_lifetime req
+            deleteUser
+                (logger_handle operations)
+                (users_handle operations)
+                token_lifetime
+                req
         "categories" ->
             categoriesRouter
-                hLogger
+                (logger_handle operations)
                 (categories_handle operations)
                 token_lifetime
                 req
         "profile" ->
-            profile hLogger (users_handle operations) token_lifetime req
+            profile
+                (logger_handle operations)
+                (users_handle operations)
+                token_lifetime
+                req
         "drafts" ->
-            draftsRouter hLogger (drafts_handle operations) token_lifetime req
+            draftsRouter
+                (logger_handle operations)
+                (drafts_handle operations)
+                token_lifetime
+                req
         "new_draft" ->
-            createDraft hLogger (drafts_handle operations) token_lifetime req
-        "tags" -> tagsRouter hLogger (tags_handle operations) token_lifetime req
-        "image" -> imagesRouter hLogger (images_handle operations) req
+            createDraft
+                (logger_handle operations)
+                (drafts_handle operations)
+                token_lifetime
+                req
+        "tags" ->
+            tagsRouter
+                (logger_handle operations)
+                (tags_handle operations)
+                token_lifetime
+                req
+        "image" ->
+            imagesRouter
+                (logger_handle operations)
+                (images_handle operations)
+                req
         --"initDb" -> initDb hLogger (init_db_handle operations) pool req
         "authors" ->
-            authorsRouter hLogger (authors_handle operations) token_lifetime req
+            authorsRouter
+                (logger_handle operations)
+                (authors_handle operations)
+                token_lifetime
+                req
         _ -> return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path
     pathHead = head pathElems
 
-routes :: LoggerHandle IO -> TokenLifeTime -> OperationsHandle IO -> Application
-routes hLogger token_lifetime operations req respond = do
-    resp <- routes' hLogger token_lifetime operations req
+routes :: TokenLifeTime -> OperationsHandle IO -> Application
+routes token_lifetime operations req respond = do
+    resp <- routes' token_lifetime operations req
     respond resp
