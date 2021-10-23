@@ -4,6 +4,7 @@ module HelpFunction where
 
 import Config (DatabaseConf(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Lazy as LBS
 import Data.List (sort)
 import Data.String (IsString(fromString))
 import qualified Data.Text as T
@@ -88,3 +89,7 @@ getMaybeLine = do
     if T.null line
         then return Nothing
         else return $ Just line
+
+saveHead :: [a] -> Maybe a
+saveHead [] = Nothing
+saveHead (x:xs) = Just x

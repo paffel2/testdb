@@ -6,22 +6,21 @@ import Control.Monad (join)
 import Control.Monad.IO.Class (MonadIO(..))
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Data.Time (getCurrentTime)
-import Database.PostgreSQL.Simple.Types (Binary(Binary))
+import Database.PostgreSQL.Simple.Types (Binary(..))
 import HelpFunction
     ( readByteStringListInt
     , readByteStringToDay
     , readByteStringToId
     , readByteStringToInt
     )
+
 import Network.Wai (Request(queryString))
-import Network.Wai.Parse
-    ( FileInfo(fileContent, fileContentType, fileName)
-    , Param
-    )
+import Network.Wai.Parse (FileInfo(..), Param)
+
 import Types.Authors
     ( AuthorLogin(AuthorLogin)
     , CreateAuthor(..)
@@ -33,7 +32,7 @@ import Types.Categories
     , EditCategory(..)
     )
 import Types.Drafts (DraftInf(..), DraftTags(DraftTags))
-import Types.Images (Image(Image))
+import Types.Images (Image(..))
 import Types.NewsAndComments
     ( AfterDateFilterParam(AfterDateFilterParam)
     , AuthorFilterParam(AuthorFilterParam)
@@ -270,3 +269,24 @@ toDraftInf req params =
 
 toDraftTags :: [Param] -> Maybe DraftTags
 toDraftTags params = DraftTags <$> lookup "tags" params
+
+checkNotImage :: Image -> Bool
+checkNotImage image
+    | image_file_name image == "" = True
+    | image_content_type image == "" = True
+    | fromBinary (image_content image) == "" = True
+    | BC.take 5 (image_content_type image) /= "image" = True
+    | otherwise = False
+
+checkNotImageMaybe :: Maybe Image -> Bool
+checkNotImageMaybe (Just image)
+    | image_file_name image == "" = True
+    | image_content_type image == "" = True
+    | fromBinary (image_content image) == "" = True
+    | BC.take 5 (image_content_type image) /= "image" = True
+    | otherwise = False
+checkNotImageMaybe _ = False
+
+checkNotImages :: Maybe [Image] -> Bool
+checkNotImages (Just list) = or (checkNotImage <$> list)
+checkNotImages _ = False
