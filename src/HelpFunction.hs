@@ -2,7 +2,7 @@
 
 module HelpFunction where
 
-import Config (ConfigModules(db_host, db_login, db_name, db_password, db_port))
+import Config (DatabaseConf(db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString.Char8 as BC
 import Data.List (sort)
 import Data.String (IsString(fromString))
@@ -39,7 +39,7 @@ readByteStringToDay bs = readMaybe $ BC.unpack bs
 toQuery :: BC.ByteString -> Query
 toQuery s = fromString $ BC.unpack s
 
-dbAddress :: ConfigModules -> BC.ByteString
+dbAddress :: DatabaseConf -> BC.ByteString
 dbAddress confDb =
     BC.concat
         [ "host="
@@ -55,7 +55,7 @@ dbAddress confDb =
         , "'"
         ]
 
-dbServerAddress :: ConfigModules -> BC.ByteString
+dbServerAddress :: DatabaseConf -> BC.ByteString
 dbServerAddress confDb =
     BC.concat
         [ "host="
