@@ -1,46 +1,32 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Databaseoperations.Drafts where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple
-    ( Connection
-    , In(In)
-    , Only(..)
-    , SqlError(sqlErrorMsg, sqlState)
-    )
+import           Control.Exception          (catch)
+import qualified Data.ByteString.Char8      as BC
+import qualified Data.ByteString.Lazy       as LBS
+import           Data.Maybe                 (fromMaybe)
+import           Data.Pool                  (Pool)
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as E
+import           Database.PostgreSQL.Simple (Connection, In (In), Only (..),
+                                             SqlError (sqlErrorMsg, sqlState))
 
-import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logDebug, logError, logInfo)
-import PostgreSqlWithPool
-    ( executeManyWithPool
-    , executeWithPool
-    , execute_WithPool
-    , queryWithPool
-    )
-import Types.Drafts
-    ( Draft
-    , DraftArray(DraftArray)
-    , DraftInf(DraftInf)
-    , DraftTags(from_draft_tags)
-    )
-import Types.Images (Image)
-import Types.Other
-    ( ErrorMessage
-    , Id(from_id)
-    , SendId
-    , SuccessMessage
-    , Token
-    , TokenLifeTime
-    )
-import Types.Users (TokenProfile(TokenProfile))
+import           HelpFunction               (readByteStringToInt, toQuery)
+import           Logger                     (Handle, logDebug, logError,
+                                             logInfo)
+import           PostgreSqlWithPool         (executeManyWithPool,
+                                             executeWithPool, execute_WithPool,
+                                             queryWithPool)
+import           Types.Drafts               (Draft, DraftArray (DraftArray),
+                                             DraftInf (DraftInf),
+                                             DraftTags (from_draft_tags))
+import           Types.Images               (Image)
+import           Types.Other                (ErrorMessage, Id (from_id), SendId,
+                                             SuccessMessage, Token,
+                                             TokenLifeTime)
+import           Types.Users                (TokenProfile (TokenProfile))
 
 checkAuthor ::
        Handle IO
@@ -74,15 +60,15 @@ checkAuthor hLogger pool token_lifetime (Just token') =
             ]
 
 getDraftsByAuthorToken ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> IO (Either ErrorMessage DraftArray)
-getDraftsByAuthorToken hLogger _ _ Nothing = do
+getDraftsByAuthorToken _ hLogger _ Nothing = do
     logError hLogger "No token parameter"
     return $ Left "No token parameter"
-getDraftsByAuthorToken hLogger pool token_lifetime (Just token') =
+getDraftsByAuthorToken pool hLogger token_lifetime (Just token') =
     catch
         (do rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
             if Prelude.null rows
@@ -105,16 +91,16 @@ getDraftsByAuthorToken hLogger pool token_lifetime (Just token') =
             ]
 
 deleteDraftFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Id
     -> IO (Either ErrorMessage SuccessMessage)
-deleteDraftFromDb hLogger _ _ _ Nothing = do
+deleteDraftFromDb _ hLogger _ _ Nothing = do
     logError hLogger "No draft_id parameter"
     return $ Left "No draft_id parameter"
-deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) =
+deleteDraftFromDb pool hLogger token_lifetime token' (Just draft_id) =
     catch
         (do ch <- checkAuthor hLogger pool token_lifetime token'
             case ch of
@@ -139,16 +125,16 @@ deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) =
         return $ Left "Database error"
 
 getDraftByIdFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Id
     -> IO (Either ErrorMessage Draft)
-getDraftByIdFromDb hLogger _ _ Nothing _ = do
+getDraftByIdFromDb _ hLogger _ Nothing _ = do
     logError hLogger "No token parameter"
     return $ Left "No Token parameter"
-getDraftByIdFromDb hLogger pool token_lifetime token' draft_id = do
+getDraftByIdFromDb pool hLogger token_lifetime token' draft_id = do
     ch_author <- checkAuthor hLogger pool token_lifetime token'
     case ch_author of
         Left bs -> return $ Left bs
@@ -182,30 +168,30 @@ getDraftByIdFromDb hLogger pool token_lifetime token' draft_id = do
             ]
 
 createDraftOnDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> DraftInf
     -> Maybe DraftTags
     -> Maybe Image
     -> Maybe [Image]
     -> IO (Either ErrorMessage SendId)
-createDraftOnDb hLogger _ _ (DraftInf Nothing _ _ _) _ _ _ = do
+createDraftOnDb _ hLogger _ (DraftInf Nothing _ _ _) _ _ _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-createDraftOnDb hLogger _ _ (DraftInf _ Nothing _ _) _ _ _ = do
+createDraftOnDb _ hLogger _ (DraftInf _ Nothing _ _) _ _ _ = do
     logError hLogger "No category field"
     return $ Left "No category field"
-createDraftOnDb hLogger _ _ _ Nothing _ _ = do
+createDraftOnDb _ hLogger _ _ Nothing _ _ = do
     logError hLogger "No tags field"
     return $ Left "No tags field"
-createDraftOnDb hLogger _ _ (DraftInf _ _ Nothing _) _ _ _ = do
+createDraftOnDb _ hLogger _ (DraftInf _ _ Nothing _) _ _ _ = do
     logError hLogger "No short_title field"
     return $ Left "No short_title field"
-createDraftOnDb hLogger _ _ (DraftInf _ _ _ Nothing) _ _ _ = do
+createDraftOnDb _ hLogger _ (DraftInf _ _ _ Nothing) _ _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
-createDraftOnDb hLogger pool token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list = do
+createDraftOnDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list = do
     logInfo hLogger "Someone try add new draft"
     draft_id <- newDraft
     c <- createTagConnections draft_id
@@ -244,9 +230,6 @@ createDraftOnDb hLogger pool token_lifetime draft_upd@(DraftInf (Just _) (Just _
                     let err = E.decodeUtf8 $ sqlErrorMsg e
                     logError hLogger err
                     return $ Left $ LBS.fromStrict $ sqlErrorMsg e
-                    --logError hLogger $
-                        --T.concat ["Database error ", T.pack $ show errStateInt]
-                    --return $ Left "Database error"
     createTagConnections (Left message) = return $ Left message
     createTagConnections (Right draft_id) =
         catch
@@ -328,8 +311,8 @@ createDraftOnDb hLogger pool token_lifetime draft_upd@(DraftInf (Just _) (Just _
             return $ Left "Database error"
 
 updateDraftInDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> DraftInf
     -> Maybe DraftTags
@@ -337,22 +320,22 @@ updateDraftInDb ::
     -> Maybe [Image]
     -> Id
     -> IO (Either ErrorMessage SuccessMessage)
-updateDraftInDb hLogger _ _ (DraftInf Nothing _ _ _) _ _ _ _ = do
+updateDraftInDb _ hLogger _ (DraftInf Nothing _ _ _) _ _ _ _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-updateDraftInDb hLogger _ _ (DraftInf _ Nothing _ _) _ _ _ _ = do
+updateDraftInDb _ hLogger _ (DraftInf _ Nothing _ _) _ _ _ _ = do
     logError hLogger "No category field"
     return $ Left "No category field"
-updateDraftInDb hLogger _ _ _ Nothing _ _ _ = do
+updateDraftInDb _ hLogger _ _ Nothing _ _ _ = do
     logError hLogger "No tags field"
     return $ Left "No tags field"
-updateDraftInDb hLogger _ _ (DraftInf _ _ Nothing _) _ _ _ _ = do
+updateDraftInDb _ hLogger _ (DraftInf _ _ Nothing _) _ _ _ _ = do
     logError hLogger "No short_title field"
     return $ Left "No short_title field"
-updateDraftInDb hLogger _ _ (DraftInf _ _ _ Nothing) _ _ _ _ = do
+updateDraftInDb _ hLogger _ (DraftInf _ _ _ Nothing) _ _ _ _ = do
     logError hLogger "No text field"
     return $ Left "No text field"
-updateDraftInDb hLogger pool token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list draft_id = do
+updateDraftInDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list draft_id = do
     logInfo hLogger "Someone try update draft"
     u <- updateDraft
     dt <- deleteTagConnections u
@@ -551,13 +534,13 @@ getTagsIds hLogger pool tags_bs = do
             return $ Right $ fromOnly <$> rows
 
 publicNewsOnDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Id
     -> IO (Either ErrorMessage SendId)
-publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
+publicNewsOnDb pool hLogger token_lifetime token' draft_id = do
     ch <- checkAuthor hLogger pool token_lifetime token'
     case ch of
         Left bs -> return $ Left bs

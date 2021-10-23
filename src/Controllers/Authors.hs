@@ -2,52 +2,35 @@
 
 module Controllers.Authors where
 
-import Control.Monad.IO.Class (MonadIO(..))
-import Data.Aeson (encode)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Pool (Pool)
-import Database.PostgreSQL.Simple (Connection)
-import FromRequest
-    ( takeToken
-    , toAuthorLogin
-    , toCreateAuthor
-    , toEditAuthor
-    , toPage
-    )
-import Logger (Handle, logDebug, logError, logInfo)
-import Network.HTTP.Types.Method
-    ( methodDelete
-    , methodGet
-    , methodPost
-    , methodPut
-    )
-import Network.Wai (Request(rawPathInfo, requestMethod), Response)
-import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import OperationsHandle
-    ( AuthorsHandle(create_author_in_db, delete_author_in_db,
-              edit_author_in_db, get_authors_list)
-    )
-import Responses
-    ( responseBadRequest
-    , responseCreated
-    , responseForbidden
-    , responseMethodNotAllowed
-    , responseNotFound
-    , responseOKJSON
-    )
+import           Control.Monad.IO.Class    (MonadIO (..))
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Char8     as BC
+import qualified Data.ByteString.Lazy      as LBS
+import           FromRequest               (takeToken, toAuthorLogin,
+                                            toCreateAuthor, toEditAuthor,
+                                            toPage)
+import           Logger                    (Handle, logDebug, logError, logInfo)
+import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
+                                            methodPut)
+import           Network.Wai               (Request (rawPathInfo, requestMethod),
+                                            Response)
+import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
+import           OperationsHandle          (AuthorsHandle (create_author_in_db, delete_author_in_db, edit_author_in_db, get_authors_list))
+import           Responses                 (responseBadRequest, responseCreated,
+                                            responseForbidden,
+                                            responseMethodNotAllowed,
+                                            responseNotFound, responseOKJSON)
 
-import Types.Other (TokenLifeTime)
+import           Types.Other               (TokenLifeTime)
 
 newAuthor ::
        MonadIO m
     => Handle m
     -> AuthorsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-newAuthor hLogger methods pool token_lifetime req =
+newAuthor hLogger methods token_lifetime req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -62,7 +45,6 @@ newAuthor hLogger methods pool token_lifetime req =
                 create_author_in_db
                     methods
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     create_author_params
@@ -84,11 +66,10 @@ deleteAuthor ::
        MonadIO m
     => Handle m
     -> AuthorsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-deleteAuthor hLogger methods pool token_lifetime req =
+deleteAuthor hLogger methods token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -102,7 +83,6 @@ deleteAuthor hLogger methods pool token_lifetime req =
                 delete_author_in_db
                     methods
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     author_login'
@@ -121,20 +101,15 @@ deleteAuthor hLogger methods pool token_lifetime req =
                     return $ responseCreated bs
 
 sendAuthorsList ::
-       MonadIO m
-    => Handle m
-    -> AuthorsHandle m
-    -> Pool Connection
-    -> Request
-    -> m Response
-sendAuthorsList hLogger methods pool req = do
+       MonadIO m => Handle m -> AuthorsHandle m -> Request -> m Response
+sendAuthorsList hLogger methods req = do
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing data for sending authors list"
-            result <- get_authors_list methods hLogger pool pageParam
+            result <- get_authors_list methods hLogger pageParam
             case result of
                 Left bs -> do
                     logError hLogger "Authors list not sended."
@@ -149,11 +124,10 @@ editAuthor ::
        MonadIO m
     => Handle m
     -> AuthorsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-editAuthor hLogger methods pool token_lifetime req = do
+editAuthor hLogger methods token_lifetime req = do
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
@@ -167,7 +141,6 @@ editAuthor hLogger methods pool token_lifetime req = do
                 edit_author_in_db
                     methods
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     edit_params
@@ -189,19 +162,17 @@ authorsRouter ::
        MonadIO m
     => Handle m
     -> AuthorsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-authorsRouter hLogger methods pool token_lifetime req
-    | pathElemsC == 1 = sendAuthorsList hLogger methods pool req
+authorsRouter hLogger methods token_lifetime req
+    | pathElemsC == 1 = sendAuthorsList hLogger methods req
     | pathElemsC == 2 =
         case last pathElems of
-            "delete_author" ->
-                deleteAuthor hLogger methods pool token_lifetime req
-            "create_author" -> newAuthor hLogger methods pool token_lifetime req
-            "edit_author" -> editAuthor hLogger methods pool token_lifetime req
-            _ -> return $ responseNotFound "Not Found"
+            "delete_author" -> deleteAuthor hLogger methods token_lifetime req
+            "create_author" -> newAuthor hLogger methods token_lifetime req
+            "edit_author"   -> editAuthor hLogger methods token_lifetime req
+            _               -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

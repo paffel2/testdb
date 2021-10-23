@@ -2,42 +2,35 @@
 
 module Databaseoperations.Categories where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple (Connection, Only(..), SqlError(sqlState))
-import Databaseoperations.CheckAdmin (checkAdmin)
-import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logDebug, logError, logInfo)
-import PostgreSqlWithPool
-    ( executeWithPool
-    , queryWithPool
-    , query_WithPool
-    , returningWithPool
-    )
-import Types.Categories
-    ( CategoryName(..)
-    , CreateCategory(CreateCategory)
-    , EditCategory(EditCategory)
-    , ListOfCategories(ListOfCategories)
-    )
-import Types.Other
-    ( ErrorMessage
-    , Page(from_page)
-    , SuccessMessage
-    , Token
-    , TokenLifeTime
-    )
+import           Control.Exception             (catch)
+import qualified Data.ByteString.Char8         as BC
+import qualified Data.ByteString.Lazy          as LBS
+import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Pool                     (Pool)
+import qualified Data.Text                     as T
+import           Database.PostgreSQL.Simple    (Connection, Only (..),
+                                                SqlError (sqlState))
+import           Databaseoperations.CheckAdmin (checkAdmin)
+import           HelpFunction                  (readByteStringToInt, toQuery)
+import           Logger                        (Handle, logDebug, logError,
+                                                logInfo)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool,
+                                                returningWithPool)
+import           Types.Categories              (CategoryName (..),
+                                                CreateCategory (CreateCategory),
+                                                EditCategory (EditCategory),
+                                                ListOfCategories (ListOfCategories))
+import           Types.Other                   (ErrorMessage, Page (from_page),
+                                                SuccessMessage, Token,
+                                                TokenLifeTime)
 
 getCategoriesListFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe Page
     -> IO (Either ErrorMessage ListOfCategories)
-getCategoriesListFromDb hLogger pool pageParam =
+getCategoriesListFromDb pool hLogger pageParam =
     catch
         (do rows <- query_WithPool pool q
             return $ Right (ListOfCategories rows)) $ \e -> do
@@ -54,31 +47,25 @@ getCategoriesListFromDb hLogger pool pageParam =
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page pageParam - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page pageParam)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
             ["select category_name from categories order by category_name", pg]
 
 createCategoryOnDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> CreateCategory
     -> IO (Either ErrorMessage SuccessMessage)
-createCategoryOnDb hLogger _ _ _ (CreateCategory Nothing _) = do
+createCategoryOnDb _ hLogger _ _ (CreateCategory Nothing _) = do
     logError hLogger "No category_name field"
     return $ Left "No category_name field"
-createCategoryOnDb hLogger _ _ _ (CreateCategory _ Nothing) = do
+createCategoryOnDb _ hLogger _ _ (CreateCategory _ Nothing) = do
     logError hLogger "No maternal_category_name field"
     return $ Left "No maternal_category_name field"
-createCategoryOnDb hLogger pool token_lifetime token' (CreateCategory (Just category'_name) (Just maternal_name)) =
+createCategoryOnDb pool hLogger token_lifetime token' (CreateCategory (Just category'_name) (Just maternal_name)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -93,7 +80,7 @@ createCategoryOnDb hLogger pool token_lifetime token' (CreateCategory (Just cate
             T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23505 -> return $ Left "Category already exist"
-            _ -> return $ Left "Database error"
+            _     -> return $ Left "Database error"
   where
     q =
         "insert into categories (category_name, maternal_category) values (?,?) returning category_id"
@@ -125,16 +112,16 @@ createCategoryOnDb hLogger pool token_lifetime token' (CreateCategory (Just cate
                     BC.pack $ show (fromOnly $ Prelude.head rows)
 
 deleteCategoryFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe CategoryName
     -> IO (Either ErrorMessage SuccessMessage)
-deleteCategoryFromDb hLogger _ _ _ Nothing = do
+deleteCategoryFromDb _ hLogger _ _ Nothing = do
     logError hLogger "No category_name parametr"
     return $ Left "No category_name parametr"
-deleteCategoryFromDb hLogger pool token_lifetime token (Just categoryName) =
+deleteCategoryFromDb pool hLogger token_lifetime token (Just categoryName) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -163,19 +150,19 @@ deleteCategoryFromDb hLogger pool token_lifetime token (Just categoryName) =
         return $ Left "Database error"
 
 editCategoryOnDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> EditCategory
     -> IO (Either ErrorMessage SuccessMessage)
-editCategoryOnDb hLogger _ _ _ (EditCategory Nothing _ _) = do
+editCategoryOnDb _ hLogger _ _ (EditCategory Nothing _ _) = do
     logError hLogger "No old_name parametr"
     return $ Left "No old_name parametr"
-editCategoryOnDb hLogger _ _ _ (EditCategory (Just (CategoryName "")) (Just _) (Just _)) = do
+editCategoryOnDb _ hLogger _ _ (EditCategory (Just (CategoryName "")) (Just _) (Just _)) = do
     logError hLogger "Empty old name parameter"
     return $ Left "Empty old name parameter"
-editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just (CategoryName ""))) =
+editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just (CategoryName ""))) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -208,8 +195,8 @@ editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name)
             T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23505 -> return $ Left "Category already exist"
-            _ -> return $ Left "Database error"
-editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name) (Just (CategoryName "")) (Just new'_maternal)) =
+            _     -> return $ Left "Database error"
+editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name) (Just (CategoryName "")) (Just new'_maternal)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -242,11 +229,11 @@ editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name)
             T.concat ["Database error ", T.pack $ show errStateInt]
         case errStateInt of
             23503 -> return $ Left "Maternal category not exist"
-            _ -> return $ Left "Database error"
+            _     -> return $ Left "Database error"
   where
-    myHead [] = Only (-1)
+    myHead []    = Only (-1)
     myHead (x:_) = x
-editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just new'_maternal)) =
+editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just new'_maternal)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -287,10 +274,10 @@ editCategoryOnDb hLogger pool token_lifetime token (EditCategory (Just old_name)
         case errStateInt of
             23505 -> return $ Left "Category already exist"
             23503 -> return $ Left "Maternal category not exist"
-            _ -> return $ Left "Database error"
+            _     -> return $ Left "Database error"
   where
-    myHead [] = Only (-1)
+    myHead []    = Only (-1)
     myHead (x:_) = x
-editCategoryOnDb hLogger _ _ _ _ = do
+editCategoryOnDb _ hLogger _ _ _ = do
     logError hLogger "No update parameters"
     return $ Left "No update parameters"

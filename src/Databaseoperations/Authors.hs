@@ -2,52 +2,43 @@
 
 module Databaseoperations.Authors where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple
-    ( Connection
-    , Only(fromOnly)
-    , SqlError(sqlState)
-    )
-import Databaseoperations.CheckAdmin (checkAdmin)
-import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logError)
-import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types.Authors
-    ( AuthorLogin
-    , AuthorsList(AuthorsList)
-    , CreateAuthor(CreateAuthor)
-    , EditAuthor(EditAuthor)
-    )
-import Types.Other
-    ( ErrorMessage
-    , Page(from_page)
-    , SendId
-    , SuccessMessage
-    , Token
-    , TokenLifeTime
-    )
+import           Control.Exception             (catch)
+import qualified Data.ByteString.Char8         as BC
+import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Pool                     (Pool)
+import qualified Data.Text                     as T
+import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
+                                                SqlError (sqlState))
+import           Databaseoperations.CheckAdmin (checkAdmin)
+import           HelpFunction                  (readByteStringToInt, toQuery)
+import           Logger                        (Handle, logError)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool)
+import           Types.Authors                 (AuthorLogin,
+                                                AuthorsList (AuthorsList),
+                                                CreateAuthor (CreateAuthor),
+                                                EditAuthor (EditAuthor))
+import           Types.Other                   (ErrorMessage, Page (from_page),
+                                                SendId, SuccessMessage, Token,
+                                                TokenLifeTime)
 
 createAuthorInDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> CreateAuthor
     -> IO (Either ErrorMessage SendId)
-createAuthorInDb hLogger _ _ Nothing _ = do
+createAuthorInDb _ hLogger _ Nothing _ = do
     logError hLogger "No token field"
     return $ Left "No token field"
-createAuthorInDb hLogger _ _ _ (CreateAuthor Nothing _) = do
+createAuthorInDb _ hLogger _ _ (CreateAuthor Nothing _) = do
     logError hLogger "No login field"
     return $ Left "No login field"
-createAuthorInDb hLogger _ _ _ (CreateAuthor _ Nothing) = do
+createAuthorInDb _ hLogger _ _ (CreateAuthor _ Nothing) = do
     logError hLogger "No description field"
     return $ Left "No description field"
-createAuthorInDb hLogger pool token_lifetime token' create_author_params =
+createAuthorInDb pool hLogger token_lifetime token' create_author_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -78,19 +69,19 @@ createAuthorInDb hLogger pool token_lifetime token' create_author_params =
             ]
 
 deleteAuthorInDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe AuthorLogin
     -> IO (Either ErrorMessage SuccessMessage)
-deleteAuthorInDb hLogger _ _ Nothing _ = do
+deleteAuthorInDb _ hLogger _ Nothing _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-deleteAuthorInDb hLogger _ _ _ Nothing = do
+deleteAuthorInDb _ hLogger _ _ Nothing = do
     logError hLogger "No login field"
     return $ Left "No login field"
-deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login') =
+deleteAuthorInDb pool hLogger token_lifetime token' (Just author_login') =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -117,11 +108,11 @@ deleteAuthorInDb hLogger pool token_lifetime token' (Just author_login') =
             ]
 
 getAuthorsList ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe Page
     -> IO (Either ErrorMessage AuthorsList)
-getAuthorsList hLogger pool page_p' =
+getAuthorsList pool hLogger page_p' =
     catch
         (do rows <- query_WithPool pool q
             return $ Right $ AuthorsList rows) $ \e -> do
@@ -144,30 +135,24 @@ getAuthorsList hLogger pool page_p' =
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p' - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p')) -
-                        1) *
-                       10
-                     ]-}
 
 editAuthorInDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> EditAuthor
     -> IO (Either ErrorMessage SuccessMessage)
-editAuthorInDb hLogger _ _ _ (EditAuthor Nothing _) = do
+editAuthorInDb _ hLogger _ _ (EditAuthor Nothing _) = do
     logError hLogger "No new_description field"
     return $ Left "No new_description field"
-editAuthorInDb hLogger _ _ _ (EditAuthor _ Nothing) = do
+editAuthorInDb _ hLogger _ _ (EditAuthor _ Nothing) = do
     logError hLogger "No author_id field"
     return $ Left "No author_id field"
-editAuthorInDb hLogger _ _ Nothing _ = do
+editAuthorInDb _ hLogger _ Nothing _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
-editAuthorInDb hLogger pool token_lifetime token edit_params =
+editAuthorInDb pool hLogger token_lifetime token edit_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of

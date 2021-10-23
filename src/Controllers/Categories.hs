@@ -2,55 +2,37 @@
 
 module Controllers.Categories where
 
-import Control.Monad.IO.Class (MonadIO(..))
-import Data.Aeson (encode)
-import qualified Data.ByteString.Char8 as BC
-import Data.Pool (Pool)
-import Database.PostgreSQL.Simple (Connection)
-import FromRequest
-    ( takeToken
-    , toCategoryName
-    , toCreateCategory
-    , toEditCategory
-    , toPage
-    )
-import Logger (Handle, logError, logInfo)
-import Network.HTTP.Types.Method
-    ( methodDelete
-    , methodGet
-    , methodPost
-    , methodPut
-    )
-import Network.Wai (Request(rawPathInfo, requestMethod), Response)
-import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import OperationsHandle
-    ( CategoriesHandle(create_category_on_db, delete_category_from_db,
-                 edit_category_on_db, get_categories_list_from_db)
-    )
-import Responses
-    ( responseBadRequest
-    , responseCreated
-    , responseForbidden
-    , responseMethodNotAllowed
-    , responseNotFound
-    , responseOKJSON
-    , responseOk
-    )
-import Types.Other (TokenLifeTime)
+import           Control.Monad.IO.Class     (MonadIO (..))
+import           Data.Aeson                 (encode)
+import qualified Data.ByteString.Char8      as BC
+import           FromRequest                (takeToken, toCategoryName,
+                                             toCreateCategory, toEditCategory,
+                                             toPage)
+import           Logger                     (Handle, logError, logInfo)
+import           Network.HTTP.Types.Method  (methodDelete, methodGet,
+                                             methodPost, methodPut)
+import           Network.Wai                (Request (rawPathInfo, requestMethod),
+                                             Response)
+import           Network.Wai.Parse          (lbsBackEnd, parseRequestBody)
+import           OperationsHandle           (CategoriesHandle (create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
+import           Responses                  (responseBadRequest,
+                                             responseCreated, responseForbidden,
+                                             responseMethodNotAllowed,
+                                             responseNotFound, responseOKJSON,
+                                             responseOk)
+import           Types.Other                (TokenLifeTime)
 
 sendCategoriesList ::
        (Monad m, MonadIO m)
     => Handle m
     -> CategoriesHandle m
-    -> Pool Connection
     -> Request
     -> m Response
-sendCategoriesList hLogger operations pool req =
+sendCategoriesList hLogger operations req =
     if requestMethod req == methodGet
         then do
             logInfo hLogger "Preparing data for sending categories list"
-            result <-
-                get_categories_list_from_db operations hLogger pool pageParam
+            result <- get_categories_list_from_db operations hLogger pageParam
             case result of
                 Left bs -> do
                     logError hLogger "Categories list not sended."
@@ -68,11 +50,10 @@ createCategory ::
        MonadIO m
     => Handle m
     -> CategoriesHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-createCategory hLogger operations pool token_lifetime req =
+createCategory hLogger operations token_lifetime req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -86,7 +67,6 @@ createCategory hLogger operations pool token_lifetime req =
                 create_category_on_db
                     operations
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     create_category_params
@@ -108,11 +88,10 @@ deleteCategory ::
        MonadIO m
     => Handle m
     -> CategoriesHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-deleteCategory hLogger operations pool token_lifetime req =
+deleteCategory hLogger operations token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -126,7 +105,6 @@ deleteCategory hLogger operations pool token_lifetime req =
                 delete_category_from_db
                     operations
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     category_name
@@ -148,11 +126,10 @@ editCategory ::
        MonadIO m
     => Handle m
     -> CategoriesHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-editCategory hLogger operations pool token_lifetime req = do
+editCategory hLogger operations token_lifetime req = do
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
@@ -166,7 +143,6 @@ editCategory hLogger operations pool token_lifetime req = do
                 edit_category_on_db
                     operations
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     edit_category_parameters
@@ -188,20 +164,19 @@ categoriesRouter ::
        MonadIO m
     => Handle m
     -> CategoriesHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-categoriesRouter hLogger operations pool token_lifetime req
-    | pathElemsC == 1 = sendCategoriesList hLogger operations pool req
+categoriesRouter hLogger operations token_lifetime req
+    | pathElemsC == 1 = sendCategoriesList hLogger operations req
     | pathElemsC == 2 =
         case last pathElems of
             "delete_category" ->
-                deleteCategory hLogger operations pool token_lifetime req
+                deleteCategory hLogger operations token_lifetime req
             "create_category" ->
-                createCategory hLogger operations pool token_lifetime req
+                createCategory hLogger operations token_lifetime req
             "edit_category" ->
-                editCategory hLogger operations pool token_lifetime req
+                editCategory hLogger operations token_lifetime req
             _ -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where

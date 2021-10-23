@@ -2,54 +2,51 @@
 
 module FromRequest where
 
-import Control.Monad (join)
-import Control.Monad.IO.Class (MonadIO(..))
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe, isNothing)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Data.Time (getCurrentTime)
-import Database.PostgreSQL.Simple.Types (Binary(..))
-import HelpFunction
-    ( readByteStringListInt
-    , readByteStringToDay
-    , readByteStringToId
-    , readByteStringToInt
-    )
+import           Control.Monad                    (join)
+import           Control.Monad.IO.Class           (MonadIO (..))
+import qualified Data.ByteString.Char8            as BC
+import qualified Data.ByteString.Lazy             as LBS
+import           Data.Maybe                       (fromMaybe)
+import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as E
+import           Data.Time                        (getCurrentTime)
+import           Database.PostgreSQL.Simple.Types (Binary (..))
+import           HelpFunction                     (readByteStringListInt,
+                                                   readByteStringToDay,
+                                                   readByteStringToId,
+                                                   readByteStringToInt)
 
-import Network.Wai (Request(queryString))
-import Network.Wai.Parse (FileInfo(..), Param)
+import           Network.Wai                      (Request (queryString))
+import           Network.Wai.Parse                (FileInfo (..), Param)
 
-import Types.Authors
-    ( AuthorLogin(AuthorLogin)
-    , CreateAuthor(..)
-    , EditAuthor(..)
-    )
-import Types.Categories
-    ( CategoryName(CategoryName)
-    , CreateCategory(..)
-    , EditCategory(..)
-    )
-import Types.Drafts (DraftInf(..), DraftTags(DraftTags))
-import Types.Images (Image(..))
-import Types.NewsAndComments
-    ( AfterDateFilterParam(AfterDateFilterParam)
-    , AuthorFilterParam(AuthorFilterParam)
-    , BeforeDateFilterParam(BeforeDateFilterParam)
-    , CategoryFilterParam(CategoryFilterParam)
-    , CommentText(CommentText)
-    , ContentFilterParam(ContentFilterParam)
-    , DateFilterParam(DateFilterParam)
-    , Sort(Sort)
-    , TagAllFilterParam(TagAllFilterParam)
-    , TagFilterParam(TagFilterParam)
-    , TagInFilterParam(TagInFilterParam)
-    , TitleFilterParam(TitleFilterParam)
-    )
-import Types.Other (Id, Page(Page), Token(Token))
-import Types.Tags (EditTag(..), TagName(TagName))
-import Types.Users (CreateUser(..), Login(Login), Password(Password))
+import           Types.Authors                    (AuthorLogin (AuthorLogin),
+                                                   CreateAuthor (..),
+                                                   EditAuthor (..))
+import           Types.Categories                 (CategoryName (CategoryName),
+                                                   CreateCategory (..),
+                                                   EditCategory (..))
+import           Types.Drafts                     (DraftInf (..),
+                                                   DraftTags (DraftTags))
+import           Types.Images                     (Image (..))
+import           Types.NewsAndComments            (AfterDateFilterParam (AfterDateFilterParam),
+                                                   AuthorFilterParam (AuthorFilterParam),
+                                                   BeforeDateFilterParam (BeforeDateFilterParam),
+                                                   CategoryFilterParam (CategoryFilterParam),
+                                                   CommentText (CommentText),
+                                                   ContentFilterParam (ContentFilterParam),
+                                                   DateFilterParam (DateFilterParam),
+                                                   Sort (Sort),
+                                                   TagAllFilterParam (TagAllFilterParam),
+                                                   TagFilterParam (TagFilterParam),
+                                                   TagInFilterParam (TagInFilterParam),
+                                                   TitleFilterParam (TitleFilterParam))
+import           Types.Other                      (Id, Page (Page),
+                                                   Token (Token))
+import           Types.Tags                       (EditTag (..),
+                                                   TagName (TagName))
+import           Types.Users                      (CreateUser (..),
+                                                   Login (Login),
+                                                   Password (Password))
 
 takeToken :: Request -> Maybe Token
 takeToken req =
@@ -191,13 +188,13 @@ toSort req = Sort param
     p = fromMaybe "" . join $ lookup "sort" (queryString req)
     param =
         case p of
-            "author_name" -> "author_name"
+            "author_name"   -> "author_name"
             "date_creation" -> "date_creation"
             "category_name" -> "category_name"
-            "short_title" -> "short_title"
-            "news_id" -> "news_id"
-            "news_text" -> "news_text"
-            _ -> ""
+            "short_title"   -> "short_title"
+            "news_id"       -> "news_id"
+            "news_text"     -> "news_text"
+            _               -> ""
 
 toCommentText :: [Param] -> Maybe CommentText
 toCommentText params =
@@ -289,4 +286,4 @@ checkNotImageMaybe _ = False
 
 checkNotImages :: Maybe [Image] -> Bool
 checkNotImages (Just list) = or (checkNotImage <$> list)
-checkNotImages _ = False
+checkNotImages _           = False

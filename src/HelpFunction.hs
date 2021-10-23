@@ -2,19 +2,18 @@
 
 module HelpFunction where
 
-import Config (DatabaseConf(db_host, db_login, db_name, db_password, db_port))
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.List (sort)
-import Data.String (IsString(fromString))
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import Data.Time.Calendar (Day)
-import Database.PostgreSQL.Simple.Types (Query)
-import Network.Wai.Parse (FileInfo)
-import System.Directory (getDirectoryContents)
-import Text.Read (readMaybe)
-import Types.Other (Id(Id))
+import           Config                           (DatabaseConf (db_host, db_login, db_name, db_password, db_port))
+import qualified Data.ByteString.Char8            as BC
+import           Data.List                        (sort)
+import           Data.String                      (IsString (fromString))
+import qualified Data.Text                        as T
+import qualified Data.Text.IO                     as TIO
+import           Data.Time.Calendar               (Day)
+import           Database.PostgreSQL.Simple.Types (Query)
+import           Network.Wai.Parse                (FileInfo)
+import           System.Directory                 (getDirectoryContents)
+import           Text.Read                        (readMaybe)
+import           Types.Other                      (Id (Id))
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -91,5 +90,5 @@ getMaybeLine = do
         else return $ Just line
 
 saveHead :: [a] -> Maybe a
-saveHead [] = Nothing
-saveHead (x:xs) = Just x
+saveHead []    = Nothing
+saveHead (x:_) = Just x

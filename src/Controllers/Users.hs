@@ -2,41 +2,28 @@
 
 module Controllers.Users where
 
-import Control.Monad.IO.Class (MonadIO(..))
-import Data.Aeson (encode)
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken, toCreateUser, toLogin, toPassword)
-import HelpFunction (foundParametr)
-import Logger (Handle, logError, logInfo)
-import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
-import Network.Wai (Request(queryString, requestMethod), Response)
-import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import OperationsHandle
-    ( UsersHandle(auth, create_user_in_db, delete_user_from_db,
-            profile_on_db)
-    )
-import Responses
-    ( responseBadRequest
-    , responseCreated
-    , responseForbidden
-    , responseMethodNotAllowed
-    , responseOKJSON
-    , responseOk
-    )
-import Types.Other (TokenLifeTime)
-import Types.Users (Login(Login))
+import           Control.Monad.IO.Class    (MonadIO (..))
+import           Data.Aeson                (encode)
+import           Data.Maybe                (fromMaybe)
+import qualified Data.Text.Encoding        as E
+import           FromRequest               (takeToken, toCreateUser, toLogin,
+                                            toPassword)
+import           HelpFunction              (foundParametr)
+import           Logger                    (Handle, logError, logInfo)
+import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
+import           Network.Wai               (Request (queryString, requestMethod),
+                                            Response)
+import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
+import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db))
+import           Responses                 (responseBadRequest, responseCreated,
+                                            responseForbidden,
+                                            responseMethodNotAllowed,
+                                            responseOKJSON, responseOk)
+import           Types.Other               (TokenLifeTime)
+import           Types.Users               (Login (Login))
 
-login ::
-       MonadIO m
-    => Handle m
-    -> UsersHandle m
-    -> Pool Connection
-    -> Request
-    -> m Response
-login hLogger operations pool req =
+login :: MonadIO m => Handle m -> UsersHandle m -> Request -> m Response
+login hLogger operations req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
@@ -44,13 +31,9 @@ login hLogger operations pool req =
         else do
             logInfo hLogger "Preparing data for sign in."
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            --let login' = E.decodeUtf8 $ fromMaybe "" (lookup "login" i)
-            --let pass = E.decodeUtf8 $ fromMaybe "" (lookup "user_password" i)
             let login' = toLogin i
             let pass = toPassword i
-            --logInfo hLogger $ maybe "" from_login login'
-            --logInfo hLogger $ maybe "" from_password pass
-            check <- auth operations hLogger pool login' pass
+            check <- auth operations hLogger login' pass
             case check of
                 Left bs -> do
                     logError hLogger "User not logged."
@@ -59,14 +42,8 @@ login hLogger operations pool req =
                     logInfo hLogger "User logged."
                     return $ responseOk bs
 
-registration ::
-       MonadIO m
-    => Handle m
-    -> UsersHandle m
-    -> Pool Connection
-    -> Request
-    -> m Response
-registration hLogger operations pool req =
+registration :: MonadIO m => Handle m -> UsersHandle m -> Request -> m Response
+registration hLogger operations req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -76,7 +53,7 @@ registration hLogger operations pool req =
             (i, f) <- liftIO $ parseRequestBody lbsBackEnd req
             let avatar = foundParametr "avatar" f
             user_params <- toCreateUser i avatar
-            result <- create_user_in_db operations hLogger pool user_params
+            result <- create_user_in_db operations hLogger user_params
             case result of
                 Left bs -> do
                     logError hLogger "User not registered."
@@ -89,11 +66,10 @@ deleteUser ::
        MonadIO m
     => Handle m
     -> UsersHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-deleteUser hLogger operations pool token_lifetime req =
+deleteUser hLogger operations token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -108,7 +84,6 @@ deleteUser hLogger operations pool token_lifetime req =
                 delete_user_from_db
                     operations
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     login'
@@ -130,11 +105,10 @@ profile ::
        MonadIO m
     => Handle m
     -> UsersHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-profile hLogger operations pool token_lifetime req =
+profile hLogger operations token_lifetime req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
@@ -142,8 +116,7 @@ profile hLogger operations pool token_lifetime req =
         else do
             logInfo hLogger "Preparing data for sending user information."
             let token' = takeToken req
-            result <-
-                profile_on_db operations hLogger pool token_lifetime token'
+            result <- profile_on_db operations hLogger token_lifetime token'
             case result of
                 Left "Bad token" -> do
                     logError hLogger "Information not sended. Bad token."

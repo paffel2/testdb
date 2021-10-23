@@ -2,52 +2,35 @@
 
 module Controllers.Tags where
 
-import Control.Monad.IO.Class (MonadIO(..))
-import Data.Aeson (encode)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Pool (Pool)
-import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken, toEditTag, toPage, toTagName)
-import Logger (Handle, logError, logInfo)
-import Network.HTTP.Types.Method
-    ( methodDelete
-    , methodGet
-    , methodPost
-    , methodPut
-    )
-import Network.Wai (Request(rawPathInfo, requestMethod), Response)
-import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import OperationsHandle
-    ( TagsHandle(create_tag_in_db, delete_tag_from_db, edit_tag_in_db,
-           get_tags_list_from_db)
-    )
-import Responses
-    ( responseBadRequest
-    , responseCreated
-    , responseForbidden
-    , responseMethodNotAllowed
-    , responseNotFound
-    , responseOKJSON
-    , responseOk
-    )
-import Types.Other (TokenLifeTime)
+import           Control.Monad.IO.Class    (MonadIO (..))
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Char8     as BC
+import qualified Data.ByteString.Lazy      as LBS
+import           FromRequest               (takeToken, toEditTag, toPage,
+                                            toTagName)
+import           Logger                    (Handle, logError, logInfo)
+import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
+                                            methodPut)
+import           Network.Wai               (Request (rawPathInfo, requestMethod),
+                                            Response)
+import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
+import           OperationsHandle          (TagsHandle (create_tag_in_db, delete_tag_from_db, edit_tag_in_db, get_tags_list_from_db))
+import           Responses                 (responseBadRequest, responseCreated,
+                                            responseForbidden,
+                                            responseMethodNotAllowed,
+                                            responseNotFound, responseOKJSON,
+                                            responseOk)
+import           Types.Other               (TokenLifeTime)
 
-sendTagsList ::
-       MonadIO m
-    => Handle m
-    -> TagsHandle m
-    -> Pool Connection
-    -> Request
-    -> m Response
-sendTagsList hLogger operations pool req =
+sendTagsList :: MonadIO m => Handle m -> TagsHandle m -> Request -> m Response
+sendTagsList hLogger operations req =
     if requestMethod req /= methodGet
         then do
             logError hLogger "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
             logInfo hLogger "Preparing parameters for sending tags list."
-            tags_list <- get_tags_list_from_db operations hLogger pool page
+            tags_list <- get_tags_list_from_db operations hLogger page
             case tags_list of
                 Left bs -> do
                     logError hLogger "Tags list not sended"
@@ -62,11 +45,10 @@ newTag ::
        MonadIO m
     => Handle m
     -> TagsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-newTag hLogger operations pool token_lifetime req =
+newTag hLogger operations token_lifetime req =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -79,7 +61,6 @@ newTag hLogger operations pool token_lifetime req =
                 create_tag_in_db
                     operations
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     tag_name_param
@@ -101,11 +82,10 @@ deleteTag ::
        MonadIO m
     => Handle m
     -> TagsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-deleteTag hLogger operations pool token_lifetime req =
+deleteTag hLogger operations token_lifetime req =
     if requestMethod req /= methodDelete
         then do
             logError hLogger "Bad request method"
@@ -118,7 +98,6 @@ deleteTag hLogger operations pool token_lifetime req =
                 delete_tag_from_db
                     operations
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     tag_name_param
@@ -140,11 +119,10 @@ editTag ::
        MonadIO m
     => Handle m
     -> TagsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-editTag hLogger operations pool token_lifetime req =
+editTag hLogger operations token_lifetime req =
     if requestMethod req /= methodPut
         then do
             logError hLogger "Bad request method"
@@ -158,7 +136,6 @@ editTag hLogger operations pool token_lifetime req =
                 edit_tag_in_db
                     operations
                     hLogger
-                    pool
                     token_lifetime
                     token'
                     tag_edit_params
@@ -180,18 +157,17 @@ tagsRouter ::
        MonadIO m
     => Handle m
     -> TagsHandle m
-    -> Pool Connection
     -> TokenLifeTime
     -> Request
     -> m Response
-tagsRouter hLogger operations pool token_lifetime req
-    | pathElemsC == 1 = sendTagsList hLogger operations pool req
+tagsRouter hLogger operations token_lifetime req
+    | pathElemsC == 1 = sendTagsList hLogger operations req
     | pathElemsC == 2 =
         case last pathElems of
-            "create_tag" -> newTag hLogger operations pool token_lifetime req
-            "delete_tag" -> deleteTag hLogger operations pool token_lifetime req
-            "edit_tag" -> editTag hLogger operations pool token_lifetime req
-            _ -> return $ responseNotFound "Not Found"
+            "create_tag" -> newTag hLogger operations token_lifetime req
+            "delete_tag" -> deleteTag hLogger operations token_lifetime req
+            "edit_tag"   -> editTag hLogger operations token_lifetime req
+            _            -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

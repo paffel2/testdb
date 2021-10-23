@@ -2,64 +2,55 @@
 
 module Databaseoperations.NewsAndComments where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple
-    ( Connection
-    , In(In)
-    , Only(Only)
-    , SqlError(sqlErrorMsg, sqlState)
-    )
-import Databaseoperations.CheckAdmin (checkAdmin)
-import HelpFunction (readByteStringToInt, toQuery)
+import           Control.Exception             (catch)
+import qualified Data.ByteString.Char8         as BC
+import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Pool                     (Pool)
+import qualified Data.Text                     as T
+import qualified Data.Text.Encoding            as E
+import           Database.PostgreSQL.Simple    (Connection, In (In),
+                                                Only (Only),
+                                                SqlError (sqlErrorMsg, sqlState))
+import           Databaseoperations.CheckAdmin (checkAdmin)
+import           HelpFunction                  (readByteStringToInt, toQuery)
 
-import Logger (Handle, logError, logInfo)
-import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types.NewsAndComments
-    ( AfterDateFilterParam
-    , AuthorFilterParam(from_author_fp)
-    , BeforeDateFilterParam
-    , CategoryFilterParam(from_category_fp)
-    , Comment(Comment)
-    , CommentArray(CommentArray)
-    , ContentFilterParam(from_content_fp)
-    , DateFilterParam
-    , GetNews
-    , NewsArray(NewsArray)
-    , Sort(from_sort)
-    , TagAllFilterParam(from_tag_all_fp)
-    , TagFilterParam
-    , TagInFilterParam(from_tag_in_fp)
-    , TitleFilterParam(from_title_fp)
-    )
-import Types.Other
-    ( ErrorMessage
-    , Id(from_id)
-    , Page(from_page)
-    , SuccessMessage
-    , Token
-    , TokenLifeTime
-    )
+import           Logger                        (Handle, logError, logInfo)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool)
+import           Types.NewsAndComments         (AfterDateFilterParam,
+                                                AuthorFilterParam (from_author_fp),
+                                                BeforeDateFilterParam,
+                                                CategoryFilterParam (from_category_fp),
+                                                Comment (Comment),
+                                                CommentArray (CommentArray),
+                                                ContentFilterParam (from_content_fp),
+                                                DateFilterParam, GetNews,
+                                                NewsArray (NewsArray),
+                                                Sort (from_sort),
+                                                TagAllFilterParam (from_tag_all_fp),
+                                                TagFilterParam,
+                                                TagInFilterParam (from_tag_in_fp),
+                                                TitleFilterParam (from_title_fp))
+import           Types.Other                   (ErrorMessage, Id (from_id),
+                                                Page (from_page),
+                                                SuccessMessage, Token,
+                                                TokenLifeTime)
 
 addCommentToDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Comment
     -> IO (Either ErrorMessage SuccessMessage)
-addCommentToDb hLogger _ (Comment _ _ Nothing _) = do
+addCommentToDb _ hLogger (Comment _ _ Nothing _) = do
     logError hLogger "No news id parameter"
     return $ Left "No news id parameter"
-addCommentToDb hLogger _ (Comment _ _ _ Nothing) = do
+addCommentToDb _ hLogger (Comment _ _ _ Nothing) = do
     logError hLogger "No comment parameter"
     return $ Left "No comment parameter"
-addCommentToDb hLogger _ (Comment Nothing _ _ _) = do
+addCommentToDb _ hLogger (Comment Nothing _ _ _) = do
     logError hLogger "No token parameter"
     return $ Left "No token parameter"
-addCommentToDb hLogger pool com =
+addCommentToDb pool hLogger com =
     catch
         (do n_r <- executeWithPool pool q com
             if n_r > 0
@@ -74,22 +65,22 @@ addCommentToDb hLogger pool com =
         case errStateInt of
             23503 -> return $ Left "News not exist"
             23502 -> return $ Left "Bad token"
-            _ -> return $ Left "Database error"
+            _     -> return $ Left "Database error"
   where
     q =
         "insert into users_comments (user_id, comment_text,news_id,comment_time) values (check_token(?,?),?,?,now())"
 
 deleteCommentFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Id
     -> IO (Either ErrorMessage SuccessMessage)
-deleteCommentFromDb hLogger _ _ _ Nothing = do
+deleteCommentFromDb _ hLogger _ _ Nothing = do
     logError hLogger "Bad comment id"
     return $ Left "Bad comment id"
-deleteCommentFromDb hLogger pool token_lifetime token' (Just comment_id) = do
+deleteCommentFromDb pool hLogger token_lifetime token' (Just comment_id) = do
     isAdmin <- checkAdmin hLogger pool token_lifetime token'
     case isAdmin of
         (False, e) -> return $ Left e
@@ -112,15 +103,15 @@ deleteCommentFromDb hLogger pool token_lifetime token' (Just comment_id) = do
                 return $ Left "Database error"
 
 getCommentsByNewsIdFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe Id
     -> Maybe Page
     -> IO (Either ErrorMessage CommentArray)
-getCommentsByNewsIdFromDb hLogger _ Nothing _ = do
+getCommentsByNewsIdFromDb _ hLogger Nothing _ = do
     logError hLogger "No news parameter"
     return $ Left "No news parameter"
-getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
+getCommentsByNewsIdFromDb pool hLogger (Just news_id) page_p =
     catch
         (do rows <- queryWithPool pool q [news_id]
             return (Right $ CommentArray rows)) $ \e -> do
@@ -131,7 +122,7 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
         case errStateInt of
             23503 -> return $ Left "News not exist"
             23502 -> return $ Left "Bad token"
-            _ -> return $ Left "Database error"
+            _     -> return $ Left "Database error"
   where
     pg =
         if isNothing page_p
@@ -140,12 +131,6 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -155,14 +140,14 @@ getCommentsByNewsIdFromDb hLogger pool (Just news_id) page_p =
             ]
 
 getNewsByIdFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe Id
     -> IO (Either ErrorMessage GetNews)
-getNewsByIdFromDb hLogger _ Nothing = do
+getNewsByIdFromDb _ hLogger Nothing = do
     logError hLogger "Bad news_id parameter"
     return $ Left "Bad news_id parameter"
-getNewsByIdFromDb hLogger pool (Just news'_id) =
+getNewsByIdFromDb pool hLogger (Just news'_id) =
     catch
         (do rows <- query_WithPool pool q
             if Prelude.null rows
@@ -191,15 +176,15 @@ getNewsByIdFromDb hLogger pool (Just news'_id) =
             ]
 
 getNewsFilterByTagInFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe TagInFilterParam
     -> Maybe Page
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByTagInFromDb hLogger _ Nothing _ = do
+getNewsFilterByTagInFromDb _ hLogger Nothing _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
-getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
+getNewsFilterByTagInFromDb pool hLogger (Just tag_lst) page_p = do
     logInfo hLogger "Someone try get news list filtered by tag_in parameter"
     catch
         (do rows <- queryWithPool pool q (Only (In (from_tag_in_fp tag_lst)))
@@ -217,12 +202,6 @@ getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -234,16 +213,16 @@ getNewsFilterByTagInFromDb hLogger pool (Just tag_lst) page_p = do
             ]
 
 getNewsFilterByCategoryIdFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe CategoryFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByCategoryIdFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByCategoryIdFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No category parameter"
     return $ Left "No category parameter"
-getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
+getNewsFilterByCategoryIdFromDb pool hLogger (Just cat_id) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by category id"
     catch
         (do rows <- queryWithPool pool q [from_category_fp cat_id]
@@ -265,12 +244,6 @@ getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -282,16 +255,16 @@ getNewsFilterByCategoryIdFromDb hLogger pool (Just cat_id) page_p sortParam = do
             ]
 
 getNewsFilterByTitleFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe TitleFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByTitleFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByTitleFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No title parameter"
     return $ Left "No title parameter"
-getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
+getNewsFilterByTitleFromDb pool hLogger (Just titleName) page_p sortParam =
     catch
         (do logInfo hLogger "Someone try get news list filtered by title"
             rows <- queryWithPool pool q [from_title_fp titleName]
@@ -313,12 +286,6 @@ getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -330,16 +297,16 @@ getNewsFilterByTitleFromDb hLogger pool (Just titleName) page_p sortParam =
             ]
 
 getNewsFilterByAuthorNameFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe AuthorFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByAuthorNameFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByAuthorNameFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No author_name parameter"
     return $ Left "No author_name parameter"
-getNewsFilterByAuthorNameFromDb hLogger pool (Just authorName) page_p sortParam =
+getNewsFilterByAuthorNameFromDb pool hLogger (Just authorName) page_p sortParam =
     catch
         (do logInfo
                 hLogger
@@ -361,12 +328,6 @@ getNewsFilterByAuthorNameFromDb hLogger pool (Just authorName) page_p sortParam 
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -378,16 +339,16 @@ getNewsFilterByAuthorNameFromDb hLogger pool (Just authorName) page_p sortParam 
             ]
 
 getNewsFilterByDateFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe DateFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByDateFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByDateFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
-getNewsFilterByDateFromDb hLogger pool (Just date) page_p sortParam = do
+getNewsFilterByDateFromDb pool hLogger (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by date"
     catch
         (do rows <- queryWithPool pool q [date]
@@ -409,12 +370,6 @@ getNewsFilterByDateFromDb hLogger pool (Just date) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -426,16 +381,16 @@ getNewsFilterByDateFromDb hLogger pool (Just date) page_p sortParam = do
             ]
 
 getNewsFilterByTagAllFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe TagAllFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByTagAllFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByTagAllFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
-getNewsFilterByTagAllFromDb hLogger pool (Just tag_lst) page_p sortParam = do
+getNewsFilterByTagAllFromDb pool hLogger (Just tag_lst) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by tag_all parameter"
     catch
         (do let tag_list = from_tag_all_fp tag_lst
@@ -471,24 +426,18 @@ getNewsFilterByTagAllFromDb hLogger pool (Just tag_lst) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
 
 getNewsFilterByContentFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe ContentFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByContentFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByContentFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No content parameter"
     return $ Left "No content parameter"
-getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
+getNewsFilterByContentFromDb pool hLogger (Just content_c) page_p sortParam =
     catch
         (do logInfo hLogger "Someone try get news list filtered by content"
             rows <-
@@ -514,12 +463,6 @@ getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -531,16 +474,16 @@ getNewsFilterByContentFromDb hLogger pool (Just content_c) page_p sortParam =
             ]
 
 getNewsFilterByAfterDateFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe AfterDateFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByAfterDateFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByAfterDateFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
-getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
+getNewsFilterByAfterDateFromDb pool hLogger (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by after_date parameter"
     catch
         (do rows <- queryWithPool pool q [date]
@@ -562,12 +505,6 @@ getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -579,16 +516,16 @@ getNewsFilterByAfterDateFromDb hLogger pool (Just date) page_p sortParam = do
             ]
 
 getNewsFilterByBeforeDateFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe BeforeDateFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByBeforeDateFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByBeforeDateFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No date parameter"
     return $ Left "No date parameter"
-getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
+getNewsFilterByBeforeDateFromDb pool hLogger (Just date) page_p sortParam = do
     logInfo
         hLogger
         "Someone try get news list filtered by before_date parameter"
@@ -612,12 +549,6 @@ getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -629,16 +560,16 @@ getNewsFilterByBeforeDateFromDb hLogger pool (Just date) page_p sortParam = do
             ]
 
 getNewsFilterByTagIdFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe TagFilterParam
     -> Maybe Page
     -> Sort
     -> IO (Either ErrorMessage NewsArray)
-getNewsFilterByTagIdFromDb hLogger _ Nothing _ _ = do
+getNewsFilterByTagIdFromDb _ hLogger Nothing _ _ = do
     logError hLogger "No tag parameter"
     return $ Left "No tag parameter"
-getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
+getNewsFilterByTagIdFromDb pool hLogger (Just tag_id) page_p' sortParam = do
     logInfo hLogger "Someone try get news list filtered by tag"
     catch
         (do rows <- queryWithPool pool q [tag_id]
@@ -660,12 +591,6 @@ getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page page_p' - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page page_p')) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
@@ -677,12 +602,12 @@ getNewsFilterByTagIdFromDb hLogger pool (Just tag_id) page_p' sortParam = do
             ]
 
 getNewsFromDb ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Sort
     -> Maybe Page
     -> IO (Either ErrorMessage NewsArray)
-getNewsFromDb hLogger pool sortParam pageParam =
+getNewsFromDb pool hLogger sortParam pageParam =
     catch
         (do logInfo hLogger "Someone try get news list"
             rows <- query_WithPool pool q
@@ -704,12 +629,6 @@ getNewsFromDb hLogger pool sortParam pageParam =
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page pageParam - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page pageParam)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat

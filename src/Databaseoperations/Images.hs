@@ -2,21 +2,22 @@
 
 module Databaseoperations.Images where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple (Connection, SqlError(sqlState))
-import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logError)
-import PostgreSqlWithPool (queryWithPool, query_WithPool)
-import Types.Images (ElemImageArray, ImageArray(ImageArray), ImageB)
-import Types.Other (ErrorMessage, Id, Page(from_page))
+import           Control.Exception          (catch)
+import qualified Data.ByteString.Char8      as BC
+import           Data.Maybe                 (fromMaybe, isNothing)
+import           Data.Pool                  (Pool)
+import qualified Data.Text                  as T
+import           Database.PostgreSQL.Simple (Connection, SqlError (sqlState))
+import           HelpFunction               (readByteStringToInt, toQuery)
+import           Logger                     (Handle, logError)
+import           PostgreSqlWithPool         (queryWithPool, query_WithPool)
+import           Types.Images               (ElemImageArray,
+                                             ImageArray (ImageArray), ImageB)
+import           Types.Other                (ErrorMessage, Id, Page (from_page))
 
 getPhoto ::
-       Handle IO -> Pool Connection -> Id -> IO (Either ErrorMessage ImageB)
-getPhoto hLogger pool image_id' =
+       Pool Connection -> Handle IO -> Id -> IO (Either ErrorMessage ImageB)
+getPhoto pool hLogger image_id' =
     catch
         (do let q =
                     toQuery $
@@ -34,11 +35,11 @@ getPhoto hLogger pool image_id' =
         return $ Left "Database error"
 
 getPhotoList ::
-       Handle IO
-    -> Pool Connection
+       Pool Connection
+    -> Handle IO
     -> Maybe Page
     -> IO (Either ErrorMessage ImageArray)
-getPhotoList hLogger pool pageParam =
+getPhotoList pool hLogger pageParam =
     catch
         (do rows <- query_WithPool pool q :: IO [ElemImageArray]
             return $ Right (ImageArray rows)) $ \e -> do
@@ -55,12 +56,6 @@ getPhotoList hLogger pool pageParam =
                      [ " limit 10 offset "
                      , BC.pack $ show $ (maybe 1 from_page pageParam - 1) * 10
                      ]
-                       {-(fromMaybe
-                            1
-                            (readByteStringToInt (maybe "" from_page pageParam)) -
-                        1) *
-                       10
-                     ]-}
     q =
         toQuery $
         BC.concat
