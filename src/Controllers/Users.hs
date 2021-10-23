@@ -4,6 +4,7 @@ module Controllers.Users where
 
 import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Aeson                (encode)
+import qualified Data.ByteString.Lazy      as LBS
 import           Data.Maybe                (fromMaybe)
 import qualified Data.Text.Encoding        as E
 import           FromRequest               (takeToken, toCreateUser, toLogin,
@@ -19,7 +20,7 @@ import           Responses                 (responseBadRequest, responseCreated,
                                             responseForbidden,
                                             responseMethodNotAllowed,
                                             responseOKJSON, responseOk)
-import           Types.Other               (TokenLifeTime)
+import           Types.Other               (Token (..), TokenLifeTime)
 import           Types.Users               (Login (Login))
 
 login :: MonadIO m => Handle m -> UsersHandle m -> Request -> m Response
@@ -35,12 +36,12 @@ login hLogger operations req =
             let pass = toPassword i
             check <- auth operations hLogger login' pass
             case check of
-                Left bs -> do
-                    logError hLogger "User not logged."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "User logged."
-                    return $ responseOk bs
+                Left _ -> do
+                    return $ responseBadRequest "Bad authorization"
+                Right tk -> do
+                    return $
+                        responseOk $
+                        LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
 registration :: MonadIO m => Handle m -> UsersHandle m -> Request -> m Response
 registration hLogger operations req =
@@ -55,12 +56,12 @@ registration hLogger operations req =
             user_params <- toCreateUser i avatar
             result <- create_user_in_db operations hLogger user_params
             case result of
-                Left bs -> do
-                    logError hLogger "User not registered."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "User registered."
-                    return $ responseCreated bs
+                Left _ -> do
+                    return $ responseBadRequest "User not registered."
+                Right tk -> do
+                    return $
+                        responseCreated $
+                        LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
 deleteUser ::
        MonadIO m
@@ -94,12 +95,10 @@ deleteUser hLogger operations token_lifetime req =
                 Left "Bad token" -> do
                     logError hLogger "User not deleted. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs' -> do
-                    logError hLogger "User not deleted."
-                    return $ responseBadRequest bs'
-                Right bs' -> do
-                    logInfo hLogger "User deleted."
-                    return $ responseOk bs'
+                Left _ -> do
+                    return $ responseBadRequest "User not deleted"
+                Right _ -> do
+                    return $ responseOk "User deleted"
 
 profile ::
        MonadIO m
@@ -119,11 +118,8 @@ profile hLogger operations token_lifetime req =
             result <- profile_on_db operations hLogger token_lifetime token'
             case result of
                 Left "Bad token" -> do
-                    logError hLogger "Information not sended. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Information not sended."
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "Information not sended."
                 Right pro -> do
-                    logInfo hLogger "Information sended."
                     return $ responseOKJSON $ encode pro

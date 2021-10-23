@@ -32,11 +32,9 @@ sendTagsList hLogger operations req =
             logInfo hLogger "Preparing parameters for sending tags list."
             tags_list <- get_tags_list_from_db operations hLogger page
             case tags_list of
-                Left bs -> do
-                    logError hLogger "Tags list not sended"
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "Tags list not sended"
                 Right tl -> do
-                    logInfo hLogger "Tags list sended"
                     return $ responseOKJSON $ encode tl
   where
     page = toPage req
@@ -71,11 +69,9 @@ newTag hLogger operations token_lifetime req =
                 Left "Bad token" -> do
                     logError hLogger "Tag not created. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Tag not created."
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "Tag not created."
                 Right n -> do
-                    logInfo hLogger "Tag created."
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 deleteTag ::
@@ -108,12 +104,10 @@ deleteTag hLogger operations token_lifetime req =
                 Left "Bad token" -> do
                     logError hLogger "Tag not deleted. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Tag not deleted."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Tag deleted."
-                    return $ responseOk bs
+                Left _ -> do
+                    return $ responseBadRequest "Tag not deleted."
+                Right _ -> do
+                    return $ responseOk "Tag deleted."
 
 editTag ::
        MonadIO m
@@ -146,12 +140,10 @@ editTag hLogger operations token_lifetime req =
                 Left "Bad token" -> do
                     logError hLogger "Tag not edited. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Tag not edited."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Tag edited."
-                    return $ responseOk bs
+                Left _ -> do
+                    return $ responseBadRequest "Tag not edited."
+                Right _ -> do
+                    return $ responseOk "Tag edited."
 
 tagsRouter ::
        MonadIO m

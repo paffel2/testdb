@@ -51,15 +51,13 @@ newAuthor hLogger methods token_lifetime req =
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not created. Not admin."
-                    return $ responseForbidden "Not admin"
+                    return $ responseForbidden "Author not created. Not admin."
                 Left "Bad token" -> do
                     logError hLogger "Author not created. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Author not created."
-                    return $ responseBadRequest bs
+                    return $ responseForbidden "Author not created. Bad token."
+                Left _ -> do
+                    return $ responseBadRequest "Author not created."
                 Right n -> do
-                    logInfo hLogger "Author created."
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 deleteAuthor ::
@@ -89,16 +87,14 @@ deleteAuthor hLogger methods token_lifetime req =
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
+                    return $ responseForbidden "Author not deleted. Not admin."
                 Left "Bad token" -> do
                     logError hLogger "Author not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Author not deleted."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Author deleted."
-                    return $ responseCreated bs
+                    return $ responseForbidden "Author not deleted. Bad token."
+                Left _ -> do
+                    return $ responseBadRequest "Author not deleted."
+                Right _ -> do
+                    return $ responseCreated "Author deleted."
 
 sendAuthorsList ::
        MonadIO m => Handle m -> AuthorsHandle m -> Request -> m Response
@@ -111,11 +107,9 @@ sendAuthorsList hLogger methods req = do
             logInfo hLogger "Preparing data for sending authors list"
             result <- get_authors_list methods hLogger pageParam
             case result of
-                Left bs -> do
-                    logError hLogger "Authors list not sended."
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "List of authors not sended."
                 Right al -> do
-                    logInfo hLogger "Authors list sended."
                     return $ responseOKJSON $ encode al
   where
     pageParam = toPage req
@@ -151,12 +145,10 @@ editAuthor hLogger methods token_lifetime req = do
                 Left "Bad token" -> do
                     logError hLogger "Author not edited. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Author not edited."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Author edited."
-                    return $ responseCreated bs
+                Left _ -> do
+                    return $ responseBadRequest "Author not edited."
+                Right _ -> do
+                    return $ responseCreated "Author edited."
 
 authorsRouter ::
        MonadIO m

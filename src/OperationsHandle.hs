@@ -63,8 +63,8 @@ import           Types.NewsAndComments              (AfterDateFilterParam,
                                                      TagInFilterParam,
                                                      TitleFilterParam)
 import           Types.Other                        (ErrorMessage, Id, Page,
-                                                     SendId, SuccessMessage,
-                                                     Token, TokenLifeTime)
+                                                     SendId, Token,
+                                                     TokenLifeTime)
 import           Types.Tags                         (EditTag, TagName, TagsList)
 import           Types.Users                        (CreateUser, Login,
                                                      Password, Profile)
@@ -97,9 +97,9 @@ operationsHandler hLogger pool =
 data AuthorsHandle m =
     AuthorsHandle
         { create_author_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> CreateAuthor -> m (Either ErrorMessage SendId)
-        , delete_author_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe AuthorLogin -> m (Either ErrorMessage SuccessMessage)
+        , delete_author_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe AuthorLogin -> m (Either ErrorMessage ())
         , get_authors_list :: Handle m -> Maybe Page -> m (Either ErrorMessage AuthorsList)
-        , edit_author_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either ErrorMessage SuccessMessage)
+        , edit_author_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either ErrorMessage ())
         }
 
 authorsHandler :: Pool Connection -> AuthorsHandle IO
@@ -114,9 +114,9 @@ authorsHandler pool =
 data CategoriesHandle m =
     CategoriesHandle
         { get_categories_list_from_db :: Handle m -> Maybe Page -> m (Either ErrorMessage ListOfCategories)
-        , create_category_on_db :: Handle m -> TokenLifeTime -> Maybe Token -> CreateCategory -> m (Either ErrorMessage SuccessMessage)
-        , delete_category_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe CategoryName -> m (Either ErrorMessage SuccessMessage)
-        , edit_category_on_db :: Handle m -> TokenLifeTime -> Maybe Token -> EditCategory -> m (Either ErrorMessage SuccessMessage)
+        , create_category_on_db :: Handle m -> TokenLifeTime -> Maybe Token -> CreateCategory -> m (Either ErrorMessage SendId)
+        , delete_category_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe CategoryName -> m (Either ErrorMessage ())
+        , edit_category_on_db :: Handle m -> TokenLifeTime -> Maybe Token -> EditCategory -> m (Either ErrorMessage ())
         }
 
 categoriesHandler :: Pool Connection -> CategoriesHandle IO
@@ -131,10 +131,10 @@ categoriesHandler pool =
 data DraftsHandle m =
     DraftsHandle
         { get_drafts_by_author_token :: Handle m -> TokenLifeTime -> Maybe Token -> m (Either ErrorMessage DraftArray)
-        , delete_draft_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage SuccessMessage)
+        , delete_draft_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage ())
         , get_draft_by_id_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Id -> m (Either ErrorMessage Draft)
         , create_draft_on_db :: Handle m -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m (Either ErrorMessage SendId)
-        , update_draft_in_db :: Handle m -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either ErrorMessage SuccessMessage)
+        , update_draft_in_db :: Handle m -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either ErrorMessage ())
         , public_news_on_db :: Handle m -> TokenLifeTime -> Maybe Token -> Id -> m (Either ErrorMessage SendId)
         }
 
@@ -161,8 +161,8 @@ imagesHandler pool =
 
 data NewsAndCommentsHandle m =
     NewsAndCommentsHandle
-        { add_comment_to_db :: Handle m -> Comment -> m (Either ErrorMessage SuccessMessage)
-        , delete_comment_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage SuccessMessage)
+        { add_comment_to_db :: Handle m -> Comment -> m (Either ErrorMessage ())
+        , delete_comment_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage ())
         , get_comments_by_news_id_from_db :: Handle m -> Maybe Id -> Maybe Page -> m (Either ErrorMessage CommentArray)
         , get_news_by_id_from_db :: Handle m -> Maybe Id -> m (Either ErrorMessage GetNews)
         , get_news_filter_by_tag_in_from_db :: Handle m -> Maybe TagInFilterParam -> Maybe Page -> m (Either ErrorMessage NewsArray)
@@ -205,9 +205,9 @@ newsAndCommentsHandler pool =
 data TagsHandle m =
     TagsHandle
         { create_tag_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either ErrorMessage SendId)
-        , delete_tag_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either ErrorMessage SuccessMessage)
+        , delete_tag_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either ErrorMessage ())
         , get_tags_list_from_db :: Handle m -> Maybe Page -> m (Either ErrorMessage TagsList)
-        , edit_tag_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> EditTag -> m (Either ErrorMessage SuccessMessage)
+        , edit_tag_in_db :: Handle m -> TokenLifeTime -> Maybe Token -> EditTag -> m (Either ErrorMessage ())
         }
 
 tagsHandler :: Pool Connection -> TagsHandle IO
@@ -221,9 +221,9 @@ tagsHandler pool =
 
 data UsersHandle m =
     UsersHandle
-        { auth :: Handle m -> Maybe Login -> Maybe Password -> m (Either ErrorMessage SuccessMessage)
-        , create_user_in_db :: Handle m -> CreateUser -> m (Either ErrorMessage SuccessMessage)
-        , delete_user_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either ErrorMessage SuccessMessage)
+        { auth :: Handle m -> Maybe Login -> Maybe Password -> m (Either ErrorMessage Token)
+        , create_user_in_db :: Handle m -> CreateUser -> m (Either ErrorMessage Token)
+        , delete_user_from_db :: Handle m -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either ErrorMessage ())
         , profile_on_db :: Handle m -> TokenLifeTime -> Maybe Token -> m (Either ErrorMessage Profile)
         }
 

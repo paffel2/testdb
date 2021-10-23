@@ -2,27 +2,26 @@
 
 module Databaseoperations.CheckDatabase where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple
-    ( Connection
-    , Only(fromOnly)
-    , SqlError(sqlErrorMsg, sqlState)
-    )
-import Databaseoperations.Users (firstToken)
-import HelpFunction (getMaybeLine, readByteStringToInt, toQuery)
-import Logger (Handle, logDebug, logError, logInfo)
-import PostgreSqlWithPool (executeWithPool, execute_WithPool, query_WithPool)
-import Types.Other (ErrorMessage, SuccessMessage)
-import Types.Users (AdminData(..), Login(Login), Password(Password))
+import           Control.Exception          (catch)
+import qualified Data.ByteString.Char8      as BC
+import           Data.Maybe                 (fromMaybe)
+import           Data.Pool                  (Pool)
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as E
+import           Database.PostgreSQL.Simple (Connection, Only (fromOnly),
+                                             SqlError (sqlErrorMsg, sqlState))
+import           Databaseoperations.Users   (firstToken)
+import           HelpFunction               (getMaybeLine, readByteStringToInt,
+                                             toQuery)
+import           Logger                     (Handle, logDebug, logError,
+                                             logInfo)
+import           PostgreSqlWithPool         (executeWithPool, execute_WithPool,
+                                             query_WithPool)
+import           Types.Other                (ErrorMessage, Token (..))
+import           Types.Users                (AdminData (..), Login (Login),
+                                             Password (Password))
 
-checkFill ::
-       Handle IO -> Pool Connection -> IO (Either ErrorMessage SuccessMessage)
+checkFill :: Handle IO -> Pool Connection -> IO (Either ErrorMessage ())
 checkFill hLogger pool =
     catch
         (do n <-
@@ -36,7 +35,7 @@ checkFill hLogger pool =
                     if num_of_tables /= 13
                         then do
                             return $ Left "Database not filled"
-                        else return $ Right "Database filled") $ \e -> do
+                        else return $ Right ()) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -87,17 +86,15 @@ createDbClear hLogger pool = do
             add_admin <- addAdminToDB hLogger pool admin_information
             case add_admin of
                 Left _ -> return False
-                Right bs -> do
-                    logInfo hLogger $
-                        T.concat
-                            ["admin token ", E.decodeUtf8 $ LBS.toStrict bs]
+                Right tk -> do
+                    logInfo hLogger $ T.concat ["admin token ", from_token tk]
                     return True
 
 addAdminToDB ::
        Handle IO
     -> Pool Connection
     -> AdminData
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage Token)
 addAdminToDB hLogger _ (AdminData Nothing _ _ _ _) = do
     logError hLogger "No login"
     return $ Left "No Login"
@@ -119,8 +116,7 @@ addAdminToDB hLogger pool admin_data = do
         else do
             return $ Left "Registration failed"
 
-fillDb ::
-       Handle IO -> Pool Connection -> IO (Either ErrorMessage SuccessMessage)
+fillDb :: Handle IO -> Pool Connection -> IO (Either ErrorMessage ())
 fillDb hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_database.sql"
@@ -129,13 +125,13 @@ fillDb hLogger pool = do
     logDebug hLogger "Start filling"
     _ <- execute_WithPool pool q
     logDebug hLogger "Db filled"
-    return $ Right "Database filled"
+    return $ Right ()
 
 fillConnections ::
        Handle IO
     -> Pool Connection
-    -> Either ErrorMessage SuccessMessage
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> Either ErrorMessage ()
+    -> IO (Either ErrorMessage ())
 fillConnections hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_connections.sql"
@@ -144,5 +140,5 @@ fillConnections hLogger pool (Right _) = do
     logDebug hLogger "Start filling connections"
     _ <- execute_WithPool pool q
     logDebug hLogger "Connections created"
-    return $ Right "Connections created"
+    return $ Right ()
 fillConnections _ _ (Left mess) = return $ Left mess

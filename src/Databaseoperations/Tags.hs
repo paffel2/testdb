@@ -15,8 +15,7 @@ import           Logger                        (Handle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
 import           Types.Other                   (ErrorMessage, Page (from_page),
-                                                SuccessMessage, Token,
-                                                TokenLifeTime)
+                                                Token, TokenLifeTime)
 import           Types.Tags                    (EditTag (EditTag),
                                                 TagName (from_tag_name),
                                                 TagsList (TagsList))
@@ -29,7 +28,7 @@ createTagInDb ::
     -> Maybe TagName
     -> IO (Either ErrorMessage Int)
 createTagInDb _ hLogger _ _ Nothing = do
-    logError hLogger "No tag_name parameter"
+    logError hLogger "Tag not created. No tag_name parameter"
     return $ Left "No tag_name parameter"
 createTagInDb pool hLogger token_lifetime token' (Just tag_name') =
     catch
@@ -40,7 +39,8 @@ createTagInDb pool hLogger token_lifetime token' (Just tag_name') =
                     rows <- queryWithPool pool q [tag_name'] :: IO [Only Int]
                     if Prelude.null rows
                         then do
-                            return $ Left "Tag not created"
+                            logError hLogger "Tag not created."
+                            return $ Left "Tag not created."
                         else do
                             return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
@@ -64,10 +64,10 @@ deleteTagFromDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe TagName
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage ())
 deleteTagFromDb _ hLogger _ _ Nothing = do
-    logError hLogger "No tag_name parameter"
-    return $ Left "No tag_name parameter"
+    logError hLogger "Tag not deleted. No tag_name parameter"
+    return $ Left "Tag not deleted. No tag_name parameter"
 deleteTagFromDb pool hLogger token_lifetime token' (Just tag_name') =
     catch
         (do logInfo hLogger $
@@ -85,7 +85,7 @@ deleteTagFromDb pool hLogger token_lifetime token' (Just tag_name') =
                                     , from_tag_name tag_name'
                                     , " deleted"
                                     ]
-                            return $ Right "Tag deleted"
+                            return $ Right ()
                         else do
                             logError hLogger $
                                 T.concat
@@ -93,7 +93,7 @@ deleteTagFromDb pool hLogger token_lifetime token' (Just tag_name') =
                                     , from_tag_name tag_name'
                                     , " not deleted"
                                     ]
-                            return $ Right "Tag not deleted") $ \e -> do
+                            return $ Right ()) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -110,6 +110,7 @@ getTagsListFromDb ::
 getTagsListFromDb pool hLogger maybe_page =
     catch
         (do rows <- query_WithPool pool q
+            logInfo hLogger "List of tags sended"
             return $ Right $ TagsList rows) $ \e -> do
         let _ = sqlState e
         logError hLogger "Database error"
@@ -130,15 +131,15 @@ editTagInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> EditTag
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage ())
 editTagInDb _ hLogger _ _ (EditTag Nothing _) = do
-    logError hLogger "No new_tag_name field"
+    logError hLogger "Tag not edited. No new_tag_name field"
     return $ Left "No new_tag_name field"
 editTagInDb _ hLogger _ _ (EditTag _ Nothing) = do
-    logError hLogger "No old_tag_name field"
-    return $ Left "No old_tag_name field"
+    logError hLogger "Tag not edited. No old_tag_name field"
+    return $ Left "Tag not edited. No old_tag_name field"
 editTagInDb _ hLogger _ Nothing _ = do
-    logError hLogger "No token param"
+    logError hLogger "Tag not edited. No token param"
     return $ Left "No token param"
 editTagInDb pool hLogger token_lifetime token edit_tag_params@(EditTag (Just new_tag_name) (Just old_tag_name)) =
     catch
@@ -157,8 +158,10 @@ editTagInDb pool hLogger token_lifetime token edit_tag_params@(EditTag (Just new
                                     , from_tag_name new_tag_name
                                     , "'"
                                     ]
-                            return $ Right "Tag edited"
-                        else return $ Left "Tag not exist") $ \e -> do
+                            return $ Right ()
+                        else do
+                            logError hLogger "Tag not exist"
+                            return $ Left "Tag not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $

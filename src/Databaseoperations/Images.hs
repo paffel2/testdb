@@ -9,7 +9,7 @@ import           Data.Pool                  (Pool)
 import qualified Data.Text                  as T
 import           Database.PostgreSQL.Simple (Connection, SqlError (sqlState))
 import           HelpFunction               (readByteStringToInt, toQuery)
-import           Logger                     (Handle, logError)
+import           Logger                     (Handle, logError, logInfo)
 import           PostgreSqlWithPool         (queryWithPool, query_WithPool)
 import           Types.Images               (ElemImageArray,
                                              ImageArray (ImageArray), ImageB)
@@ -26,8 +26,12 @@ getPhoto pool hLogger image_id' =
                         ]
             rows <- queryWithPool pool q [image_id'] :: IO [ImageB]
             if Prelude.null rows
-                then return $ Left "Image not exist"
-                else return $ Right $ Prelude.head rows) $ \e -> do
+                then do
+                    logError hLogger "Image not exist"
+                    return $ Left "Image not exist"
+                else do
+                    logInfo hLogger "Image sended"
+                    return $ Right $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -42,6 +46,7 @@ getPhotoList ::
 getPhotoList pool hLogger pageParam =
     catch
         (do rows <- query_WithPool pool q :: IO [ElemImageArray]
+            logInfo hLogger "List of images sended"
             return $ Right (ImageArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

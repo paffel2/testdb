@@ -50,7 +50,8 @@ sendDrafts hLogger operations token_liferime req =
                     token_liferime
                     token'
             case drafts' of
-                Left bs -> return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "Draft not created." --(from text to lbs.bytestring)
                 Right draftsA -> do
                     logInfo hLogger "Sending drafts to user"
                     return $ responseOKJSON (encode draftsA)
@@ -101,10 +102,10 @@ createDraft hLogger operations token_lifetime req =
                             images_list
                     case result of
                         Left "Bad token" ->
-                            return $ responseForbidden "Bad token"
-                        Left bs -> do
-                            logError hLogger "Draft not created."
-                            return $ responseBadRequest bs
+                            return $
+                            responseForbidden "Draft not created. Bad token"
+                        Left _ -> do
+                            return $ responseBadRequest "Draft not created."
                         Right n -> do
                             logInfo hLogger "Draft created."
                             return $
@@ -136,12 +137,10 @@ deleteDraft hLogger operations token_lifetime req =
                     draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Draft not deleted."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Draft deleted."
-                    return $ responseOk bs
+                Left _ -> do
+                    return $ responseBadRequest "Draft not deleted."
+                Right _ -> do
+                    return $ responseOk "Draft deleted."
 
 getDraftById ::
        MonadIO m
@@ -168,11 +167,9 @@ getDraftById hLogger operations token_lifetime draft_id req =
                     draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Draft not sended."
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "Draft not sended."
                 Right draft -> do
-                    logInfo hLogger "Draft not sended."
                     return $ responseOKJSON $ encode draft
 
 updateDraft ::
@@ -224,12 +221,10 @@ updateDraft hLogger operations token_lifetime draft_id req =
                     case result of
                         Left "Bad token" ->
                             return $ responseForbidden "Bad token"
-                        Left bs -> do
-                            logError hLogger "Draft not updated"
-                            return $ responseBadRequest bs
-                        Right bs -> do
-                            logInfo hLogger "Draft updated"
-                            return $ responseOk bs
+                        Left _ -> do
+                            return $ responseBadRequest "Draft not updated"
+                        Right _ -> do
+                            return $ responseOk "Draft updated"
 
 publicNews ::
        MonadIO m
@@ -256,11 +251,9 @@ publicNews hLogger operations token_lifetime draft_id req =
                     draft_id
             case result of
                 Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "News not created"
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "News not created"
                 Right n -> do
-                    logInfo hLogger "News published"
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 draftsRouter ::

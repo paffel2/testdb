@@ -5,7 +5,6 @@ module Databaseoperations.Drafts where
 
 import           Control.Exception          (catch)
 import qualified Data.ByteString.Char8      as BC
-import qualified Data.ByteString.Lazy       as LBS
 import           Data.Maybe                 (fromMaybe)
 import           Data.Pool                  (Pool)
 import qualified Data.Text                  as T
@@ -24,8 +23,7 @@ import           Types.Drafts               (Draft, DraftArray (DraftArray),
                                              DraftTags (from_draft_tags))
 import           Types.Images               (Image)
 import           Types.Other                (ErrorMessage, Id (from_id), SendId,
-                                             SuccessMessage, Token,
-                                             TokenLifeTime)
+                                             Token, TokenLifeTime)
 import           Types.Users                (TokenProfile (TokenProfile))
 
 checkAuthor ::
@@ -96,10 +94,10 @@ deleteDraftFromDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Id
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage ())
 deleteDraftFromDb _ hLogger _ _ Nothing = do
-    logError hLogger "No draft_id parameter"
-    return $ Left "No draft_id parameter"
+    logError hLogger "Draft not deleted. No draft_id parameter"
+    return $ Left "Draft not deleted. No draft_id parameter"
 deleteDraftFromDb pool hLogger token_lifetime token' (Just draft_id) =
     catch
         (do ch <- checkAuthor hLogger pool token_lifetime token'
@@ -111,7 +109,8 @@ deleteDraftFromDb pool hLogger token_lifetime token' (Just draft_id) =
                     n <- executeWithPool pool q (draft_id, author_id')
                     if n > 0
                         then do
-                            return $ Right "Draft deleted"
+                            logInfo hLogger "Draft deleted"
+                            return $ Right ()
                         else do
                             logError
                                 hLogger
@@ -132,8 +131,8 @@ getDraftByIdFromDb ::
     -> Id
     -> IO (Either ErrorMessage Draft)
 getDraftByIdFromDb _ hLogger _ Nothing _ = do
-    logError hLogger "No token parameter"
-    return $ Left "No Token parameter"
+    logError hLogger "Draft not sended. No token parameter"
+    return $ Left "Draft not sended. No token parameter"
 getDraftByIdFromDb pool hLogger token_lifetime token' draft_id = do
     ch_author <- checkAuthor hLogger pool token_lifetime token'
     case ch_author of
@@ -146,6 +145,7 @@ getDraftByIdFromDb pool hLogger token_lifetime token' draft_id = do
                             logError hLogger "Wrong draft id or draft not exist"
                             return $ Left "Wrong draft id or draft not exist"
                         else do
+                            logInfo hLogger "Draft sended"
                             return $ Right $ Prelude.head rows) $ \e -> do
                 let errState = sqlState e
                 let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -229,7 +229,7 @@ createDraftOnDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _
                 _ -> do
                     let err = E.decodeUtf8 $ sqlErrorMsg e
                     logError hLogger err
-                    return $ Left $ LBS.fromStrict $ sqlErrorMsg e
+                    return $ Left ""
     createTagConnections (Left message) = return $ Left message
     createTagConnections (Right draft_id) =
         catch
@@ -319,7 +319,7 @@ updateDraftInDb ::
     -> Maybe Image
     -> Maybe [Image]
     -> Id
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage ())
 updateDraftInDb _ hLogger _ (DraftInf Nothing _ _ _) _ _ _ _ = do
     logError hLogger "No token param"
     return $ Left "No token param"
@@ -365,7 +365,7 @@ updateDraftInDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _
                         return $ Left "Draft not updated"
                     else do
                         logDebug hLogger "Update drafts complete"
-                        return $ Right "Draft updated") $ \e -> do
+                        return $ Right ()) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $

@@ -57,12 +57,10 @@ deleteCommentById hLogger operations token_lifetime req =
                 Left "Bad token" -> do
                     logError hLogger "Commentary not deleted. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Commentary not deleted."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Commentary deleted."
-                    return $ responseOk bs
+                Left _ -> do
+                    return $ responseBadRequest "Commentary not deleted."
+                Right _ -> do
+                    return $ responseOk "Commentary deleted."
 
 addCommentByNewsId ::
        MonadIO m
@@ -97,12 +95,10 @@ addCommentByNewsId hLogger operations token_lifetime req news'_id =
                 Left "Bad token" -> do
                     logError hLogger "Commentary not added. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Commentary not added."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Commentary added."
-                    return $ responseCreated bs
+                Left _ -> do
+                    return $ responseBadRequest "Commentary not added."
+                Right _ -> do
+                    return $ responseCreated "Commentary added"
 
 sendCommentsByNewsId ::
        MonadIO m
@@ -126,11 +122,9 @@ sendCommentsByNewsId hLogger operations req news'_id =
                     news'_id
                     pageParam
             case result of
-                Left bs -> do
-                    logError hLogger "Commentaries not sended."
-                    return $ responseBadRequest bs
+                Left _s -> do
+                    return $ responseBadRequest "Commentaries not sended."
                 Right ca -> do
-                    logInfo hLogger "Commentaries sended."
                     return $ responseOKJSON $ encode ca
 
 sendNewsById ::
@@ -152,9 +146,8 @@ sendNewsById hLogger operations req newsId =
                 Left "News not exist" -> do
                     logError hLogger "News not sended. News not exist."
                     return $ responseBadRequest "News not exist"
-                Left bs -> do
-                    logError hLogger "News not sended."
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "News not sended."
                 Right gn -> return $ responseOKJSON $ encode gn
 
 sendNews ::
@@ -239,7 +232,7 @@ sendNews hLogger operations req =
                     Nothing ->
                         get_news_from_db operations hLogger sortParam pageParam
             case result of
-                Left bs  -> return $ responseBadRequest bs
+                Left _   -> return $ responseBadRequest "News not sended"
                 Right na -> return $ responseOKJSON $ encode na
         else do
             logError hLogger "Bad request method"

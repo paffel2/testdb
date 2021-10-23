@@ -33,31 +33,29 @@ import           Types.NewsAndComments         (AfterDateFilterParam,
                                                 TitleFilterParam (from_title_fp))
 import           Types.Other                   (ErrorMessage, Id (from_id),
                                                 Page (from_page),
-                                                SuccessMessage, Token,
+                                                 Token,
                                                 TokenLifeTime)
 
 addCommentToDb ::
-       Pool Connection
-    -> Handle IO
-    -> Comment
-    -> IO (Either ErrorMessage SuccessMessage)
+       Pool Connection -> Handle IO -> Comment -> IO (Either ErrorMessage ())
 addCommentToDb _ hLogger (Comment _ _ Nothing _) = do
-    logError hLogger "No news id parameter"
-    return $ Left "No news id parameter"
+    logError hLogger "Commentary not added. No news id parameter"
+    return $ Left "Commentary not added. No news id parameter"
 addCommentToDb _ hLogger (Comment _ _ _ Nothing) = do
-    logError hLogger "No comment parameter"
-    return $ Left "No comment parameter"
+    logError hLogger "Commentary not added. No comment parameter"
+    return $ Left "Commentary not added. No comment parameter"
 addCommentToDb _ hLogger (Comment Nothing _ _ _) = do
-    logError hLogger "No token parameter"
-    return $ Left "No token parameter"
+    logError hLogger "Commentary not added. No token parameter"
+    return $ Left "Commentary not added. No token parameter"
 addCommentToDb pool hLogger com =
     catch
         (do n_r <- executeWithPool pool q com
             if n_r > 0
                 then do
-                    return $ Right "Comment added"
+                    logInfo hLogger "Commentary added."
+                    return $ Right ()
                 else do
-                    return $ Right "Comment not added") $ \e -> do
+                    return $ Left "Commentary not added") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
@@ -76,10 +74,10 @@ deleteCommentFromDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Id
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage ())
 deleteCommentFromDb _ hLogger _ _ Nothing = do
-    logError hLogger "Bad comment id"
-    return $ Left "Bad comment id"
+    logError hLogger "Commentary not deleted. Bad comment id"
+    return $ Left "Commentary not deleted. Bad comment id"
 deleteCommentFromDb pool hLogger token_lifetime token' (Just comment_id) = do
     isAdmin <- checkAdmin hLogger pool token_lifetime token'
     case isAdmin of
@@ -93,9 +91,11 @@ deleteCommentFromDb pool hLogger token_lifetime token' (Just comment_id) = do
                             [comment_id]
                     if n > 0
                         then do
-                            return $ Right "Comment deleted"
+                            logInfo hLogger "Commentary deleted"
+                            return $ Right ()
                         else do
-                            return $ Left "Comment not deleted") $ \e -> do
+                            logError hLogger "Commentary not deleted"
+                            return $ Left "Commentary not deleted") $ \e -> do
                 let errState = sqlState e
                 let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                 logError hLogger $
@@ -109,11 +109,12 @@ getCommentsByNewsIdFromDb ::
     -> Maybe Page
     -> IO (Either ErrorMessage CommentArray)
 getCommentsByNewsIdFromDb _ hLogger Nothing _ = do
-    logError hLogger "No news parameter"
+    logError hLogger "List of commentaries sended not. No news parameter"
     return $ Left "No news parameter"
 getCommentsByNewsIdFromDb pool hLogger (Just news_id) page_p =
     catch
         (do rows <- queryWithPool pool q [news_id]
+            logInfo hLogger "List of commentaries sended"
             return (Right $ CommentArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -154,6 +155,7 @@ getNewsByIdFromDb pool hLogger (Just news'_id) =
                 then do
                     return $ Left "News not exist"
                 else do
+                    logInfo hLogger "News sended"
                     return $ Right $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -188,6 +190,7 @@ getNewsFilterByTagInFromDb pool hLogger (Just tag_lst) page_p = do
     logInfo hLogger "Someone try get news list filtered by tag_in parameter"
     catch
         (do rows <- queryWithPool pool q (Only (In (from_tag_in_fp tag_lst)))
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -226,6 +229,7 @@ getNewsFilterByCategoryIdFromDb pool hLogger (Just cat_id) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by category id"
     catch
         (do rows <- queryWithPool pool q [from_category_fp cat_id]
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -267,6 +271,7 @@ getNewsFilterByTitleFromDb _ hLogger Nothing _ _ = do
 getNewsFilterByTitleFromDb pool hLogger (Just titleName) page_p sortParam =
     catch
         (do logInfo hLogger "Someone try get news list filtered by title"
+            logInfo hLogger "News sended"
             rows <- queryWithPool pool q [from_title_fp titleName]
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
@@ -312,6 +317,7 @@ getNewsFilterByAuthorNameFromDb pool hLogger (Just authorName) page_p sortParam 
                 hLogger
                 "Someone try get news list filtered by author's name"
             rows <- queryWithPool pool q [from_author_fp authorName]
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
@@ -352,6 +358,7 @@ getNewsFilterByDateFromDb pool hLogger (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by date"
     catch
         (do rows <- queryWithPool pool q [date]
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -408,6 +415,7 @@ getNewsFilterByTagAllFromDb pool hLogger (Just tag_lst) page_p sortParam = do
                         , pg
                         ]
             rows <- queryWithPool pool q (Only (In tag_list))
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -445,6 +453,7 @@ getNewsFilterByContentFromDb pool hLogger (Just content_c) page_p sortParam =
                     pool
                     q
                     [T.concat ["%", from_content_fp content_c, "%"]]
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -487,6 +496,7 @@ getNewsFilterByAfterDateFromDb pool hLogger (Just date) page_p sortParam = do
     logInfo hLogger "Someone try get news list filtered by after_date parameter"
     catch
         (do rows <- queryWithPool pool q [date]
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -531,6 +541,7 @@ getNewsFilterByBeforeDateFromDb pool hLogger (Just date) page_p sortParam = do
         "Someone try get news list filtered by before_date parameter"
     catch
         (do rows <- queryWithPool pool q [date]
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -573,6 +584,7 @@ getNewsFilterByTagIdFromDb pool hLogger (Just tag_id) page_p' sortParam = do
     logInfo hLogger "Someone try get news list filtered by tag"
     catch
         (do rows <- queryWithPool pool q [tag_id]
+            logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -611,6 +623,7 @@ getNewsFromDb pool hLogger sortParam pageParam =
     catch
         (do logInfo hLogger "Someone try get news list"
             rows <- query_WithPool pool q
+            logInfo hLogger "News sended"
             return $ Right (NewsArray rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)

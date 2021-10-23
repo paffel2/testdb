@@ -28,11 +28,9 @@ sendImagesList hLogger operations req = do
             logInfo hLogger "Preparing data for sending images list"
             result <- get_photo_list operations hLogger pageParam
             case result of
-                Left bs -> do
-                    logError hLogger "Images list not sended"
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "Images list not sended"
                 Right ia -> do
-                    logInfo hLogger "Images list sended"
                     return $ responseOKJSON $ encode ia
         else do
             logError hLogger "Bad method request"
@@ -48,11 +46,9 @@ sendImage hLogger operations imageId req = do
             logInfo hLogger "Preparing data for sending image"
             result <- get_photo operations hLogger imageId
             case result of
-                Left bs -> do
-                    logError hLogger "Image not sended"
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "Image not sended"
                 Right ib -> do
-                    logInfo hLogger "Image sended"
                     return $
                         responseOKImage (con_type ib) (fromBinary $ image_b ib)
         else do

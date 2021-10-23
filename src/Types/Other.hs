@@ -1,8 +1,7 @@
 module Types.Other where
 
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple.ToField (ToField(..))
+import qualified Data.Text                          as T
+import           Database.PostgreSQL.Simple.ToField (ToField (..))
 
 newtype TokenLifeTime =
     TokenLifeTime
@@ -39,8 +38,6 @@ newtype Id =
 instance ToField Id where
     toField = toField . from_id
 
-type ErrorMessage = LBS.ByteString
-
-type SuccessMessage = LBS.ByteString
+type ErrorMessage = T.Text
 
 type SendId = Int

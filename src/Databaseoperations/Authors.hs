@@ -11,7 +11,7 @@ import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (readByteStringToInt, toQuery)
-import           Logger                        (Handle, logError)
+import           Logger                        (Handle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
 import           Types.Authors                 (AuthorLogin,
@@ -19,8 +19,7 @@ import           Types.Authors                 (AuthorLogin,
                                                 CreateAuthor (CreateAuthor),
                                                 EditAuthor (EditAuthor))
 import           Types.Other                   (ErrorMessage, Page (from_page),
-                                                SendId, SuccessMessage, Token,
-                                                TokenLifeTime)
+                                                SendId, Token, TokenLifeTime)
 
 createAuthorInDb ::
        Pool Connection
@@ -30,14 +29,14 @@ createAuthorInDb ::
     -> CreateAuthor
     -> IO (Either ErrorMessage SendId)
 createAuthorInDb _ hLogger _ Nothing _ = do
-    logError hLogger "No token field"
-    return $ Left "No token field"
+    logError hLogger "Author not created.No token field"
+    return $ Left "Author not created.No token field"
 createAuthorInDb _ hLogger _ _ (CreateAuthor Nothing _) = do
-    logError hLogger "No login field"
-    return $ Left "No login field"
+    logError hLogger "Author not created.No login field"
+    return $ Left "Author not created.No login field"
 createAuthorInDb _ hLogger _ _ (CreateAuthor _ Nothing) = do
-    logError hLogger "No description field"
-    return $ Left "No description field"
+    logError hLogger "Author not created.No description field"
+    return $ Left "Author not created.No description field"
 createAuthorInDb pool hLogger token_lifetime token' create_author_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
@@ -48,18 +47,25 @@ createAuthorInDb pool hLogger token_lifetime token' create_author_params =
                         queryWithPool pool q create_author_params :: IO [Only Int]
                     if Prelude.null rows
                         then do
+                            logError
+                                hLogger
+                                "Something wrong. Author not created."
                             return $ Left "Author not created"
                         else do
+                            logInfo hLogger "Author created."
                             return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         case errStateInt of
             23505 -> do
-                logError hLogger "Author already exist"
-                return $ Left "Author already exist"
+                logError hLogger "Author not created.Author already exist"
+                return $ Left "Author not created.Author already exist"
             _ -> do
                 logError hLogger $
-                    T.concat ["Database error ", T.pack $ show errStateInt]
+                    T.concat
+                        [ "Author not created. Database error "
+                        , T.pack $ show errStateInt
+                        ]
                 return $ Left "Database error"
   where
     q =
@@ -74,13 +80,13 @@ deleteAuthorInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe AuthorLogin
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage ())
 deleteAuthorInDb _ hLogger _ Nothing _ = do
-    logError hLogger "No token param"
-    return $ Left "No token param"
+    logError hLogger "Author not deleted. No token param"
+    return $ Left "Author not deleted. No token param"
 deleteAuthorInDb _ hLogger _ _ Nothing = do
-    logError hLogger "No login field"
-    return $ Left "No login field"
+    logError hLogger "Author not deleted. No login field"
+    return $ Left "Author not deleted. No login field"
 deleteAuthorInDb pool hLogger token_lifetime token' (Just author_login') =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
@@ -88,13 +94,14 @@ deleteAuthorInDb pool hLogger token_lifetime token' (Just author_login') =
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
                     _ <- executeWithPool pool q [author_login']
-                    return $ Right "Author deleted") $ \e -> do
+                    logInfo hLogger "Author deleted"
+                    return $ Right ()) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         case errStateInt of
             23505 -> do
-                logError hLogger "Author already exist"
-                return $ Left "Author already exist"
+                logError hLogger "Author not exist"
+                return $ Left "Author not exist"
             _ -> do
                 logError hLogger $
                     T.concat ["Database error ", T.pack $ show errStateInt]
@@ -115,6 +122,7 @@ getAuthorsList ::
 getAuthorsList pool hLogger page_p' =
     catch
         (do rows <- query_WithPool pool q
+            logInfo hLogger "List of authors sended"
             return $ Right $ AuthorsList rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
@@ -142,16 +150,16 @@ editAuthorInDb ::
     -> TokenLifeTime
     -> Maybe Token
     -> EditAuthor
-    -> IO (Either ErrorMessage SuccessMessage)
+    -> IO (Either ErrorMessage ())
 editAuthorInDb _ hLogger _ _ (EditAuthor Nothing _) = do
-    logError hLogger "No new_description field"
-    return $ Left "No new_description field"
+    logError hLogger "Author not edited. No new_description field"
+    return $ Left "Author not edited. No new_description field"
 editAuthorInDb _ hLogger _ _ (EditAuthor _ Nothing) = do
-    logError hLogger "No author_id field"
-    return $ Left "No author_id field"
+    logError hLogger "Author not edited. No author_id field"
+    return $ Left "Author not edited. No author_id field"
 editAuthorInDb _ hLogger _ Nothing _ = do
-    logError hLogger "No token param"
-    return $ Left "No token param"
+    logError hLogger "Author not edited. No token param"
+    return $ Left "Author not edited. No token param"
 editAuthorInDb pool hLogger token_lifetime token edit_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
@@ -160,8 +168,12 @@ editAuthorInDb pool hLogger token_lifetime token edit_params =
                 (True, _) -> do
                     n <- executeWithPool pool q edit_params
                     if n > 0
-                        then return $ Right "Author edited"
-                        else return $ Left "Author not edited") $ \e -> do
+                        then do
+                            logInfo hLogger "Author edited"
+                            return $ Right ()
+                        else do
+                            logError hLogger "Author not edited"
+                            return $ Left "Author not edited") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $

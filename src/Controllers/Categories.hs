@@ -2,25 +2,26 @@
 
 module Controllers.Categories where
 
-import           Control.Monad.IO.Class     (MonadIO (..))
-import           Data.Aeson                 (encode)
-import qualified Data.ByteString.Char8      as BC
-import           FromRequest                (takeToken, toCategoryName,
-                                             toCreateCategory, toEditCategory,
-                                             toPage)
-import           Logger                     (Handle, logError, logInfo)
-import           Network.HTTP.Types.Method  (methodDelete, methodGet,
-                                             methodPost, methodPut)
-import           Network.Wai                (Request (rawPathInfo, requestMethod),
-                                             Response)
-import           Network.Wai.Parse          (lbsBackEnd, parseRequestBody)
-import           OperationsHandle           (CategoriesHandle (create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
-import           Responses                  (responseBadRequest,
-                                             responseCreated, responseForbidden,
-                                             responseMethodNotAllowed,
-                                             responseNotFound, responseOKJSON,
-                                             responseOk)
-import           Types.Other                (TokenLifeTime)
+import           Control.Monad.IO.Class    (MonadIO (..))
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Char8     as BC
+import qualified Data.ByteString.Lazy      as LBS
+import           FromRequest               (takeToken, toCategoryName,
+                                            toCreateCategory, toEditCategory,
+                                            toPage)
+import           Logger                    (Handle, logError, logInfo)
+import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
+                                            methodPut)
+import           Network.Wai               (Request (rawPathInfo, requestMethod),
+                                            Response)
+import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
+import           OperationsHandle          (CategoriesHandle (create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
+import           Responses                 (responseBadRequest, responseCreated,
+                                            responseForbidden,
+                                            responseMethodNotAllowed,
+                                            responseNotFound, responseOKJSON,
+                                            responseOk)
+import           Types.Other               (TokenLifeTime)
 
 sendCategoriesList ::
        (Monad m, MonadIO m)
@@ -34,11 +35,9 @@ sendCategoriesList hLogger operations req =
             logInfo hLogger "Preparing data for sending categories list"
             result <- get_categories_list_from_db operations hLogger pageParam
             case result of
-                Left bs -> do
-                    logError hLogger "Categories list not sended."
-                    return $ responseBadRequest bs
+                Left _ -> do
+                    return $ responseBadRequest "List of categories not sended."
                 Right loc -> do
-                    logInfo hLogger "Categories list sended."
                     return $ responseOKJSON $ encode loc
         else do
             logError hLogger "Bad request method"
@@ -73,16 +72,19 @@ createCategory hLogger operations token_lifetime req =
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Category not created. Not admin."
-                    return $ responseForbidden "Not admin"
+                    return $
+                        responseForbidden "Category not created. Not admin."
                 Left "Bad token" -> do
                     logError hLogger "Category not created. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Category not created."
-                    return $ responseBadRequest bs
-                Right bs -> do
+                    return $
+                        responseForbidden "Category not created. Bad token."
+                Left _ -> do
+                    return $ responseBadRequest "Category not created."
+                Right category_id -> do
                     logInfo hLogger "Category created."
-                    return $ responseCreated bs
+                    return $
+                        responseCreated $
+                        LBS.fromStrict $ BC.pack $ show category_id
 
 deleteCategory ::
        MonadIO m
@@ -115,12 +117,10 @@ deleteCategory hLogger operations token_lifetime req =
                 Left "Bad token" -> do
                     logError hLogger "Category not deleted. Bad token."
                     return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Category not deleted."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Category deleted."
-                    return $ responseOk bs
+                Left _ -> do
+                    return $ responseBadRequest "Category not deleted."
+                Right _ -> do
+                    return $ responseOk "Category deleted."
 
 editCategory ::
        MonadIO m
@@ -149,16 +149,14 @@ editCategory hLogger operations token_lifetime req = do
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Category not edited. Not admin."
-                    return $ responseForbidden "Not admin"
+                    return $ responseForbidden "Category not edited. Not admin."
                 Left "Bad token" -> do
                     logError hLogger "Category not edited. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Category not edited."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Category edited."
-                    return $ responseCreated bs
+                    return $ responseForbidden "Category not edited. Bad token."
+                Left _ -> do
+                    return $ responseBadRequest "Category not edited."
+                Right _ -> do
+                    return $ responseCreated "Category edited."
 
 categoriesRouter ::
        MonadIO m
