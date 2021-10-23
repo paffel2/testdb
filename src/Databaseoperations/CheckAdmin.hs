@@ -2,22 +2,20 @@
 
 module Databaseoperations.CheckAdmin where
 
-import Control.Exception (catch)
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple
-    ( Connection
-    , Only(fromOnly)
-    , SqlError(sqlState)
-    )
-import HelpFunction (readByteStringToInt)
-import Logger (Handle, logError)
-import PostgreSqlWithPool (queryWithPool)
-import Types.Other (ErrorMessage, Token, TokenLifeTime(token_life_time))
+import           Control.Exception          (catch)
+import           Data.Maybe                 (fromMaybe)
+import           Data.Pool                  (Pool)
+import qualified Data.Text                  as T
+import           Database.PostgreSQL.Simple (Connection, Only (fromOnly),
+                                             SqlError (sqlState))
+import           HelpFunction               (readByteStringToInt)
+import           Logger                     (LoggerHandle, logError)
+import           PostgreSqlWithPool         (queryWithPool)
+import           Types.Other                (ErrorMessage, Token,
+                                             TokenLifeTime (token_life_time))
 
 checkAdmin ::
-       Handle IO
+       LoggerHandle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token

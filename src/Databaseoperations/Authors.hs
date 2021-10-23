@@ -11,7 +11,7 @@ import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (readByteStringToInt, toQuery)
-import           Logger                        (Handle, logError, logInfo)
+import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
 import           Types.Authors                 (AuthorLogin,
@@ -23,7 +23,7 @@ import           Types.Other                   (ErrorMessage, Page (from_page),
 
 createAuthorInDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> CreateAuthor
@@ -76,7 +76,7 @@ createAuthorInDb pool hLogger token_lifetime token' create_author_params =
 
 deleteAuthorInDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe AuthorLogin
@@ -116,7 +116,7 @@ deleteAuthorInDb pool hLogger token_lifetime token' (Just author_login') =
 
 getAuthorsList ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe Page
     -> IO (Either ErrorMessage AuthorsList)
 getAuthorsList pool hLogger page_p' =
@@ -146,7 +146,7 @@ getAuthorsList pool hLogger page_p' =
 
 editAuthorInDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> EditAuthor

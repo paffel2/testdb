@@ -14,7 +14,7 @@ import           Database.PostgreSQL.Simple    (Binary (fromBinary), Connection,
 
 import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (readByteStringToInt, toQuery)
-import           Logger                        (Handle, logError, logInfo)
+import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool)
 import           Types.Other                   (ErrorMessage, Token (..),
                                                 TokenLifeTime)
@@ -33,7 +33,7 @@ generateToken login = do
 
 authentication ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe Login
     -> Maybe Password
     -> IO (Either ErrorMessage Token)
@@ -69,7 +69,7 @@ authentication pool hLogger (Just login) (Just password) =
 
 createUserInDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> CreateUser
     -> IO (Either ErrorMessage Token)
 createUserInDb _ hLogger (CreateUser _ _ _ Nothing _ _ _ _ _) = do
@@ -164,7 +164,7 @@ createUserInDb _ hLogger _ = do
 
 deleteUserFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Login
@@ -192,7 +192,7 @@ deleteUserFromDb pool hLogger token_lifetime token (Just login) =
         return $ Left "Database error"
 
 firstToken ::
-       Handle IO
+       LoggerHandle IO
     -> Pool Connection
     -> Maybe Login
     -> Maybe Password
@@ -233,7 +233,7 @@ firstToken hLogger _ _ _ = do
 
 profileOnDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> IO (Either ErrorMessage Profile)

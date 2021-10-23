@@ -13,7 +13,7 @@ import           Database.PostgreSQL.Simple (Connection, In (In), Only (..),
                                              SqlError (sqlErrorMsg, sqlState))
 
 import           HelpFunction               (readByteStringToInt, toQuery)
-import           Logger                     (Handle, logDebug, logError,
+import           Logger                     (LoggerHandle, logDebug, logError,
                                              logInfo)
 import           PostgreSqlWithPool         (executeManyWithPool,
                                              executeWithPool, execute_WithPool,
@@ -27,7 +27,7 @@ import           Types.Other                (ErrorMessage, Id (from_id), SendId,
 import           Types.Users                (TokenProfile (TokenProfile))
 
 checkAuthor ::
-       Handle IO
+       LoggerHandle IO
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -59,7 +59,7 @@ checkAuthor hLogger pool token_lifetime (Just token') =
 
 getDraftsByAuthorToken ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> IO (Either ErrorMessage DraftArray)
@@ -90,7 +90,7 @@ getDraftsByAuthorToken pool hLogger token_lifetime (Just token') =
 
 deleteDraftFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Id
@@ -125,7 +125,7 @@ deleteDraftFromDb pool hLogger token_lifetime token' (Just draft_id) =
 
 getDraftByIdFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Id
@@ -169,7 +169,7 @@ getDraftByIdFromDb pool hLogger token_lifetime token' draft_id = do
 
 createDraftOnDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> DraftInf
     -> Maybe DraftTags
@@ -312,7 +312,7 @@ createDraftOnDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _
 
 updateDraftInDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> DraftInf
     -> Maybe DraftTags
@@ -517,7 +517,7 @@ updateDraftInDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _
             return $ Left "Database error"
 
 getTagsIds ::
-       Handle IO
+       LoggerHandle IO
     -> Pool Connection
     -> BC.ByteString
     -> IO (Either ErrorMessage [Int])
@@ -535,7 +535,7 @@ getTagsIds hLogger pool tags_bs = do
 
 publicNewsOnDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Id

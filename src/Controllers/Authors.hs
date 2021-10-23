@@ -9,7 +9,8 @@ import qualified Data.ByteString.Lazy      as LBS
 import           FromRequest               (takeToken, toAuthorLogin,
                                             toCreateAuthor, toEditAuthor,
                                             toPage)
-import           Logger                    (Handle, logDebug, logError, logInfo)
+import           Logger                    (LoggerHandle, logDebug, logError,
+                                            logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod),
@@ -25,7 +26,7 @@ import           Types.Other               (TokenLifeTime)
 
 newAuthor ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> AuthorsHandle m
     -> TokenLifeTime
     -> Request
@@ -62,7 +63,7 @@ newAuthor hLogger methods token_lifetime req =
 
 deleteAuthor ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> AuthorsHandle m
     -> TokenLifeTime
     -> Request
@@ -97,7 +98,7 @@ deleteAuthor hLogger methods token_lifetime req =
                     return $ responseCreated "Author deleted."
 
 sendAuthorsList ::
-       MonadIO m => Handle m -> AuthorsHandle m -> Request -> m Response
+       MonadIO m => LoggerHandle m -> AuthorsHandle m -> Request -> m Response
 sendAuthorsList hLogger methods req = do
     if requestMethod req /= methodGet
         then do
@@ -116,7 +117,7 @@ sendAuthorsList hLogger methods req = do
 
 editAuthor ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> AuthorsHandle m
     -> TokenLifeTime
     -> Request
@@ -152,7 +153,7 @@ editAuthor hLogger methods token_lifetime req = do
 
 authorsRouter ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> AuthorsHandle m
     -> TokenLifeTime
     -> Request

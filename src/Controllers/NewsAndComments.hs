@@ -10,7 +10,7 @@ import           FromRequest               (FilterParam (toFilterParam),
                                             takeToken, toCommentId,
                                             toCommentText, toPage, toSort)
 import           HelpFunction              (myLookup, readByteStringToId)
-import           Logger                    (Handle, logError, logInfo)
+import           Logger                    (LoggerHandle, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import           Network.Wai               (Request (queryString, rawPathInfo, requestMethod),
                                             Response)
@@ -29,7 +29,7 @@ import           Types.Other               (Id, TokenLifeTime)
 
 deleteCommentById ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> NewsAndCommentsHandle m
     -> TokenLifeTime
     -> Request
@@ -64,7 +64,7 @@ deleteCommentById hLogger operations token_lifetime req =
 
 addCommentByNewsId ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> NewsAndCommentsHandle m
     -> TokenLifeTime
     -> Request
@@ -102,7 +102,7 @@ addCommentByNewsId hLogger operations token_lifetime req news'_id =
 
 sendCommentsByNewsId ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> NewsAndCommentsHandle m
     -> Request
     -> Maybe Id
@@ -129,7 +129,7 @@ sendCommentsByNewsId hLogger operations req news'_id =
 
 sendNewsById ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> NewsAndCommentsHandle m
     -> Request
     -> Maybe Id
@@ -151,7 +151,11 @@ sendNewsById hLogger operations req newsId =
                 Right gn -> return $ responseOKJSON $ encode gn
 
 sendNews ::
-       MonadIO m => Handle m -> NewsAndCommentsHandle m -> Request -> m Response
+       MonadIO m
+    => LoggerHandle m
+    -> NewsAndCommentsHandle m
+    -> Request
+    -> m Response
 sendNews hLogger operations req =
     if requestMethod req == methodGet
         then do
@@ -254,7 +258,7 @@ sendNews hLogger operations req =
 
 newsAndCommentsRouter ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> NewsAndCommentsHandle m
     -> TokenLifeTime
     -> Request

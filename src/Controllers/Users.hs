@@ -10,7 +10,7 @@ import qualified Data.Text.Encoding        as E
 import           FromRequest               (takeToken, toCreateUser, toLogin,
                                             toPassword)
 import           HelpFunction              (foundParametr)
-import           Logger                    (Handle, logError, logInfo)
+import           Logger                    (LoggerHandle, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import           Network.Wai               (Request (queryString, requestMethod),
                                             Response)
@@ -23,7 +23,7 @@ import           Responses                 (responseBadRequest, responseCreated,
 import           Types.Other               (Token (..), TokenLifeTime)
 import           Types.Users               (Login (Login))
 
-login :: MonadIO m => Handle m -> UsersHandle m -> Request -> m Response
+login :: MonadIO m => LoggerHandle m -> UsersHandle m -> Request -> m Response
 login hLogger operations req =
     if requestMethod req /= methodGet
         then do
@@ -43,7 +43,8 @@ login hLogger operations req =
                         responseOk $
                         LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
-registration :: MonadIO m => Handle m -> UsersHandle m -> Request -> m Response
+registration ::
+       MonadIO m => LoggerHandle m -> UsersHandle m -> Request -> m Response
 registration hLogger operations req =
     if requestMethod req /= methodPost
         then do
@@ -65,7 +66,7 @@ registration hLogger operations req =
 
 deleteUser ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> UsersHandle m
     -> TokenLifeTime
     -> Request
@@ -102,7 +103,7 @@ deleteUser hLogger operations token_lifetime req =
 
 profile ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> UsersHandle m
     -> TokenLifeTime
     -> Request

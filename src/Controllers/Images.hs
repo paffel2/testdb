@@ -8,7 +8,7 @@ import qualified Data.ByteString.Char8      as BC
 import           Database.PostgreSQL.Simple (Binary (fromBinary))
 import           FromRequest                (toPage)
 import           HelpFunction               (readByteStringToId)
-import           Logger                     (Handle, logError, logInfo)
+import           Logger                     (LoggerHandle, logError, logInfo)
 import           Network.HTTP.Types.Method  (methodGet)
 import           Network.Wai                (Request (rawPathInfo, requestMethod),
                                              Response)
@@ -21,7 +21,7 @@ import           Types.Images               (ImageB (con_type, image_b))
 import           Types.Other                (Id)
 
 sendImagesList ::
-       MonadIO m => Handle m -> ImagesHandle m -> Request -> m Response
+       MonadIO m => LoggerHandle m -> ImagesHandle m -> Request -> m Response
 sendImagesList hLogger operations req = do
     if requestMethod req == methodGet
         then do
@@ -39,7 +39,12 @@ sendImagesList hLogger operations req = do
     pageParam = toPage req
 
 sendImage ::
-       MonadIO m => Handle m -> ImagesHandle m -> Id -> Request -> m Response
+       MonadIO m
+    => LoggerHandle m
+    -> ImagesHandle m
+    -> Id
+    -> Request
+    -> m Response
 sendImage hLogger operations imageId req = do
     if requestMethod req == methodGet
         then do
@@ -55,7 +60,8 @@ sendImage hLogger operations imageId req = do
             logError hLogger "Bad method request"
             return $ responseMethodNotAllowed "Bad method request"
 
-imagesRouter :: MonadIO m => Handle m -> ImagesHandle m -> Request -> m Response
+imagesRouter ::
+       MonadIO m => LoggerHandle m -> ImagesHandle m -> Request -> m Response
 imagesRouter hLogger operations req
     | pathElemsC == 1 = sendImagesList hLogger operations req
     | pathElemsC == 2 =

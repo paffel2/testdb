@@ -13,7 +13,7 @@ import           Database.PostgreSQL.Simple (Connection, Only (fromOnly),
 import           Databaseoperations.Users   (firstToken)
 import           HelpFunction               (getMaybeLine, readByteStringToInt,
                                              toQuery)
-import           Logger                     (Handle, logDebug, logError,
+import           Logger                     (LoggerHandle, logDebug, logError,
                                              logInfo)
 import           PostgreSqlWithPool         (executeWithPool, execute_WithPool,
                                              query_WithPool)
@@ -21,7 +21,7 @@ import           Types.Other                (ErrorMessage, Token (..))
 import           Types.Users                (AdminData (..), Login (Login),
                                              Password (Password))
 
-checkFill :: Handle IO -> Pool Connection -> IO (Either ErrorMessage ())
+checkFill :: LoggerHandle IO -> Pool Connection -> IO (Either ErrorMessage ())
 checkFill hLogger pool =
     catch
         (do n <-
@@ -42,7 +42,7 @@ checkFill hLogger pool =
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left "Something Wrong"
 
-checkDb :: Handle IO -> Pool Connection -> IO Bool
+checkDb :: LoggerHandle IO -> Pool Connection -> IO Bool
 checkDb hLogger pool =
     catch
         (do n <- query_WithPool pool "select 1" :: IO [Only Int]
@@ -61,7 +61,7 @@ checkDb hLogger pool =
         logError hLogger err
         return False
 
-createDbClear :: Handle IO -> Pool Connection -> IO Bool
+createDbClear :: LoggerHandle IO -> Pool Connection -> IO Bool
 createDbClear hLogger pool = do
     logInfo hLogger "Input new admin login"
     new_admin_login <- getMaybeLine
@@ -91,7 +91,7 @@ createDbClear hLogger pool = do
                     return True
 
 addAdminToDB ::
-       Handle IO
+       LoggerHandle IO
     -> Pool Connection
     -> AdminData
     -> IO (Either ErrorMessage Token)
@@ -116,7 +116,7 @@ addAdminToDB hLogger pool admin_data = do
         else do
             return $ Left "Registration failed"
 
-fillDb :: Handle IO -> Pool Connection -> IO (Either ErrorMessage ())
+fillDb :: LoggerHandle IO -> Pool Connection -> IO (Either ErrorMessage ())
 fillDb hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_database.sql"
@@ -128,7 +128,7 @@ fillDb hLogger pool = do
     return $ Right ()
 
 fillConnections ::
-       Handle IO
+       LoggerHandle IO
     -> Pool Connection
     -> Either ErrorMessage ()
     -> IO (Either ErrorMessage ())

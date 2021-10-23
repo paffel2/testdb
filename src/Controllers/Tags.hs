@@ -8,7 +8,7 @@ import qualified Data.ByteString.Char8     as BC
 import qualified Data.ByteString.Lazy      as LBS
 import           FromRequest               (takeToken, toEditTag, toPage,
                                             toTagName)
-import           Logger                    (Handle, logError, logInfo)
+import           Logger                    (LoggerHandle, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod),
@@ -22,7 +22,8 @@ import           Responses                 (responseBadRequest, responseCreated,
                                             responseOk)
 import           Types.Other               (TokenLifeTime)
 
-sendTagsList :: MonadIO m => Handle m -> TagsHandle m -> Request -> m Response
+sendTagsList ::
+       MonadIO m => LoggerHandle m -> TagsHandle m -> Request -> m Response
 sendTagsList hLogger operations req =
     if requestMethod req /= methodGet
         then do
@@ -41,7 +42,7 @@ sendTagsList hLogger operations req =
 
 newTag ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> TagsHandle m
     -> TokenLifeTime
     -> Request
@@ -76,7 +77,7 @@ newTag hLogger operations token_lifetime req =
 
 deleteTag ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> TagsHandle m
     -> TokenLifeTime
     -> Request
@@ -111,7 +112,7 @@ deleteTag hLogger operations token_lifetime req =
 
 editTag ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> TagsHandle m
     -> TokenLifeTime
     -> Request
@@ -147,7 +148,7 @@ editTag hLogger operations token_lifetime req =
 
 tagsRouter ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> TagsHandle m
     -> TokenLifeTime
     -> Request

@@ -11,7 +11,7 @@ import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (readByteStringToInt, toQuery)
-import           Logger                        (Handle, logError, logInfo)
+import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
 import           Types.Other                   (ErrorMessage, Page (from_page),
@@ -22,7 +22,7 @@ import           Types.Tags                    (EditTag (EditTag),
 
 createTagInDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe TagName
@@ -60,7 +60,7 @@ createTagInDb pool hLogger token_lifetime token' (Just tag_name') =
 
 deleteTagFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe TagName
@@ -104,7 +104,7 @@ deleteTagFromDb pool hLogger token_lifetime token' (Just tag_name') =
 
 getTagsListFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe Page
     -> IO (Either ErrorMessage TagsList)
 getTagsListFromDb pool hLogger maybe_page =
@@ -127,7 +127,7 @@ getTagsListFromDb pool hLogger maybe_page =
 
 editTagInDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> EditTag

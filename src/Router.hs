@@ -12,7 +12,7 @@ import           Controllers.Tags            (tagsRouter)
 import           Controllers.Users           (deleteUser, login, profile,
                                               registration)
 import qualified Data.ByteString.Char8       as BC
-import           Logger                      (Handle)
+import           Logger                      (LoggerHandle)
 import           Network.Wai                 (Application,
                                               Request (rawPathInfo), Response)
 import           OperationsHandle            (OperationsHandle (authors_handle, categories_handle, drafts_handle, images_handle, news_and_comments_handle, tags_handle, users_handle))
@@ -21,7 +21,7 @@ import           Types.Other                 (TokenLifeTime)
 
 routes' ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> TokenLifeTime
     -> OperationsHandle m
     -> Request
@@ -61,7 +61,7 @@ routes' hLogger token_lifetime operations req =
     pathElems = BC.split '/' path
     pathHead = head pathElems
 
-routes :: Handle IO -> TokenLifeTime -> OperationsHandle IO -> Application
+routes :: LoggerHandle IO -> TokenLifeTime -> OperationsHandle IO -> Application
 routes hLogger token_lifetime operations req respond = do
     resp <- routes' hLogger token_lifetime operations req
     respond resp

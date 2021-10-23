@@ -14,7 +14,7 @@ import           Database.PostgreSQL.Simple    (Connection, In (In),
 import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (readByteStringToInt, toQuery)
 
-import           Logger                        (Handle, logError, logInfo)
+import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
 import           Types.NewsAndComments         (AfterDateFilterParam,
@@ -32,12 +32,14 @@ import           Types.NewsAndComments         (AfterDateFilterParam,
                                                 TagInFilterParam (from_tag_in_fp),
                                                 TitleFilterParam (from_title_fp))
 import           Types.Other                   (ErrorMessage, Id (from_id),
-                                                Page (from_page),
-                                                 Token,
+                                                Page (from_page), Token,
                                                 TokenLifeTime)
 
 addCommentToDb ::
-       Pool Connection -> Handle IO -> Comment -> IO (Either ErrorMessage ())
+       Pool Connection
+    -> LoggerHandle IO
+    -> Comment
+    -> IO (Either ErrorMessage ())
 addCommentToDb _ hLogger (Comment _ _ Nothing _) = do
     logError hLogger "Commentary not added. No news id parameter"
     return $ Left "Commentary not added. No news id parameter"
@@ -70,7 +72,7 @@ addCommentToDb pool hLogger com =
 
 deleteCommentFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe Id
@@ -104,7 +106,7 @@ deleteCommentFromDb pool hLogger token_lifetime token' (Just comment_id) = do
 
 getCommentsByNewsIdFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe Id
     -> Maybe Page
     -> IO (Either ErrorMessage CommentArray)
@@ -142,7 +144,7 @@ getCommentsByNewsIdFromDb pool hLogger (Just news_id) page_p =
 
 getNewsByIdFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe Id
     -> IO (Either ErrorMessage GetNews)
 getNewsByIdFromDb _ hLogger Nothing = do
@@ -179,7 +181,7 @@ getNewsByIdFromDb pool hLogger (Just news'_id) =
 
 getNewsFilterByTagInFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe TagInFilterParam
     -> Maybe Page
     -> IO (Either ErrorMessage NewsArray)
@@ -217,7 +219,7 @@ getNewsFilterByTagInFromDb pool hLogger (Just tag_lst) page_p = do
 
 getNewsFilterByCategoryIdFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe CategoryFilterParam
     -> Maybe Page
     -> Sort
@@ -260,7 +262,7 @@ getNewsFilterByCategoryIdFromDb pool hLogger (Just cat_id) page_p sortParam = do
 
 getNewsFilterByTitleFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe TitleFilterParam
     -> Maybe Page
     -> Sort
@@ -303,7 +305,7 @@ getNewsFilterByTitleFromDb pool hLogger (Just titleName) page_p sortParam =
 
 getNewsFilterByAuthorNameFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe AuthorFilterParam
     -> Maybe Page
     -> Sort
@@ -346,7 +348,7 @@ getNewsFilterByAuthorNameFromDb pool hLogger (Just authorName) page_p sortParam 
 
 getNewsFilterByDateFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe DateFilterParam
     -> Maybe Page
     -> Sort
@@ -389,7 +391,7 @@ getNewsFilterByDateFromDb pool hLogger (Just date) page_p sortParam = do
 
 getNewsFilterByTagAllFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe TagAllFilterParam
     -> Maybe Page
     -> Sort
@@ -437,7 +439,7 @@ getNewsFilterByTagAllFromDb pool hLogger (Just tag_lst) page_p sortParam = do
 
 getNewsFilterByContentFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe ContentFilterParam
     -> Maybe Page
     -> Sort
@@ -484,7 +486,7 @@ getNewsFilterByContentFromDb pool hLogger (Just content_c) page_p sortParam =
 
 getNewsFilterByAfterDateFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe AfterDateFilterParam
     -> Maybe Page
     -> Sort
@@ -527,7 +529,7 @@ getNewsFilterByAfterDateFromDb pool hLogger (Just date) page_p sortParam = do
 
 getNewsFilterByBeforeDateFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe BeforeDateFilterParam
     -> Maybe Page
     -> Sort
@@ -572,7 +574,7 @@ getNewsFilterByBeforeDateFromDb pool hLogger (Just date) page_p sortParam = do
 
 getNewsFilterByTagIdFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe TagFilterParam
     -> Maybe Page
     -> Sort
@@ -615,7 +617,7 @@ getNewsFilterByTagIdFromDb pool hLogger (Just tag_id) page_p' sortParam = do
 
 getNewsFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Sort
     -> Maybe Page
     -> IO (Either ErrorMessage NewsArray)

@@ -9,7 +9,7 @@ import qualified Data.ByteString.Lazy      as LBS
 import           FromRequest               (takeToken, toCategoryName,
                                             toCreateCategory, toEditCategory,
                                             toPage)
-import           Logger                    (Handle, logError, logInfo)
+import           Logger                    (LoggerHandle, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod),
@@ -24,8 +24,8 @@ import           Responses                 (responseBadRequest, responseCreated,
 import           Types.Other               (TokenLifeTime)
 
 sendCategoriesList ::
-       (Monad m, MonadIO m)
-    => Handle m
+       MonadIO m
+    => LoggerHandle m
     -> CategoriesHandle m
     -> Request
     -> m Response
@@ -47,7 +47,7 @@ sendCategoriesList hLogger operations req =
 
 createCategory ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> CategoriesHandle m
     -> TokenLifeTime
     -> Request
@@ -88,7 +88,7 @@ createCategory hLogger operations token_lifetime req =
 
 deleteCategory ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> CategoriesHandle m
     -> TokenLifeTime
     -> Request
@@ -124,7 +124,7 @@ deleteCategory hLogger operations token_lifetime req =
 
 editCategory ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> CategoriesHandle m
     -> TokenLifeTime
     -> Request
@@ -160,7 +160,7 @@ editCategory hLogger operations token_lifetime req = do
 
 categoriesRouter ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> CategoriesHandle m
     -> TokenLifeTime
     -> Request

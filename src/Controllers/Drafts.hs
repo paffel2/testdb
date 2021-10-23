@@ -12,7 +12,7 @@ import           FromRequest               (checkNotImageMaybe, checkNotImages,
                                             toDraftTags, toImage)
 import           HelpFunction              (foundParametr, readByteStringToId,
                                             saveHead)
-import           Logger                    (Handle, logError, logInfo)
+import           Logger                    (LoggerHandle, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod),
@@ -30,7 +30,7 @@ import           Types.Other               (Id, TokenLifeTime)
 
 sendDrafts ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> DraftsHandle m
     -> TokenLifeTime
     -> Request
@@ -51,14 +51,14 @@ sendDrafts hLogger operations token_liferime req =
                     token'
             case drafts' of
                 Left _ -> do
-                    return $ responseBadRequest "Draft not created." --(from text to lbs.bytestring)
+                    return $ responseBadRequest "Draft not created."
                 Right draftsA -> do
                     logInfo hLogger "Sending drafts to user"
                     return $ responseOKJSON (encode draftsA)
 
 createDraft ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> DraftsHandle m
     -> TokenLifeTime
     -> Request
@@ -114,7 +114,7 @@ createDraft hLogger operations token_lifetime req =
 
 deleteDraft ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> DraftsHandle m
     -> TokenLifeTime
     -> Request
@@ -144,7 +144,7 @@ deleteDraft hLogger operations token_lifetime req =
 
 getDraftById ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> DraftsHandle m
     -> TokenLifeTime
     -> Id
@@ -174,7 +174,7 @@ getDraftById hLogger operations token_lifetime draft_id req =
 
 updateDraft ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> DraftsHandle m
     -> TokenLifeTime
     -> Id
@@ -228,7 +228,7 @@ updateDraft hLogger operations token_lifetime draft_id req =
 
 publicNews ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> DraftsHandle m
     -> TokenLifeTime
     -> Id
@@ -258,7 +258,7 @@ publicNews hLogger operations token_lifetime draft_id req =
 
 draftsRouter ::
        MonadIO m
-    => Handle m
+    => LoggerHandle m
     -> DraftsHandle m
     -> TokenLifeTime
     -> Request

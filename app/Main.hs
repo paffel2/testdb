@@ -10,8 +10,8 @@ import           Data.Pool                        (createPool)
 import           Database.PostgreSQL.Simple       (close, connectPostgreSQL)
 import           Databaseoperations.CheckDatabase (checkDb)
 import           HelpFunction                     (dbAddress)
-import           Logger                           (Handle (Handle), logError,
-                                                   logInfo, printLog)
+import           Logger                           (LoggerHandle (LoggerHandle),
+                                                   logError, logInfo, printLog)
 import           Network.Wai.Handler.Warp         (defaultSettings, runSettings,
                                                    setMaximumBodyFlush, setPort)
 import           OperationsHandle                 (operationsHandler)
@@ -22,7 +22,7 @@ main = do
     hConfig <- getConfig
     let db_address = dbAddress . db_conf $ hConfig
     let token_lifetime = lifeTime hConfig
-    let hLogger = Handle (log_priority hConfig) printLog
+    let hLogger = LoggerHandle (log_priority hConfig) printLog
     let poolParams = pool_params hConfig
     logInfo hLogger "Server started"
     pool <-

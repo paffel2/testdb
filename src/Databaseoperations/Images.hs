@@ -9,14 +9,17 @@ import           Data.Pool                  (Pool)
 import qualified Data.Text                  as T
 import           Database.PostgreSQL.Simple (Connection, SqlError (sqlState))
 import           HelpFunction               (readByteStringToInt, toQuery)
-import           Logger                     (Handle, logError, logInfo)
+import           Logger                     (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool         (queryWithPool, query_WithPool)
 import           Types.Images               (ElemImageArray,
                                              ImageArray (ImageArray), ImageB)
 import           Types.Other                (ErrorMessage, Id, Page (from_page))
 
 getPhoto ::
-       Pool Connection -> Handle IO -> Id -> IO (Either ErrorMessage ImageB)
+       Pool Connection
+    -> LoggerHandle IO
+    -> Id
+    -> IO (Either ErrorMessage ImageB)
 getPhoto pool hLogger image_id' =
     catch
         (do let q =
@@ -40,7 +43,7 @@ getPhoto pool hLogger image_id' =
 
 getPhotoList ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe Page
     -> IO (Either ErrorMessage ImageArray)
 getPhotoList pool hLogger pageParam =

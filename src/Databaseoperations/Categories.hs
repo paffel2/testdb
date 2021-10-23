@@ -11,8 +11,8 @@ import           Database.PostgreSQL.Simple    (Connection, Only (..),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (readByteStringToInt, toQuery)
-import           Logger                        (Handle, logDebug, logError,
-                                                logInfo)
+import           Logger                        (LoggerHandle, logDebug,
+                                                logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool,
                                                 returningWithPool)
@@ -21,12 +21,11 @@ import           Types.Categories              (CategoryName (..),
                                                 EditCategory (EditCategory),
                                                 ListOfCategories (ListOfCategories))
 import           Types.Other                   (ErrorMessage, Page (from_page),
-                                                SendId,  Token,
-                                                TokenLifeTime)
+                                                SendId, Token, TokenLifeTime)
 
 getCategoriesListFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> Maybe Page
     -> IO (Either ErrorMessage ListOfCategories)
 getCategoriesListFromDb pool hLogger pageParam =
@@ -54,7 +53,7 @@ getCategoriesListFromDb pool hLogger pageParam =
 
 createCategoryOnDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> CreateCategory
@@ -110,7 +109,7 @@ createCategoryOnDb pool hLogger token_lifetime token' (CreateCategory (Just cate
 
 deleteCategoryFromDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> Maybe CategoryName
@@ -149,7 +148,7 @@ deleteCategoryFromDb pool hLogger token_lifetime token (Just categoryName) =
 
 editCategoryOnDb ::
        Pool Connection
-    -> Handle IO
+    -> LoggerHandle IO
     -> TokenLifeTime
     -> Maybe Token
     -> EditCategory
