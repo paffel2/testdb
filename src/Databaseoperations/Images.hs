@@ -4,7 +4,6 @@ module Databaseoperations.Images where
 
 import Control.Exception (catch)
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Pool (Pool)
 import qualified Data.Text as T
@@ -12,18 +11,19 @@ import Database.PostgreSQL.Simple (Connection, SqlError(sqlState))
 import HelpFunction (readByteStringToInt, toQuery)
 import Logger (Handle, logError)
 import PostgreSqlWithPool (queryWithPool, query_WithPool)
-import Types (ElemImageArray, ImageArray(ImageArray), ImageB)
+import Types.Images (ElemImageArray, ImageArray(ImageArray), ImageB)
+import Types.Other (ErrorMessage, Id, Page(from_page))
 
 getPhoto ::
-       Handle IO -> Pool Connection -> Int -> IO (Either LBS.ByteString ImageB)
-getPhoto hLogger pool image_id =
+       Handle IO -> Pool Connection -> Id -> IO (Either ErrorMessage ImageB)
+getPhoto hLogger pool image_id' =
     catch
         (do let q =
                     toQuery $
                     BC.concat
                         [ "select image_b, content_type from images where image_id = ?"
                         ]
-            rows <- queryWithPool pool q [image_id] :: IO [ImageB]
+            rows <- queryWithPool pool q [image_id'] :: IO [ImageB]
             if Prelude.null rows
                 then return $ Left "Image not exist"
                 else return $ Right $ Prelude.head rows) $ \e -> do
@@ -36,8 +36,8 @@ getPhoto hLogger pool image_id =
 getPhotoList ::
        Handle IO
     -> Pool Connection
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString ImageArray)
+    -> Maybe Page
+    -> IO (Either ErrorMessage ImageArray)
 getPhotoList hLogger pool pageParam =
     catch
         (do rows <- query_WithPool pool q :: IO [ElemImageArray]
@@ -53,14 +53,14 @@ getPhotoList hLogger pool pageParam =
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe
+                     , BC.pack $ show $ (maybe 1 from_page pageParam - 1) * 10
+                     ]
+                       {-(fromMaybe
                             1
-                            (readByteStringToInt (fromMaybe "" pageParam)) -
+                            (readByteStringToInt (maybe "" from_page pageParam)) -
                         1) *
                        10
-                     ]
+                     ]-}
     q =
         toQuery $
         BC.concat

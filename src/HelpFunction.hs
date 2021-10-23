@@ -13,6 +13,7 @@ import Database.PostgreSQL.Simple.Types (Query)
 import Network.Wai.Parse (FileInfo)
 import System.Directory (getDirectoryContents)
 import Text.Read (readMaybe)
+import Types.Other (Id(Id))
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -35,6 +36,9 @@ readByteStringListInt lst = readMaybe $ BC.unpack lst
 
 readByteStringToDay :: BC.ByteString -> Maybe Day
 readByteStringToDay bs = readMaybe $ BC.unpack bs
+
+readByteStringToId :: BC.ByteString -> Maybe Id
+readByteStringToId num = Id <$> readByteStringToInt num
 
 toQuery :: BC.ByteString -> Query
 toQuery s = fromString $ BC.unpack s

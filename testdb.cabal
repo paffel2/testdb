@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c85d3a32870fe89360a8663b1d50a831bd8042e2ac844fe3a1740894774425b7
+-- hash: 752d353ffc6af1b1b06256024149c5dbd56fa60476a26ff4931d79c35d4c952c
 
 name:           testdb
 version:        0.1.0.0
@@ -52,6 +52,14 @@ library
       Responses
       Router
       Types
+      Types.Authors
+      Types.Categories
+      Types.Drafts
+      Types.Images
+      Types.NewsAndComments
+      Types.Other
+      Types.Tags
+      Types.Users
   other-modules:
       Paths_testdb
   hs-source-dirs:

@@ -6,12 +6,15 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
 import Data.Pool (Pool)
-import qualified Data.Text.Encoding as E
 import Database.PostgreSQL.Simple (Connection)
-import FromRequest (takeToken)
-import HelpFunction (readByteStringToInt)
+import FromRequest
+    ( takeToken
+    , toAuthorLogin
+    , toCreateAuthor
+    , toEditAuthor
+    , toPage
+    )
 import Logger (Handle, logDebug, logError, logInfo)
 import Network.HTTP.Types.Method
     ( methodDelete
@@ -19,7 +22,7 @@ import Network.HTTP.Types.Method
     , methodPost
     , methodPut
     )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
+import Network.Wai (Request(rawPathInfo, requestMethod), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import OperationsHandle
     ( AuthorsHandle(create_author_in_db, delete_author_in_db,
@@ -32,9 +35,9 @@ import Responses
     , responseMethodNotAllowed
     , responseNotFound
     , responseOKJSON
-    , responseOk
     )
-import Types (TokenLifeTime)
+
+import Types.Other (TokenLifeTime)
 
 newAuthor ::
        MonadIO m
@@ -51,10 +54,9 @@ newAuthor hLogger methods pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing parameters for creating new author."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let author_login = E.decodeUtf8 <$> lookup "author_login" i
-            let description = E.decodeUtf8 <$> lookup "description" i
+            let create_author_params = toCreateAuthor i
             logDebug hLogger "Creating Author on database"
             result <-
                 create_author_in_db
@@ -63,8 +65,7 @@ newAuthor hLogger methods pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    author_login
-                    description
+                    create_author_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not created. Not admin."
@@ -74,10 +75,10 @@ newAuthor hLogger methods pool token_lifetime req =
                     return $ responseForbidden "Bad token"
                 Left bs -> do
                     logError hLogger "Author not created."
-                    return $ responseCreated bs
+                    return $ responseBadRequest bs
                 Right n -> do
                     logInfo hLogger "Author created."
-                    return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
+                    return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
 deleteAuthor ::
        MonadIO m
@@ -94,9 +95,9 @@ deleteAuthor hLogger methods pool token_lifetime req =
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing parameters for deleting author."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let author_login = E.decodeUtf8 <$> lookup "author_login" i
+            let author_login' = toAuthorLogin i
             result <-
                 delete_author_in_db
                     methods
@@ -104,7 +105,7 @@ deleteAuthor hLogger methods pool token_lifetime req =
                     pool
                     token_lifetime
                     token'
-                    author_login
+                    author_login'
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not deleted. Not admin."
@@ -114,10 +115,10 @@ deleteAuthor hLogger methods pool token_lifetime req =
                     return $ responseForbidden "Bad token"
                 Left bs -> do
                     logError hLogger "Author not deleted."
-                    return $ responseCreated bs
+                    return $ responseBadRequest bs
                 Right bs -> do
                     logInfo hLogger "Author deleted."
-                    return $ responseOk bs
+                    return $ responseCreated bs
 
 sendAuthorsList ::
        MonadIO m
@@ -142,7 +143,7 @@ sendAuthorsList hLogger methods pool req = do
                     logInfo hLogger "Authors list sended."
                     return $ responseOKJSON $ encode al
   where
-    pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
+    pageParam = toPage req
 
 editAuthor ::
        MonadIO m
@@ -159,10 +160,9 @@ editAuthor hLogger methods pool token_lifetime req = do
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo hLogger "Preparing data for editing author's description."
-            let token' = E.decodeUtf8 <$> takeToken req
+            let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let new_description = E.decodeUtf8 <$> lookup "new_description" i
-            let a_id = readByteStringToInt =<< lookup "author_id" i
+            let edit_params = toEditAuthor i
             result <-
                 edit_author_in_db
                     methods
@@ -170,8 +170,7 @@ editAuthor hLogger methods pool token_lifetime req = do
                     pool
                     token_lifetime
                     token'
-                    a_id
-                    new_description
+                    edit_params
             case result of
                 Left "Not admin" -> do
                     logError hLogger "Author not edited. Not admin."
@@ -181,10 +180,10 @@ editAuthor hLogger methods pool token_lifetime req = do
                     return $ responseForbidden "Bad token"
                 Left bs -> do
                     logError hLogger "Author not edited."
-                    return $ responseCreated bs
+                    return $ responseBadRequest bs
                 Right bs -> do
                     logInfo hLogger "Author edited."
-                    return $ responseOk bs
+                    return $ responseCreated bs
 
 authorsRouter ::
        MonadIO m
