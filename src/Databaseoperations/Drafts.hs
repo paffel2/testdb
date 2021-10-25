@@ -60,14 +60,14 @@ checkAuthor hLogger pool token_lifetime (Just token') =
 
 getDraftsByAuthorToken ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> IO (Either SomeError DraftArray)
-getDraftsByAuthorToken _ hLogger _ Nothing = do
+getDraftsByAuthorToken _ _ hLogger Nothing = do
     logError hLogger "No token parameter"
     return . Left . OtherError $ "No token parameter"
-getDraftsByAuthorToken pool hLogger token_lifetime (Just token') =
+getDraftsByAuthorToken pool token_lifetime hLogger (Just token') =
     catch
         (do rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
             if Prelude.null rows
@@ -92,15 +92,15 @@ getDraftsByAuthorToken pool hLogger token_lifetime (Just token') =
 
 deleteDraftFromDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe Id
     -> IO (Either SomeError ())
-deleteDraftFromDb _ hLogger _ _ Nothing = do
+deleteDraftFromDb _ _ hLogger _ Nothing = do
     logError hLogger "Draft not deleted. No draft_id parameter"
     return . Left . OtherError $ "Draft not deleted. No draft_id parameter"
-deleteDraftFromDb pool hLogger token_lifetime token' (Just draft_id) =
+deleteDraftFromDb pool token_lifetime hLogger token' (Just draft_id) =
     catch
         (do ch <- checkAuthor hLogger pool token_lifetime token'
             case ch of
@@ -127,15 +127,15 @@ deleteDraftFromDb pool hLogger token_lifetime token' (Just draft_id) =
 
 getDraftByIdFromDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Id
     -> IO (Either SomeError Draft)
-getDraftByIdFromDb _ hLogger _ Nothing _ = do
+getDraftByIdFromDb _ _ hLogger Nothing _ = do
     logError hLogger "Draft not sended. No token parameter"
     return . Left . OtherError $ "Draft not sended. No token parameter"
-getDraftByIdFromDb pool hLogger token_lifetime token' draft_id = do
+getDraftByIdFromDb pool token_lifetime hLogger token' draft_id = do
     ch_author <- checkAuthor hLogger pool token_lifetime token'
     case ch_author of
         Left bs -> return $ Left bs
@@ -172,29 +172,29 @@ getDraftByIdFromDb pool hLogger token_lifetime token' draft_id = do
 
 createDraftOnDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> DraftInf
     -> Maybe DraftTags
     -> Maybe Image
     -> Maybe [Image]
     -> IO (Either SomeError SendId)
-createDraftOnDb _ hLogger _ (DraftInf Nothing _ _ _) _ _ _ = do
+createDraftOnDb _ _ hLogger (DraftInf Nothing _ _ _) _ _ _ = do
     logError hLogger "No token param"
     return . Left . OtherError $ "No token param"
-createDraftOnDb _ hLogger _ (DraftInf _ Nothing _ _) _ _ _ = do
+createDraftOnDb _ _ hLogger (DraftInf _ Nothing _ _) _ _ _ = do
     logError hLogger "No category field"
     return . Left . OtherError $ "No category field"
-createDraftOnDb _ hLogger _ _ Nothing _ _ = do
+createDraftOnDb _ _ hLogger _ Nothing _ _ = do
     logError hLogger "No tags field"
     return . Left . OtherError $ "No tags field"
-createDraftOnDb _ hLogger _ (DraftInf _ _ Nothing _) _ _ _ = do
+createDraftOnDb _ _ hLogger (DraftInf _ _ Nothing _) _ _ _ = do
     logError hLogger "No short_title field"
     return . Left . OtherError $ "No short_title field"
-createDraftOnDb _ hLogger _ (DraftInf _ _ _ Nothing) _ _ _ = do
+createDraftOnDb _ _ hLogger (DraftInf _ _ _ Nothing) _ _ _ = do
     logError hLogger "No text field"
     return . Left . OtherError $ "No text field"
-createDraftOnDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list = do
+createDraftOnDb pool token_lifetime hLogger draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list = do
     logInfo hLogger "Someone try add new draft"
     draft_id <- newDraft
     c <- createTagConnections draft_id
@@ -316,30 +316,30 @@ createDraftOnDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _
 
 updateDraftInDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> DraftInf
     -> Maybe DraftTags
     -> Maybe Image
     -> Maybe [Image]
     -> Id
     -> IO (Either SomeError ())
-updateDraftInDb _ hLogger _ (DraftInf Nothing _ _ _) _ _ _ _ = do
+updateDraftInDb _ _ hLogger (DraftInf Nothing _ _ _) _ _ _ _ = do
     logError hLogger "No token param"
     return . Left . OtherError $ "No token param"
-updateDraftInDb _ hLogger _ (DraftInf _ Nothing _ _) _ _ _ _ = do
+updateDraftInDb _ _ hLogger (DraftInf _ Nothing _ _) _ _ _ _ = do
     logError hLogger "No category field"
     return . Left . OtherError $ "No category field"
-updateDraftInDb _ hLogger _ _ Nothing _ _ _ = do
+updateDraftInDb _ _ hLogger _ Nothing _ _ _ = do
     logError hLogger "No tags field"
     return . Left . OtherError $ "No tags field"
-updateDraftInDb _ hLogger _ (DraftInf _ _ Nothing _) _ _ _ _ = do
+updateDraftInDb _ _ hLogger (DraftInf _ _ Nothing _) _ _ _ _ = do
     logError hLogger "No short_title field"
     return . Left . OtherError $ "No short_title field"
-updateDraftInDb _ hLogger _ (DraftInf _ _ _ Nothing) _ _ _ _ = do
+updateDraftInDb _ _ hLogger (DraftInf _ _ _ Nothing) _ _ _ _ = do
     logError hLogger "No text field"
     return . Left . OtherError $ "No text field"
-updateDraftInDb pool hLogger token_lifetime draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list draft_id = do
+updateDraftInDb pool token_lifetime hLogger draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list draft_id = do
     logInfo hLogger "Someone try update draft"
     u <- updateDraft
     dt <- deleteTagConnections u
@@ -540,12 +540,12 @@ getTagsIds hLogger pool tags_bs = do
 
 publicNewsOnDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Id
     -> IO (Either SomeError SendId)
-publicNewsOnDb pool hLogger token_lifetime token' draft_id = do
+publicNewsOnDb pool token_lifetime hLogger token' draft_id = do
     ch <- checkAuthor hLogger pool token_lifetime token'
     case ch of
         Left bs -> return $ Left bs

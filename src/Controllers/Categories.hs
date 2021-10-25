@@ -9,95 +9,85 @@ import qualified Data.ByteString.Lazy      as LBS
 import           FromRequest               (takeToken, toCategoryName,
                                             toCreateCategory, toEditCategory,
                                             toPage)
-import           Logger                    (LoggerHandle, logError, logInfo)
+import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod),
                                             Response)
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
-import           OperationsHandle          (CategoriesHandle (create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
+import           OperationsHandle          (CategoriesHandle (categories_logger, create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
 import           Responses                 (badResponse, responseCreated,
                                             responseMethodNotAllowed,
                                             responseNotFound, responseOKJSON,
                                             responseOk)
-import           Types.Other               (TokenLifeTime)
 
-sendCategoriesList ::
-       MonadIO m
-    => LoggerHandle m
-    -> CategoriesHandle m
-    -> Request
-    -> m Response
-sendCategoriesList hLogger operations req =
+sendCategoriesList :: MonadIO m => CategoriesHandle m -> Request -> m Response
+sendCategoriesList operations req =
     if requestMethod req == methodGet
         then do
-            logInfo hLogger "Preparing data for sending categories list"
-            result <- get_categories_list_from_db operations hLogger pageParam
+            logInfo
+                (categories_logger operations)
+                "Preparing data for sending categories list"
+            result <-
+                get_categories_list_from_db
+                    operations
+                    (categories_logger operations)
+                    pageParam
             case result of
                 Left someError -> return $ badResponse "" someError
                 Right loc -> do
                     return $ responseOKJSON $ encode loc
         else do
-            logError hLogger "Bad request method"
+            logError (categories_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
   where
     pageParam = toPage req
 
-createCategory ::
-       MonadIO m
-    => LoggerHandle m
-    -> CategoriesHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-createCategory hLogger operations token_lifetime req =
+createCategory :: MonadIO m => CategoriesHandle m -> Request -> m Response
+createCategory operations req =
     if requestMethod req /= methodPost
         then do
-            logError hLogger "Bad request method"
+            logError (categories_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for creating category"
+            logInfo
+                (categories_logger operations)
+                "Preparing data for creating category"
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let token' = takeToken req
             let create_category_params = toCreateCategory i
             result <-
                 create_category_on_db
                     operations
-                    hLogger
-                    token_lifetime
+                    (categories_logger operations)
                     token'
                     create_category_params
             case result of
                 Left someError ->
                     return $ badResponse "Category not created." someError
                 Right category_id -> do
-                    logInfo hLogger "Category created."
+                    logInfo (categories_logger operations) "Category created."
                     return $
                         responseCreated $
                         LBS.fromStrict $ BC.pack $ show category_id
 
-deleteCategory ::
-       MonadIO m
-    => LoggerHandle m
-    -> CategoriesHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-deleteCategory hLogger operations token_lifetime req =
+deleteCategory :: MonadIO m => CategoriesHandle m -> Request -> m Response
+deleteCategory operations req =
     if requestMethod req /= methodDelete
         then do
-            logError hLogger "Bad request method"
+            logError (categories_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for deleting category"
+            logInfo
+                (categories_logger operations)
+                "Preparing data for deleting category"
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let category_name = toCategoryName i
             result <-
                 delete_category_from_db
                     operations
-                    hLogger
-                    token_lifetime
+                    (categories_logger operations)
                     token'
                     category_name
             case result of
@@ -106,28 +96,23 @@ deleteCategory hLogger operations token_lifetime req =
                 Right _ -> do
                     return $ responseOk "Category deleted."
 
-editCategory ::
-       MonadIO m
-    => LoggerHandle m
-    -> CategoriesHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-editCategory hLogger operations token_lifetime req = do
+editCategory :: MonadIO m => CategoriesHandle m -> Request -> m Response
+editCategory operations req = do
     if requestMethod req /= methodPut
         then do
-            logError hLogger "Bad request method"
+            logError (categories_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for editing category"
+            logInfo
+                (categories_logger operations)
+                "Preparing data for editing category"
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let edit_category_parameters = toEditCategory i
             result <-
                 edit_category_on_db
                     operations
-                    hLogger
-                    token_lifetime
+                    (categories_logger operations)
                     token'
                     edit_category_parameters
             case result of
@@ -136,24 +121,15 @@ editCategory hLogger operations token_lifetime req = do
                 Right _ -> do
                     return $ responseCreated "Category edited."
 
-categoriesRouter ::
-       MonadIO m
-    => LoggerHandle m
-    -> CategoriesHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-categoriesRouter hLogger operations token_lifetime req
-    | pathElemsC == 1 = sendCategoriesList hLogger operations req
+categoriesRouter :: MonadIO m => CategoriesHandle m -> Request -> m Response
+categoriesRouter operations req
+    | pathElemsC == 1 = sendCategoriesList operations req
     | pathElemsC == 2 =
         case last pathElems of
-            "delete_category" ->
-                deleteCategory hLogger operations token_lifetime req
-            "create_category" ->
-                createCategory hLogger operations token_lifetime req
-            "edit_category" ->
-                editCategory hLogger operations token_lifetime req
-            _ -> return $ responseNotFound "Not Found"
+            "delete_category" -> deleteCategory operations req
+            "create_category" -> createCategory operations req
+            "edit_category"   -> editCategory operations req
+            _                 -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

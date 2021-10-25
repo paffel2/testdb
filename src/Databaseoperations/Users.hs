@@ -79,7 +79,7 @@ createUserInDb _ hLogger (CreateUser _ _ _ _ Nothing _ _ _ _) = do
     logError hLogger "User not created. No last_name parameter"
     return . Left . OtherError $ "No last_name parameter"
 createUserInDb _ hLogger (CreateUser _ _ _ _ _ Nothing _ _ _) = do
-    return . Left . OtherError $ "User not created. No login parameter"
+    logError hLogger "User not created. No login parameter"
     return . Left . OtherError $ "No login parameter"
 createUserInDb _ hLogger (CreateUser _ _ _ _ _ _ Nothing _ _) = do
     logError hLogger "User not created. No password parameter"
@@ -171,15 +171,15 @@ createUserInDb _ hLogger _ = do
 
 deleteUserFromDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe Login
     -> IO (Either SomeError ())
-deleteUserFromDb _ hLogger _ _ Nothing = do
+deleteUserFromDb _ _ hLogger _ Nothing = do
     logError hLogger "User not deleted. No login parameter"
     return . Left . OtherError $ "No login parameter"
-deleteUserFromDb pool hLogger token_lifetime token (Just login) =
+deleteUserFromDb pool token_lifetime hLogger token (Just login) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -240,14 +240,14 @@ firstToken hLogger _ _ _ = do
 
 profileOnDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> IO (Either SomeError Profile)
-profileOnDb _ hLogger _ Nothing = do
+profileOnDb _ _ hLogger Nothing = do
     logError hLogger "User's information not sended. No token parameter"
     return . Left . OtherError $ "No token parameter"
-profileOnDb pool hLogger token_lifetime (Just token') =
+profileOnDb pool token_lifetime hLogger (Just token') =
     catch
         (do rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
             if Prelude.null rows

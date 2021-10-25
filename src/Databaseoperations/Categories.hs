@@ -54,18 +54,18 @@ getCategoriesListFromDb pool hLogger pageParam =
 
 createCategoryOnDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> CreateCategory
     -> IO (Either SomeError SendId)
-createCategoryOnDb _ hLogger _ _ (CreateCategory Nothing _) = do
+createCategoryOnDb _ _ hLogger _ (CreateCategory Nothing _) = do
     logError hLogger "No category_name field"
     return $ Left $ OtherError "No category_name field"
-createCategoryOnDb _ hLogger _ _ (CreateCategory _ Nothing) = do
+createCategoryOnDb _ _ hLogger _ (CreateCategory _ Nothing) = do
     logError hLogger "No maternal_category_name field"
     return $ Left $ OtherError "No maternal_category_name field"
-createCategoryOnDb pool hLogger token_lifetime token' (CreateCategory (Just category'_name) (Just maternal_name)) =
+createCategoryOnDb pool token_lifetime hLogger token' (CreateCategory (Just category'_name) (Just maternal_name)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -112,15 +112,15 @@ createCategoryOnDb pool hLogger token_lifetime token' (CreateCategory (Just cate
 
 deleteCategoryFromDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe CategoryName
     -> IO (Either SomeError ())
-deleteCategoryFromDb _ hLogger _ _ Nothing = do
+deleteCategoryFromDb _ _ hLogger _ Nothing = do
     logError hLogger "Category not deleted.No category_name parametr"
     return $ Left $ OtherError "Category not deleted.No category_name parametr"
-deleteCategoryFromDb pool hLogger token_lifetime token (Just categoryName) =
+deleteCategoryFromDb pool token_lifetime hLogger token (Just categoryName) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -151,18 +151,18 @@ deleteCategoryFromDb pool hLogger token_lifetime token (Just categoryName) =
 
 editCategoryOnDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> EditCategory
     -> IO (Either SomeError ())
-editCategoryOnDb _ hLogger _ _ (EditCategory Nothing _ _) = do
+editCategoryOnDb _ _ hLogger _ (EditCategory Nothing _ _) = do
     logError hLogger "Category not edited. No old_name parametr"
     return $ Left $ OtherError "Category not edited. No old_name parametr"
-editCategoryOnDb _ hLogger _ _ (EditCategory (Just (CategoryName "")) (Just _) (Just _)) = do
+editCategoryOnDb _ _ hLogger _ (EditCategory (Just (CategoryName "")) (Just _) (Just _)) = do
     logError hLogger "Empty old name parameter"
     return $ Left $ OtherError "Empty old name parameter"
-editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just (CategoryName ""))) =
+editCategoryOnDb pool token_lifetime hLogger token (EditCategory (Just old_name) (Just new'_name) (Just (CategoryName ""))) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -197,7 +197,7 @@ editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name)
         case errStateInt of
             23505 -> return . Left . OtherError $ "Category already exist"
             _     -> return $ Left DatabaseError
-editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name) (Just (CategoryName "")) (Just new'_maternal)) =
+editCategoryOnDb pool token_lifetime hLogger token (EditCategory (Just old_name) (Just (CategoryName "")) (Just new'_maternal)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -234,7 +234,7 @@ editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name)
   where
     myHead []    = Only (-1)
     myHead (x:_) = x
-editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name) (Just new'_name) (Just new'_maternal)) =
+editCategoryOnDb pool token_lifetime hLogger token (EditCategory (Just old_name) (Just new'_name) (Just new'_maternal)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
@@ -279,6 +279,6 @@ editCategoryOnDb pool hLogger token_lifetime token (EditCategory (Just old_name)
   where
     myHead []    = Only (-1)
     myHead (x:_) = x
-editCategoryOnDb _ hLogger _ _ _ = do
+editCategoryOnDb _ _ hLogger _ _ = do
     logError hLogger "No update parameters"
     return $ Left $ OtherError "No update parameters"

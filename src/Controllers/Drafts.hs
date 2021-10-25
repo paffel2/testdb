@@ -12,7 +12,7 @@ import           FromRequest               (checkNotImageMaybe, checkNotImages,
                                             toDraftTags, toImage)
 import           HelpFunction              (foundParametr, readByteStringToId,
                                             saveHead)
-import           Logger                    (LoggerHandle, logError, logInfo)
+import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod),
@@ -20,56 +20,47 @@ import           Network.Wai               (Request (rawPathInfo, requestMethod)
 import           Network.Wai.Parse         (FileInfo (fileContent), lbsBackEnd,
                                             noLimitParseRequestBodyOptions,
                                             parseRequestBodyEx)
-import           OperationsHandle          (DraftsHandle (create_draft_on_db, delete_draft_from_db, get_draft_by_id_from_db, get_drafts_by_author_token, public_news_on_db, update_draft_in_db))
+import           OperationsHandle          (DraftsHandle (create_draft_on_db, delete_draft_from_db, drafts_logger, get_draft_by_id_from_db, get_drafts_by_author_token, public_news_on_db, update_draft_in_db))
 import           Responses                 (badResponse, responseBadRequest,
                                             responseCreated,
                                             responseMethodNotAllowed,
                                             responseNotFound, responseOKJSON,
                                             responseOk)
-import           Types.Other               (Id, TokenLifeTime)
+import           Types.Other               (Id)
 
-sendDrafts ::
-       MonadIO m
-    => LoggerHandle m
-    -> DraftsHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-sendDrafts hLogger operations token_liferime req =
+sendDrafts :: MonadIO m => DraftsHandle m -> Request -> m Response
+sendDrafts operations req =
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
+            logError (drafts_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for sending drafts"
+            logInfo
+                (drafts_logger operations)
+                "Preparing data for sending drafts"
             let token' = takeToken req
             drafts' <-
                 get_drafts_by_author_token
                     operations
-                    hLogger
-                    token_liferime
+                    (drafts_logger operations)
                     token'
             case drafts' of
                 Left someError ->
                     return $ badResponse "Drafts not sended." someError
                 Right draftsA -> do
-                    logInfo hLogger "Sending drafts to user"
+                    logInfo (drafts_logger operations) "Sending drafts to user"
                     return $ responseOKJSON (encode draftsA)
 
-createDraft ::
-       MonadIO m
-    => LoggerHandle m
-    -> DraftsHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-createDraft hLogger operations token_lifetime req =
+createDraft :: MonadIO m => DraftsHandle m -> Request -> m Response
+createDraft operations req =
     if requestMethod req /= methodPost
         then do
-            logError hLogger "Bad request method"
+            logError (drafts_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for creating draft"
+            logInfo
+                (drafts_logger operations)
+                "Preparing data for creating draft"
             (i, f) <-
                 liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
@@ -88,14 +79,13 @@ createDraft hLogger operations token_lifetime req =
             if checkNotImageMaybe main_image_triple ||
                checkNotImages images_list
                 then do
-                    logError hLogger "Bad image file"
+                    logError (drafts_logger operations) "Bad image file"
                     return $ responseBadRequest "Bad image file"
                 else do
                     result <-
                         create_draft_on_db
                             operations
-                            hLogger
-                            token_lifetime
+                            (drafts_logger operations)
                             draft_inf
                             list_of_tags
                             main_image_triple
@@ -104,32 +94,27 @@ createDraft hLogger operations token_lifetime req =
                         Left someError ->
                             return $ badResponse "Draft not created." someError
                         Right n -> do
-                            logInfo hLogger "Draft created."
+                            logInfo (drafts_logger operations) "Draft created."
                             return $
                                 responseCreated $
                                 LBS.fromStrict $ BC.pack $ show n
 
-deleteDraft ::
-       MonadIO m
-    => LoggerHandle m
-    -> DraftsHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-deleteDraft hLogger operations token_lifetime req =
+deleteDraft :: MonadIO m => DraftsHandle m -> Request -> m Response
+deleteDraft operations req =
     if requestMethod req /= methodDelete
         then do
-            logError hLogger "Bad request method"
+            logError (drafts_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for deleting draft"
+            logInfo
+                (drafts_logger operations)
+                "Preparing data for deleting draft"
             let token' = takeToken req
             let draft_id = toDraftId req
             result <-
                 delete_draft_from_db
                     operations
-                    hLogger
-                    token_lifetime
+                    (drafts_logger operations)
                     token'
                     draft_id
             case result of
@@ -138,27 +123,21 @@ deleteDraft hLogger operations token_lifetime req =
                 Right _ -> do
                     return $ responseOk "Draft deleted."
 
-getDraftById ::
-       MonadIO m
-    => LoggerHandle m
-    -> DraftsHandle m
-    -> TokenLifeTime
-    -> Id
-    -> Request
-    -> m Response
-getDraftById hLogger operations token_lifetime draft_id req =
+getDraftById :: MonadIO m => DraftsHandle m -> Id -> Request -> m Response
+getDraftById operations draft_id req =
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
+            logError (drafts_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for sending draft"
+            logInfo
+                (drafts_logger operations)
+                "Preparing data for sending draft"
             let token' = takeToken req
             result <-
                 get_draft_by_id_from_db
                     operations
-                    hLogger
-                    token_lifetime
+                    (drafts_logger operations)
                     token'
                     draft_id
             case result of
@@ -167,21 +146,16 @@ getDraftById hLogger operations token_lifetime draft_id req =
                 Right draft -> do
                     return $ responseOKJSON $ encode draft
 
-updateDraft ::
-       MonadIO m
-    => LoggerHandle m
-    -> DraftsHandle m
-    -> TokenLifeTime
-    -> Id
-    -> Request
-    -> m Response
-updateDraft hLogger operations token_lifetime draft_id req =
+updateDraft :: MonadIO m => DraftsHandle m -> Id -> Request -> m Response
+updateDraft operations draft_id req =
     if requestMethod req /= methodPut
         then do
-            logError hLogger "Bad request method"
+            logError (drafts_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for updating draft"
+            logInfo
+                (drafts_logger operations)
+                "Preparing data for updating draft"
             (i, f) <-
                 liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
@@ -200,14 +174,13 @@ updateDraft hLogger operations token_lifetime draft_id req =
             if checkNotImageMaybe main_image_triple ||
                checkNotImages images_list
                 then do
-                    logError hLogger "Bad image file"
+                    logError (drafts_logger operations) "Bad image file"
                     return $ responseBadRequest "Bad image file"
                 else do
                     result <-
                         update_draft_in_db
                             operations
-                            hLogger
-                            token_lifetime
+                            (drafts_logger operations)
                             dr_inf_update
                             list_of_tags
                             main_image_triple
@@ -219,27 +192,19 @@ updateDraft hLogger operations token_lifetime draft_id req =
                         Right _ -> do
                             return $ responseOk "Draft updated"
 
-publicNews ::
-       MonadIO m
-    => LoggerHandle m
-    -> DraftsHandle m
-    -> TokenLifeTime
-    -> Id
-    -> Request
-    -> m Response
-publicNews hLogger operations token_lifetime draft_id req =
+publicNews :: MonadIO m => DraftsHandle m -> Id -> Request -> m Response
+publicNews operations draft_id req =
     if requestMethod req /= methodPut
         then do
-            logError hLogger "Bad request method"
+            logError (drafts_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for public news"
+            logInfo (drafts_logger operations) "Preparing data for public news"
             let token' = takeToken req
             result <-
                 public_news_on_db
                     operations
-                    hLogger
-                    token_lifetime
+                    (drafts_logger operations)
                     token'
                     draft_id
             case result of
@@ -248,33 +213,24 @@ publicNews hLogger operations token_lifetime draft_id req =
                 Right n -> do
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
-draftsRouter ::
-       MonadIO m
-    => LoggerHandle m
-    -> DraftsHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-draftsRouter hLogger operations token_lifetime req
-    | pathElemsC == 1 = sendDrafts hLogger operations token_lifetime req
+draftsRouter :: MonadIO m => DraftsHandle m -> Request -> m Response
+draftsRouter operations req
+    | pathElemsC == 1 = sendDrafts operations req
     | pathElemsC == 2 =
         case readByteStringToId $ last pathElems of
-            Just n -> getDraftById hLogger operations token_lifetime n req
+            Just n -> getDraftById operations n req
             Nothing ->
                 case last pathElems of
-                    "delete_draft" ->
-                        deleteDraft hLogger operations token_lifetime req
-                    _ -> return $ responseNotFound "Not Found"
+                    "delete_draft" -> deleteDraft operations req
+                    _              -> return $ responseNotFound "Not Found"
     | pathElemsC == 3 =
         case readByteStringToId $ head $ tail pathElems of
             Nothing -> return $ responseBadRequest "bad request"
             Just n ->
                 case last pathElems of
-                    "update_draft" ->
-                        updateDraft hLogger operations token_lifetime n req
-                    "public_news" ->
-                        publicNews hLogger operations token_lifetime n req
-                    _ -> return $ responseNotFound "Not Found"
+                    "update_draft" -> updateDraft operations n req
+                    "public_news"  -> publicNews operations n req
+                    _              -> return $ responseNotFound "Not Found"
     | otherwise = return $ responseNotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

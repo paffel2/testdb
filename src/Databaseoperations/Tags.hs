@@ -23,15 +23,15 @@ import           Types.Tags                    (EditTag (EditTag),
 
 createTagInDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe TagName
     -> IO (Either SomeError Int)
-createTagInDb _ hLogger _ _ Nothing = do
+createTagInDb _ _ hLogger _ Nothing = do
     logError hLogger "Tag not created. No tag_name parameter"
     return . Left . OtherError $ "No tag_name parameter"
-createTagInDb pool hLogger token_lifetime token' (Just tag_name') =
+createTagInDb pool token_lifetime hLogger token' (Just tag_name') =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -61,15 +61,15 @@ createTagInDb pool hLogger token_lifetime token' (Just tag_name') =
 
 deleteTagFromDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe TagName
     -> IO (Either SomeError ())
-deleteTagFromDb _ hLogger _ _ Nothing = do
+deleteTagFromDb _ _ hLogger _ Nothing = do
     logError hLogger "Tag not deleted. No tag_name parameter"
     return . Left . OtherError $ "Tag not deleted. No tag_name parameter"
-deleteTagFromDb pool hLogger token_lifetime token' (Just tag_name') =
+deleteTagFromDb pool token_lifetime hLogger token' (Just tag_name') =
     catch
         (do logInfo hLogger $
                 T.concat ["Deleting tag ", from_tag_name tag_name']
@@ -128,21 +128,21 @@ getTagsListFromDb pool hLogger maybe_page =
 
 editTagInDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> EditTag
     -> IO (Either SomeError ())
-editTagInDb _ hLogger _ _ (EditTag Nothing _) = do
+editTagInDb _ _ hLogger _ (EditTag Nothing _) = do
     logError hLogger "Tag not edited. No new_tag_name field"
     return . Left . OtherError $ "No new_tag_name field"
-editTagInDb _ hLogger _ _ (EditTag _ Nothing) = do
+editTagInDb _ _ hLogger _ (EditTag _ Nothing) = do
     logError hLogger "Tag not edited. No old_tag_name field"
     return . Left . OtherError $ "Tag not edited. No old_tag_name field"
-editTagInDb _ hLogger _ Nothing _ = do
+editTagInDb _ _ hLogger Nothing _ = do
     logError hLogger "Tag not edited. No token param"
     return . Left . OtherError $ "No token param"
-editTagInDb pool hLogger token_lifetime token edit_tag_params@(EditTag (Just new_tag_name) (Just old_tag_name)) =
+editTagInDb pool token_lifetime hLogger token edit_tag_params@(EditTag (Just new_tag_name) (Just old_tag_name)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of

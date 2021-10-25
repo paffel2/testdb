@@ -1,42 +1,39 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Types.NewsAndComments where
 
-import Data.Aeson
-    ( KeyValue((.=))
-    , ToJSON(toJSON)
-    , defaultOptions
-    , genericToJSON
-    , object
-    )
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.Text as T
-import Data.Time (Day, UTCTime)
-import Database.PostgreSQL.Simple (FromRow, ToRow)
-import Database.PostgreSQL.Simple.ToField (ToField(..))
-import Database.PostgreSQL.Simple.Types (PGArray(fromPGArray))
-import GHC.Generics (Generic)
-import Types.Other (Id, Token, TokenLifeTime)
+import           Data.Aeson                         (KeyValue ((.=)),
+                                                     ToJSON (toJSON),
+                                                     defaultOptions,
+                                                     genericToJSON, object)
+import qualified Data.ByteString.Char8              as BC
+import qualified Data.Text                          as T
+import           Data.Time                          (Day, UTCTime)
+import           Database.PostgreSQL.Simple         (FromRow, ToRow)
+import           Database.PostgreSQL.Simple.ToField (ToField (..))
+import           Database.PostgreSQL.Simple.Types   (PGArray (fromPGArray))
+import           GHC.Generics                       (Generic)
+import           Types.Other                        (Id, Token, TokenLifeTime)
 
 data Comment =
     Comment
-        { comment_token :: Maybe Token
+        { comment_token          :: Maybe Token
         , comment_token_lifetime :: TokenLifeTime
-        , comment_text :: Maybe CommentText
-        , comment_news_id :: Maybe Id
+        , comment_text           :: Maybe CommentText
+        , comment_news_id        :: Maybe Id
         }
     deriving (Generic, ToRow)
 
 data ElemOfNewsArray =
     ElemOfNewsArray
-        { news_id' :: Int
-        , short_title' :: T.Text
+        { news_id'       :: Int
+        , short_title'   :: T.Text
         , date_creation' :: Day
-        , author_name :: T.Text
+        , author_name    :: T.Text
         , category_name' :: T.Text
-        , news_text' :: T.Text
+        , news_text'     :: T.Text
         }
     deriving (Show, Generic, ToRow, FromRow)
 
@@ -54,9 +51,9 @@ instance ToJSON NewsArray where
 data ElemOfCommentArray =
     ElemOfCommentArray
         { comment_author_name :: T.Text
-        , comment_text' :: T.Text
-        , comment_time' :: UTCTime
-        , comment_id' :: Int
+        , comment_text'       :: T.Text
+        , comment_time'       :: UTCTime
+        , comment_id'         :: Int
         }
     deriving (Show, Generic, ToRow, FromRow)
 
@@ -73,15 +70,15 @@ instance ToJSON CommentArray where
 
 data GetNews =
     GetNews
-        { gn_news_id'' :: Int
-        , gn_short_title'' :: T.Text
-        , gn_date_creation'' :: Day
-        , gn_author_name' :: T.Text
-        , gn_category_name''' :: T.Text
-        , gn_news_text'' :: T.Text
-        , gn_news_main_image :: Maybe Int
+        { gn_news_id''         :: Int
+        , gn_short_title''     :: T.Text
+        , gn_date_creation''   :: Day
+        , gn_author_name'      :: T.Text
+        , gn_category_name'''  :: T.Text
+        , gn_news_text''       :: T.Text
+        , gn_news_main_image   :: Maybe Int
         , gn_news_other_images :: Maybe (PGArray Int)
-        , gn_news_tags :: Maybe (PGArray T.Text)
+        , gn_news_tags         :: Maybe (PGArray T.Text)
         }
     deriving (Show, Generic, ToRow, FromRow)
 
@@ -185,3 +182,20 @@ newtype AuthorFilterParam =
         { from_author_fp :: T.Text
         }
     deriving (Show, Eq)
+
+data CommentWithoutTokenLifeTime =
+    CommentWithoutTokenLifeTime
+        { comment_token'   :: Maybe Token
+        , comment_text''   :: Maybe CommentText
+        , comment_news_id' :: Maybe Id
+        }
+    deriving (Generic, ToRow)
+
+toComment :: TokenLifeTime -> CommentWithoutTokenLifeTime -> Comment
+toComment tokenLifeTime comm =
+    Comment
+        { comment_token = comment_token' comm
+        , comment_token_lifetime = tokenLifeTime
+        , comment_text = comment_text'' comm
+        , comment_news_id = comment_news_id' comm
+        }

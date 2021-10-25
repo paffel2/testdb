@@ -10,33 +10,30 @@ import qualified Data.Text.Encoding        as E
 import           FromRequest               (takeToken, toCreateUser, toLogin,
                                             toPassword)
 import           HelpFunction              (foundParametr)
-import           Logger                    (LoggerHandle, logError, logInfo)
+import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import           Network.Wai               (Request (queryString, requestMethod),
                                             Response)
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
-import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db))
-import Responses
-    ( responseCreated,
-      responseMethodNotAllowed,
-      responseOKJSON,
-      responseOk,
-      badResponse )
-import           Types.Other               (Token (..), TokenLifeTime)
+import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db, users_logger))
+import           Responses                 (badResponse, responseCreated,
+                                            responseMethodNotAllowed,
+                                            responseOKJSON, responseOk)
+import           Types.Other               (Token (..))
 import           Types.Users               (Login (Login))
 
-login :: MonadIO m => LoggerHandle m -> UsersHandle m -> Request -> m Response
-login hLogger operations req =
+login :: MonadIO m => UsersHandle m -> Request -> m Response
+login operations req =
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
+            logError (users_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for sign in."
+            logInfo (users_logger operations) "Preparing data for sign in."
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let login' = toLogin i
             let pass = toPassword i
-            check <- auth operations hLogger login' pass
+            check <- auth operations (users_logger operations) login' pass
             case check of
                 Left someError ->
                     return $ badResponse "Bad authorization." someError
@@ -45,19 +42,24 @@ login hLogger operations req =
                         responseOk $
                         LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
-registration ::
-       MonadIO m => LoggerHandle m -> UsersHandle m -> Request -> m Response
-registration hLogger operations req =
+registration :: MonadIO m => UsersHandle m -> Request -> m Response
+registration operations req =
     if requestMethod req /= methodPost
         then do
-            logError hLogger "Bad request method"
+            logError (users_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for registration new user."
+            logInfo
+                (users_logger operations)
+                "Preparing data for registration new user."
             (i, f) <- liftIO $ parseRequestBody lbsBackEnd req
             let avatar = foundParametr "avatar" f
             user_params <- toCreateUser i avatar
-            result <- create_user_in_db operations hLogger user_params
+            result <-
+                create_user_in_db
+                    operations
+                    (users_logger operations)
+                    user_params
             case result of
                 Left someError ->
                     return $ badResponse "User not registered." someError
@@ -66,20 +68,16 @@ registration hLogger operations req =
                         responseCreated $
                         LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
-deleteUser ::
-       MonadIO m
-    => LoggerHandle m
-    -> UsersHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-deleteUser hLogger operations token_lifetime req =
+deleteUser :: MonadIO m => UsersHandle m -> Request -> m Response
+deleteUser operations req =
     if requestMethod req /= methodDelete
         then do
-            logError hLogger "Bad request method"
+            logError (users_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for deleting user."
+            logInfo
+                (users_logger operations)
+                "Preparing data for deleting user."
             let login' =
                     Login . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "login" $ queryString req)
@@ -87,8 +85,7 @@ deleteUser hLogger operations token_lifetime req =
             result <-
                 delete_user_from_db
                     operations
-                    hLogger
-                    token_lifetime
+                    (users_logger operations)
                     token'
                     login'
             case result of
@@ -97,22 +94,18 @@ deleteUser hLogger operations token_lifetime req =
                 Right _ -> do
                     return $ responseOk "User deleted."
 
-profile ::
-       MonadIO m
-    => LoggerHandle m
-    -> UsersHandle m
-    -> TokenLifeTime
-    -> Request
-    -> m Response
-profile hLogger operations token_lifetime req =
+profile :: MonadIO m => UsersHandle m -> Request -> m Response
+profile operations req =
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
+            logError (users_logger operations) "Bad request method"
             return $ responseMethodNotAllowed "Bad method request"
         else do
-            logInfo hLogger "Preparing data for sending user information."
+            logInfo
+                (users_logger operations)
+                "Preparing data for sending user information."
             let token' = takeToken req
-            result <- profile_on_db operations hLogger token_lifetime token'
+            result <- profile_on_db operations (users_logger operations) token'
             case result of
                 Left someError ->
                     return $

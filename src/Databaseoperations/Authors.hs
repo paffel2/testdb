@@ -24,21 +24,21 @@ import           Types.Other                   (Page (from_page), SendId,
 
 createAuthorInDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> CreateAuthor
     -> IO (Either SomeError SendId)
-createAuthorInDb _ hLogger _ Nothing _ = do
+createAuthorInDb _ _ hLogger Nothing _ = do
     logError hLogger "Author not created.No token field"
     return . Left . OtherError $ "Author not created.No token field"
-createAuthorInDb _ hLogger _ _ (CreateAuthor Nothing _) = do
+createAuthorInDb _ _ hLogger _ (CreateAuthor Nothing _) = do
     logError hLogger "Author not created.No login field"
     return . Left . OtherError $ "Author not created.No login field"
-createAuthorInDb _ hLogger _ _ (CreateAuthor _ Nothing) = do
+createAuthorInDb _ _ hLogger _ (CreateAuthor _ Nothing) = do
     logError hLogger "Author not created.No description field"
     return . Left . OtherError $ "Author not created.No description field"
-createAuthorInDb pool hLogger token_lifetime token' create_author_params =
+createAuthorInDb pool token_lifetime hLogger token' create_author_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -78,18 +78,18 @@ createAuthorInDb pool hLogger token_lifetime token' create_author_params =
 
 deleteAuthorInDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe AuthorLogin
     -> IO (Either SomeError ())
-deleteAuthorInDb _ hLogger _ Nothing _ = do
+deleteAuthorInDb _ _ hLogger Nothing _ = do
     logError hLogger "Author not deleted. No token param"
     return $ Left $ OtherError "Author not deleted. No token param"
-deleteAuthorInDb _ hLogger _ _ Nothing = do
+deleteAuthorInDb _ _ hLogger _ Nothing = do
     logError hLogger "Author not deleted. No login field"
     return $ Left $ OtherError "Author not deleted. No login field"
-deleteAuthorInDb pool hLogger token_lifetime token' (Just author_login') =
+deleteAuthorInDb pool token_lifetime hLogger token' (Just author_login') =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -149,21 +149,21 @@ getAuthorsList pool hLogger page_p' =
 
 editAuthorInDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> EditAuthor
     -> IO (Either SomeError ())
-editAuthorInDb _ hLogger _ _ (EditAuthor Nothing _) = do
+editAuthorInDb _ _ hLogger _ (EditAuthor Nothing _) = do
     logError hLogger "Author not edited. No new_description field"
     return $ Left $ OtherError "Author not edited. No new_description field"
-editAuthorInDb _ hLogger _ _ (EditAuthor _ Nothing) = do
+editAuthorInDb _ _ hLogger _ (EditAuthor _ Nothing) = do
     logError hLogger "Author not edited. No author_id field"
     return $ Left $ OtherError "Author not edited. No author_id field"
-editAuthorInDb _ hLogger _ Nothing _ = do
+editAuthorInDb _ _ hLogger Nothing _ = do
     logError hLogger "Author not edited. No token param"
     return $ Left $ OtherError "Author not edited. No token param"
-editAuthorInDb pool hLogger token_lifetime token edit_params =
+editAuthorInDb pool token_lifetime hLogger token edit_params =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of

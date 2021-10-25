@@ -32,7 +32,7 @@ main = do
             (num_stripes poolParams)
             (idle_time poolParams)
             (max_resources poolParams)
-    let hOperations = operationsHandler hLogger pool
+    let hOperations = operationsHandler hLogger pool token_lifetime
     logInfo hLogger "Checking database"
     ch_db <- checkDb hLogger pool
     if ch_db
@@ -40,5 +40,5 @@ main = do
                  (setMaximumBodyFlush
                       (server_maximum_body_flush . server_conf $ hConfig) $
                   setPort (server_port . server_conf $ hConfig) defaultSettings) $
-             routes token_lifetime hOperations
+             routes hOperations
         else logError hLogger "Database not exist"

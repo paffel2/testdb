@@ -17,25 +17,12 @@ import           HelpFunction                  (readByteStringToInt, toQuery)
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
-import           Types.NewsAndComments         (AfterDateFilterParam,
-                                                AuthorFilterParam (from_author_fp),
-                                                BeforeDateFilterParam,
-                                                CategoryFilterParam (from_category_fp),
-                                                Comment (Comment),
-                                                CommentArray (CommentArray),
-                                                ContentFilterParam (from_content_fp),
-                                                DateFilterParam, GetNews,
-                                                NewsArray (NewsArray),
-                                                Sort (from_sort),
-                                                TagAllFilterParam (from_tag_all_fp),
-                                                TagFilterParam,
-                                                TagInFilterParam (from_tag_in_fp),
-                                                TitleFilterParam (from_title_fp))
+import           Types.NewsAndComments
 import           Types.Other                   (Id (from_id), Page (from_page),
                                                 SomeError (BadToken, DatabaseError, OtherError),
                                                 Token, TokenLifeTime)
 
-addCommentToDb ::
+{-addCommentToDb ::
        Pool Connection -> LoggerHandle IO -> Comment -> IO (Either SomeError ())
 addCommentToDb _ hLogger (Comment _ _ Nothing _) = do
     logError hLogger "Commentary not added. No news id parameter"
@@ -65,19 +52,54 @@ addCommentToDb pool hLogger com =
             _     -> return $ Left DatabaseError
   where
     q =
+        "insert into users_comments (user_id, comment_text,news_id,comment_time) values (check_token(?,?),?,?,now())" -}
+addCommentToDb ::
+       Pool Connection
+    -> TokenLifeTime
+    -> LoggerHandle IO
+    -> CommentWithoutTokenLifeTime
+    -> IO (Either SomeError ())
+addCommentToDb _ _ hLogger (CommentWithoutTokenLifeTime _ _ Nothing) = do
+    logError hLogger "Commentary not added. No news id parameter"
+    return . Left . OtherError $ "Commentary not added. No news id parameter"
+addCommentToDb _ _ hLogger (CommentWithoutTokenLifeTime _ Nothing _) = do
+    logError hLogger "Commentary not added. No comment parameter"
+    return . Left . OtherError $ "Commentary not added. No comment parameter"
+addCommentToDb _ _ hLogger (CommentWithoutTokenLifeTime Nothing _ _) = do
+    logError hLogger "Commentary not added. No token parameter"
+    return . Left . OtherError $ "Commentary not added. No token parameter"
+addCommentToDb pool tokenLifeTime hLogger com =
+    catch
+        (do n_r <- executeWithPool pool q (toComment tokenLifeTime com)
+            if n_r > 0
+                then do
+                    logInfo hLogger "Commentary added."
+                    return $ Right ()
+                else do
+                    return . Left . OtherError $ "Commentary not added") $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $
+            T.concat ["Database error ", T.pack $ show errStateInt]
+        case errStateInt of
+            23503 -> return . Left . OtherError $ "News not exist"
+            23502 -> return $ Left BadToken
+            _     -> return $ Left DatabaseError
+  where
+    q =
         "insert into users_comments (user_id, comment_text,news_id,comment_time) values (check_token(?,?),?,?,now())"
 
 deleteCommentFromDb ::
        Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
+    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe Id
     -> IO (Either SomeError ())
-deleteCommentFromDb _ hLogger _ _ Nothing = do
+deleteCommentFromDb _ _ hLogger _ Nothing = do
     logError hLogger "Commentary not deleted. Bad comment id"
     return . Left . OtherError $ "Commentary not deleted. Bad comment id"
-deleteCommentFromDb pool hLogger token_lifetime token' (Just comment_id) = do
+deleteCommentFromDb pool token_lifetime hLogger token' (Just comment_id) = do
     isAdmin <- checkAdmin hLogger pool token_lifetime token'
     case isAdmin of
         (False, e) -> return $ Left e
