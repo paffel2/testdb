@@ -39,11 +39,7 @@ sendDrafts operations req =
                 (drafts_logger operations)
                 "Preparing data for sending drafts"
             let token' = takeToken req
-            drafts' <-
-                get_drafts_by_author_token
-                    operations
-                    (drafts_logger operations)
-                    token'
+            drafts' <- get_drafts_by_author_token operations token'
             case drafts' of
                 Left someError ->
                     return $ badResponse "Drafts not sended." someError
@@ -85,7 +81,6 @@ createDraft operations req =
                     result <-
                         create_draft_on_db
                             operations
-                            (drafts_logger operations)
                             draft_inf
                             list_of_tags
                             main_image_triple
@@ -111,12 +106,7 @@ deleteDraft operations req =
                 "Preparing data for deleting draft"
             let token' = takeToken req
             let draft_id = toDraftId req
-            result <-
-                delete_draft_from_db
-                    operations
-                    (drafts_logger operations)
-                    token'
-                    draft_id
+            result <- delete_draft_from_db operations token' draft_id
             case result of
                 Left someError ->
                     return $ badResponse "Draft not deleted." someError
@@ -134,12 +124,7 @@ getDraftById operations draft_id req =
                 (drafts_logger operations)
                 "Preparing data for sending draft"
             let token' = takeToken req
-            result <-
-                get_draft_by_id_from_db
-                    operations
-                    (drafts_logger operations)
-                    token'
-                    draft_id
+            result <- get_draft_by_id_from_db operations token' draft_id
             case result of
                 Left someError ->
                     return $ badResponse "Draft not sended." someError
@@ -180,7 +165,6 @@ updateDraft operations draft_id req =
                     result <-
                         update_draft_in_db
                             operations
-                            (drafts_logger operations)
                             dr_inf_update
                             list_of_tags
                             main_image_triple
@@ -201,12 +185,7 @@ publicNews operations draft_id req =
         else do
             logInfo (drafts_logger operations) "Preparing data for public news"
             let token' = takeToken req
-            result <-
-                public_news_on_db
-                    operations
-                    (drafts_logger operations)
-                    token'
-                    draft_id
+            result <- public_news_on_db operations token' draft_id
             case result of
                 Left someError ->
                     return $ badResponse "News not created." someError

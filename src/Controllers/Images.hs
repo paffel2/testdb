@@ -27,8 +27,7 @@ sendImagesList operations req = do
             logInfo
                 (photos_logger operations)
                 "Preparing data for sending images list"
-            result <-
-                get_photo_list operations (photos_logger operations) pageParam
+            result <- get_photo_list operations pageParam
             case result of
                 Left someError ->
                     return $ badResponse "List of images not sended." someError
@@ -47,7 +46,7 @@ sendImage operations imageId req = do
             logInfo
                 (photos_logger operations)
                 "Preparing data for sending image"
-            result <- get_photo operations (photos_logger operations) imageId
+            result <- get_photo operations imageId
             case result of
                 Left someError ->
                     return $ badResponse "Image not sended." someError

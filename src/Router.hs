@@ -13,7 +13,8 @@ import           Controllers.Users           (deleteUser, login, profile,
                                               registration)
 import qualified Data.ByteString.Char8       as BC
 import           Network.Wai                 (Application,
-                                              Request (rawPathInfo), Response)
+                                              Request (rawPathInfo), Response,
+                                              ResponseReceived)
 import           OperationsHandle            (OperationsHandle (authors_handle, categories_handle, drafts_handle, images_handle, news_and_comments_handle, tags_handle, users_handle))
 import           Responses                   (responseNotFound)
 
@@ -42,3 +43,7 @@ routes :: OperationsHandle IO -> Application
 routes operations req respond = do
     resp <- routes' operations req
     respond resp
+
+routes'' ::
+       MonadIO m => OperationsHandle m -> Request -> (Response -> m a) -> m a
+routes'' operations request respond = routes' operations request >>= respond

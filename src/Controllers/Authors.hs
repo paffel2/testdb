@@ -34,12 +34,7 @@ newAuthor methods req =
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let create_author_params = toCreateAuthor i
             logDebug (authors_logger methods) "Creating Author on database"
-            result <-
-                create_author_in_db
-                    methods
-                    (authors_logger methods)
-                    token'
-                    create_author_params
+            result <- create_author_in_db methods token' create_author_params
             case result of
                 Left someError ->
                     return $ badResponse "Author not created." someError
@@ -59,12 +54,7 @@ deleteAuthor methods req =
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let author_login' = toAuthorLogin i
-            result <-
-                delete_author_in_db
-                    methods
-                    (authors_logger methods)
-                    token'
-                    author_login'
+            result <- delete_author_in_db methods token' author_login'
             case result of
                 Left someError ->
                     return $ badResponse "Author not deleted." someError
@@ -81,8 +71,7 @@ sendAuthorsList methods req = do
             logInfo
                 (authors_logger methods)
                 "Preparing data for sending authors list"
-            result <-
-                get_authors_list methods (authors_logger methods) pageParam
+            result <- get_authors_list methods pageParam
             case result of
                 Left someError -> return $ badResponse "" someError
                 Right al -> do
@@ -103,12 +92,7 @@ editAuthor methods req = do
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let edit_params = toEditAuthor i
-            result <-
-                edit_author_in_db
-                    methods
-                    (authors_logger methods)
-                    token'
-                    edit_params
+            result <- edit_author_in_db methods token' edit_params
             case result of
                 Left someError ->
                     return $ badResponse "Author not edited." someError

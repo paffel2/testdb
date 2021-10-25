@@ -40,12 +40,7 @@ deleteCommentById operations req =
                 "Preparing data for deleting commentary"
             let token' = takeToken req
             let comment_id = toCommentId req
-            result <-
-                delete_comment_from_db
-                    operations
-                    (news_logger operations)
-                    token'
-                    comment_id
+            result <- delete_comment_from_db operations token' comment_id
             case result of
                 Left someError ->
                     return $ badResponse "Commentary not deleted." someError
@@ -103,8 +98,7 @@ addCommentByNewsId operations req news'_id =
                         , comment_text'' = toCommentText i
                         , comment_news_id' = news'_id
                         }
-            result <-
-                add_comment_to_db operations (news_logger operations) comment
+            result <- add_comment_to_db operations comment
             case result of
                 Left someError ->
                     return $ badResponse "Commentary not added." someError
@@ -124,11 +118,7 @@ sendCommentsByNewsId operations req news'_id =
                 "Preparing data for sending commentary list"
             let pageParam = toPage req
             result <-
-                get_comments_by_news_id_from_db
-                    operations
-                    (news_logger operations)
-                    news'_id
-                    pageParam
+                get_comments_by_news_id_from_db operations news'_id pageParam
             case result of
                 Left someError ->
                     return $ badResponse "Commentaries not sended." someError
@@ -144,11 +134,7 @@ sendNewsById operations req newsId =
             return $ responseMethodNotAllowed "Bad request method"
         else do
             logInfo (news_logger operations) "Preparing data for sending news"
-            result <-
-                get_news_by_id_from_db
-                    operations
-                    (news_logger operations)
-                    newsId
+            result <- get_news_by_id_from_db operations newsId
             case result of
                 Left someError ->
                     return $ badResponse "News not sended." someError
@@ -163,81 +149,66 @@ sendNews operations req =
                     Just "tag_in" ->
                         get_news_filter_by_tag_in_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                     Just "category" ->
                         get_news_filter_by_category_id_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "title" ->
                         get_news_filter_by_title_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "author" ->
                         get_news_filter_by_author_name_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "date" ->
                         get_news_filter_by_date_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "tag_all" ->
                         get_news_filter_by_tag_all_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "content" ->
                         get_news_filter_by_content_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "after_date" ->
                         get_news_filter_by_after_date_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "before_date" ->
                         get_news_filter_by_before_date_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "tag" ->
                         get_news_filter_by_tag_id_from_db
                             operations
-                            (news_logger operations)
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just _ -> do
                         logError (news_logger operations) "Bad request"
                         return . Left . OtherError $ "Bad request"
-                    Nothing ->
-                        get_news_from_db
-                            operations
-                            (news_logger operations)
-                            sortParam
-                            pageParam
+                    Nothing -> get_news_from_db operations sortParam pageParam
             case result of
                 Left someError ->
                     return $ badResponse "News not sended." someError

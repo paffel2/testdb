@@ -1,9 +1,12 @@
-import FromRequestTests (fromRequestTests)
-import HelpFunctionTests (functionsTests)
-import OperationsHandleTest (operationsTests)
+import           FromRequestTests  (fromRequestTests)
+import           HelpFunctionTests (functionsTests)
+import           ImagesTests
 
+--import OperationsHandleTest (operationsTests)
 main :: IO ()
-main = do
-    operationsTests
+main
+    --operationsTests
+ = do
     functionsTests
     fromRequestTests
+    imagesTests'

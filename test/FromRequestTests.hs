@@ -3,65 +3,53 @@
 
 module FromRequestTests where
 
-import Data.Time.Calendar (fromGregorian)
-import Database.PostgreSQL.Simple.Types (Binary(Binary))
-import FromRequest
-    ( FilterParam(toFilterParam)
-    , checkNotImage
-    , checkNotImageMaybe
-    , checkNotImages
-    , takeToken
-    , toAuthorLogin
-    , toCategoryName
-    , toCommentId
-    , toCommentText
-    , toCreateAuthor
-    , toCreateCategory
-    , toDraftId
-    , toDraftInf
-    , toDraftTags
-    , toEditAuthor
-    , toEditCategory
-    , toEditTag
-    , toImage
-    , toLogin
-    , toPage
-    , toPassword
-    , toSort
-    , toTagName
-    )
-import Network.Wai.Internal (Request(Request, queryString))
-import Network.Wai.Parse (FileInfo(FileInfo))
-import Test.Hspec (describe, hspec, it, shouldBe)
-import Types.Authors
-    ( AuthorLogin(AuthorLogin)
-    , CreateAuthor(CreateAuthor)
-    , EditAuthor(EditAuthor)
-    )
-import Types.Categories
-    ( CategoryName(CategoryName)
-    , CreateCategory(CreateCategory)
-    , EditCategory(EditCategory)
-    )
-import Types.Drafts (DraftInf(DraftInf), DraftTags(DraftTags))
-import Types.Images (Image(Image))
-import Types.NewsAndComments
-    ( AfterDateFilterParam(AfterDateFilterParam)
-    , AuthorFilterParam(AuthorFilterParam)
-    , BeforeDateFilterParam(BeforeDateFilterParam)
-    , CategoryFilterParam(CategoryFilterParam)
-    , CommentText(CommentText)
-    , ContentFilterParam(ContentFilterParam)
-    , DateFilterParam(DateFilterParam)
-    , Sort(Sort)
-    , TagAllFilterParam(TagAllFilterParam)
-    , TagFilterParam(TagFilterParam)
-    , TagInFilterParam(TagInFilterParam)
-    , TitleFilterParam(TitleFilterParam)
-    )
-import Types.Other (Id(Id), Page(Page), Token(Token))
-import Types.Tags (EditTag(EditTag), TagName(TagName))
-import Types.Users (Login(Login), Password(Password))
+import           Data.Time.Calendar               (fromGregorian)
+import           Database.PostgreSQL.Simple.Types (Binary (Binary))
+import           FromRequest                      (FilterParam (toFilterParam),
+                                                   checkNotImage,
+                                                   checkNotImageMaybe,
+                                                   checkNotImages, takeToken,
+                                                   toAuthorLogin,
+                                                   toCategoryName, toCommentId,
+                                                   toCommentText,
+                                                   toCreateAuthor,
+                                                   toCreateCategory, toDraftId,
+                                                   toDraftInf, toDraftTags,
+                                                   toEditAuthor, toEditCategory,
+                                                   toEditTag, toImage, toLogin,
+                                                   toPage, toPassword, toSort,
+                                                   toTagName)
+import           Network.Wai.Internal             (Request (Request, queryString))
+import           Network.Wai.Parse                (FileInfo (FileInfo))
+import           Test.Hspec                       (describe, hspec, it,
+                                                   shouldBe)
+import           Types.Authors                    (AuthorLogin (AuthorLogin),
+                                                   CreateAuthor (CreateAuthor),
+                                                   EditAuthor (EditAuthor))
+import           Types.Categories                 (CategoryName (CategoryName),
+                                                   CreateCategory (CreateCategory),
+                                                   EditCategory (EditCategory))
+import           Types.Drafts                     (DraftInf (DraftInf),
+                                                   DraftTags (DraftTags))
+import           Types.Images                     (Image (Image))
+import           Types.NewsAndComments            (AfterDateFilterParam (AfterDateFilterParam),
+                                                   AuthorFilterParam (AuthorFilterParam),
+                                                   BeforeDateFilterParam (BeforeDateFilterParam),
+                                                   CategoryFilterParam (CategoryFilterParam),
+                                                   CommentText (CommentText),
+                                                   ContentFilterParam (ContentFilterParam),
+                                                   DateFilterParam (DateFilterParam),
+                                                   Sort (Sort),
+                                                   TagAllFilterParam (TagAllFilterParam),
+                                                   TagFilterParam (TagFilterParam),
+                                                   TagInFilterParam (TagInFilterParam),
+                                                   TitleFilterParam (TitleFilterParam))
+import           Types.Other                      (Id (Id), Page (Page),
+                                                   Token (Token))
+import           Types.Tags                       (EditTag (EditTag),
+                                                   TagName (TagName))
+import           Types.Users                      (Login (Login),
+                                                   Password (Password))
 
 fromRequestTests :: IO ()
 fromRequestTests =

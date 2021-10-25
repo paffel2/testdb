@@ -48,6 +48,6 @@ badResponse prefix NotAdmin =
 badResponse prefix DatabaseError =
     responseForbidden $ LBS.concat [prefix, " Database Error."]
 badResponse prefix (OtherError message) =
-    responseForbidden $ LBS.concat [prefix, lbsMessage]
+    responseBadRequest $ LBS.concat [prefix, lbsMessage]
   where
     lbsMessage = LBS.fromStrict $ BC.pack message

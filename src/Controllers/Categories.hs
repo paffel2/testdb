@@ -28,11 +28,7 @@ sendCategoriesList operations req =
             logInfo
                 (categories_logger operations)
                 "Preparing data for sending categories list"
-            result <-
-                get_categories_list_from_db
-                    operations
-                    (categories_logger operations)
-                    pageParam
+            result <- get_categories_list_from_db operations pageParam
             case result of
                 Left someError -> return $ badResponse "" someError
                 Right loc -> do
@@ -57,11 +53,7 @@ createCategory operations req =
             let token' = takeToken req
             let create_category_params = toCreateCategory i
             result <-
-                create_category_on_db
-                    operations
-                    (categories_logger operations)
-                    token'
-                    create_category_params
+                create_category_on_db operations token' create_category_params
             case result of
                 Left someError ->
                     return $ badResponse "Category not created." someError
@@ -84,12 +76,7 @@ deleteCategory operations req =
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let category_name = toCategoryName i
-            result <-
-                delete_category_from_db
-                    operations
-                    (categories_logger operations)
-                    token'
-                    category_name
+            result <- delete_category_from_db operations token' category_name
             case result of
                 Left someError ->
                     return $ badResponse "Category not deleted." someError
@@ -110,11 +97,7 @@ editCategory operations req = do
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let edit_category_parameters = toEditCategory i
             result <-
-                edit_category_on_db
-                    operations
-                    (categories_logger operations)
-                    token'
-                    edit_category_parameters
+                edit_category_on_db operations token' edit_category_parameters
             case result of
                 Left someError ->
                     return $ badResponse "Category not edited." someError

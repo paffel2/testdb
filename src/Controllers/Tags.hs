@@ -30,8 +30,7 @@ sendTagsList operations req =
             logInfo
                 (tags_logger operations)
                 "Preparing parameters for sending tags list."
-            tags_list <-
-                get_tags_list_from_db operations (tags_logger operations) page
+            tags_list <- get_tags_list_from_db operations page
             case tags_list of
                 Left someError ->
                     return $ badResponse "List of tags not sended." someError
@@ -50,12 +49,7 @@ newTag operations req =
             logInfo (tags_logger operations) "Preparing data for creating tag."
             let token' = takeToken req
             let tag_name_param = toTagName req
-            result <-
-                create_tag_in_db
-                    operations
-                    (tags_logger operations)
-                    token'
-                    tag_name_param
+            result <- create_tag_in_db operations token' tag_name_param
             case result of
                 Left someError ->
                     return $ badResponse "Tag not created." someError
@@ -72,12 +66,7 @@ deleteTag operations req =
             logInfo (tags_logger operations) "Preparing data for deleting tag."
             let token' = takeToken req
             let tag_name_param = toTagName req
-            result <-
-                delete_tag_from_db
-                    operations
-                    (tags_logger operations)
-                    token'
-                    tag_name_param
+            result <- delete_tag_from_db operations token' tag_name_param
             case result of
                 Left someError ->
                     return $ badResponse "Tag not deleted." someError
@@ -95,12 +84,7 @@ editTag operations req =
             let token' = takeToken req
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let tag_edit_params = toEditTag i
-            result <-
-                edit_tag_in_db
-                    operations
-                    (tags_logger operations)
-                    token'
-                    tag_edit_params
+            result <- edit_tag_in_db operations token' tag_edit_params
             case result of
                 Left someError ->
                     return $ badResponse "Tag not edited." someError

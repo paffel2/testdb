@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module OperationsHandleTest where
-
-import qualified Data.ByteString as B
+{-import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as LBS
 import Data.Functor.Identity (Identity)
@@ -1686,3 +1685,4 @@ testListOfNews day =
               "category_name"
               "news_text"
         ]
+-}

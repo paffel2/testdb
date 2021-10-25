@@ -33,7 +33,7 @@ login operations req =
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
             let login' = toLogin i
             let pass = toPassword i
-            check <- auth operations (users_logger operations) login' pass
+            check <- auth operations login' pass
             case check of
                 Left someError ->
                     return $ badResponse "Bad authorization." someError
@@ -55,11 +55,7 @@ registration operations req =
             (i, f) <- liftIO $ parseRequestBody lbsBackEnd req
             let avatar = foundParametr "avatar" f
             user_params <- toCreateUser i avatar
-            result <-
-                create_user_in_db
-                    operations
-                    (users_logger operations)
-                    user_params
+            result <- create_user_in_db operations user_params
             case result of
                 Left someError ->
                     return $ badResponse "User not registered." someError
@@ -82,12 +78,7 @@ deleteUser operations req =
                     Login . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "login" $ queryString req)
             let token' = takeToken req
-            result <-
-                delete_user_from_db
-                    operations
-                    (users_logger operations)
-                    token'
-                    login'
+            result <- delete_user_from_db operations token' login'
             case result of
                 Left someError ->
                     return $ badResponse "User not deleted." someError
@@ -105,7 +96,7 @@ profile operations req =
                 (users_logger operations)
                 "Preparing data for sending user information."
             let token' = takeToken req
-            result <- profile_on_db operations (users_logger operations) token'
+            result <- profile_on_db operations token'
             case result of
                 Left someError ->
                     return $
