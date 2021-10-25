@@ -39,11 +39,10 @@ routes' operations req =
     pathElems = BC.split '/' path
     pathHead = head pathElems
 
-routes :: OperationsHandle IO -> Application
-routes operations req respond = do
+routes'' :: OperationsHandle IO -> Application
+routes'' operations req respond = do
     resp <- routes' operations req
     respond resp
 
-routes'' ::
-       MonadIO m => OperationsHandle m -> Request -> (Response -> m a) -> m a
-routes'' operations request respond = routes' operations request >>= respond
+routes :: MonadIO m => OperationsHandle m -> Request -> (Response -> m a) -> m a
+routes operations request respond = routes' operations request >>= respond

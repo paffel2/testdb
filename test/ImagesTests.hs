@@ -185,23 +185,23 @@ imagesTests' =
         describe "testing images functions" $ do
             describe "testing get_photo_list" $ do
                 it "server should return error 400 because something happend" $
-                    routes'' operationsHandler tstGetPhotoListReq testRespond `shouldBe`
+                    routes operationsHandler tstGetPhotoListReq testRespond `shouldBe`
                     return status400
                 it
                     "server should return status 405, because request sended with bad requestMethod" $
-                    routes''
+                    routes
                         operationsHandler
                         (tstGetPhotoListReq {requestMethod = methodPut})
                         testRespond `shouldBe`
                     return status405
                 it "server should return 404, because path is wrong" $
-                    routes''
+                    routes
                         operationsHandler
                         (tstGetPhotoListReq {rawPathInfo = "/imagewertyuio"})
                         testRespond `shouldBe`
                     return status404
                 it "server should return 200, because all is good" $
-                    routes''
+                    routes
                         (operationsHandler
                              { images_handle =
                                    imagesHandler
@@ -215,23 +215,23 @@ imagesTests' =
                     return status404
             describe "testing get_photo" $ do
                 it "server should return error 400 because something happend" $
-                    routes'' operationsHandler tstGetPhotoReq testRespond `shouldBe`
+                    routes operationsHandler tstGetPhotoReq testRespond `shouldBe`
                     return status400
                 it
                     "server should return status 405, because request sended with bad requestMethod" $
-                    routes''
+                    routes
                         operationsHandler
                         (tstGetPhotoReq {requestMethod = methodPut})
                         testRespond `shouldBe`
                     return status405
                 it "server should return 400, because image id is wrong" $
-                    routes''
+                    routes
                         operationsHandler
                         (tstGetPhotoReq {rawPathInfo = "/image/wertyuio"})
                         testRespond `shouldBe`
                     return status400
                 it "server should return 200, because all is good" $
-                    routes''
+                    routes
                         (operationsHandler
                              { images_handle =
                                    imagesHandler
