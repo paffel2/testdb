@@ -17,11 +17,12 @@ import           Logger                     (LoggerHandle, logDebug, logError,
                                              logInfo)
 import           PostgreSqlWithPool         (executeWithPool, execute_WithPool,
                                              query_WithPool)
-import           Types.Other                (ErrorMessage, Token (..))
+import           Types.Other                (SomeError (DatabaseError, OtherError),
+                                             Token (from_token))
 import           Types.Users                (AdminData (..), Login (Login),
                                              Password (Password))
 
-checkFill :: LoggerHandle IO -> Pool Connection -> IO (Either ErrorMessage ())
+checkFill :: LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
 checkFill hLogger pool =
     catch
         (do n <-
@@ -29,18 +30,19 @@ checkFill hLogger pool =
                     pool
                     "select count(*) from information_schema.tables  WHERE table_schema = 'public'" :: IO [Only Int]
             if null n
-                then return $ Left "Database not exist or unavailable"
+                then return . Left . OtherError $
+                     "Database not exist or unavailable"
                 else do
                     let num_of_tables = fromOnly $ Prelude.head n
                     if num_of_tables /= 13
                         then do
-                            return $ Left "Database not filled"
+                            return $ Left $ OtherError "Database not filled"
                         else return $ Right ()) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Something Wrong"
+        return $ Left DatabaseError
 
 checkDb :: LoggerHandle IO -> Pool Connection -> IO Bool
 checkDb hLogger pool =
@@ -54,7 +56,8 @@ checkDb hLogger pool =
                         Right _ -> do
                             logInfo hLogger "Database filled"
                             return True
-                        Left "Database not filled" -> createDbClear hLogger pool
+                        Left (OtherError "Database not filled") ->
+                            createDbClear hLogger pool
                         Left _ -> return False
                 else return False) $ \e -> do
         let err = E.decodeUtf8 $ sqlErrorMsg e
@@ -94,13 +97,13 @@ addAdminToDB ::
        LoggerHandle IO
     -> Pool Connection
     -> AdminData
-    -> IO (Either ErrorMessage Token)
+    -> IO (Either SomeError Token)
 addAdminToDB hLogger _ (AdminData Nothing _ _ _ _) = do
     logError hLogger "No login"
-    return $ Left "No Login"
+    return $ Left $ OtherError "No Login"
 addAdminToDB hLogger _ (AdminData _ Nothing _ _ _) = do
     logError hLogger "No password"
-    return $ Left "No password"
+    return $ Left $ OtherError "No password"
 addAdminToDB hLogger pool admin_data = do
     n <-
         executeWithPool
@@ -114,9 +117,9 @@ addAdminToDB hLogger pool admin_data = do
                  (admin_login admin_data)
                  (admin_password admin_data)
         else do
-            return $ Left "Registration failed"
+            return $ Left $ OtherError "Registration failed"
 
-fillDb :: LoggerHandle IO -> Pool Connection -> IO (Either ErrorMessage ())
+fillDb :: LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
 fillDb hLogger pool = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_database.sql"
@@ -130,8 +133,8 @@ fillDb hLogger pool = do
 fillConnections ::
        LoggerHandle IO
     -> Pool Connection
-    -> Either ErrorMessage ()
-    -> IO (Either ErrorMessage ())
+    -> Either SomeError ()
+    -> IO (Either SomeError ())
 fillConnections hLogger pool (Right _) = do
     logDebug hLogger "Read script"
     script <- BC.readFile "sql/fill_connections.sql"

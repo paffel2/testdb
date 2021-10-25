@@ -17,8 +17,7 @@ import           Network.Wai               (Request (rawPathInfo, requestMethod)
                                             Response)
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (AuthorsHandle (create_author_in_db, delete_author_in_db, edit_author_in_db, get_authors_list))
-import           Responses                 (responseBadRequest, responseCreated,
-                                            responseForbidden,
+import           Responses                 (badResponse, responseCreated,
                                             responseMethodNotAllowed,
                                             responseNotFound, responseOKJSON)
 
@@ -50,14 +49,8 @@ newAuthor hLogger methods token_lifetime req =
                     token'
                     create_author_params
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Author not created. Not admin."
-                    return $ responseForbidden "Author not created. Not admin."
-                Left "Bad token" -> do
-                    logError hLogger "Author not created. Bad token."
-                    return $ responseForbidden "Author not created. Bad token."
-                Left _ -> do
-                    return $ responseBadRequest "Author not created."
+                Left someError ->
+                    return $ badResponse "Author not created." someError
                 Right n -> do
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
@@ -86,14 +79,8 @@ deleteAuthor hLogger methods token_lifetime req =
                     token'
                     author_login'
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Author not deleted. Not admin."
-                    return $ responseForbidden "Author not deleted. Not admin."
-                Left "Bad token" -> do
-                    logError hLogger "Author not deleted. Bad token."
-                    return $ responseForbidden "Author not deleted. Bad token."
-                Left _ -> do
-                    return $ responseBadRequest "Author not deleted."
+                Left someError ->
+                    return $ badResponse "Author not deleted." someError
                 Right _ -> do
                     return $ responseCreated "Author deleted."
 
@@ -108,8 +95,7 @@ sendAuthorsList hLogger methods req = do
             logInfo hLogger "Preparing data for sending authors list"
             result <- get_authors_list methods hLogger pageParam
             case result of
-                Left _ -> do
-                    return $ responseBadRequest "List of authors not sended."
+                Left someError -> return $ badResponse "" someError
                 Right al -> do
                     return $ responseOKJSON $ encode al
   where
@@ -140,14 +126,8 @@ editAuthor hLogger methods token_lifetime req = do
                     token'
                     edit_params
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Author not edited. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Author not edited. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Author not edited."
+                Left someError ->
+                    return $ badResponse "Author not edited." someError
                 Right _ -> do
                     return $ responseCreated "Author edited."
 

@@ -11,7 +11,7 @@ import           Database.PostgreSQL.Simple (Connection, Only (fromOnly),
 import           HelpFunction               (readByteStringToInt)
 import           Logger                     (LoggerHandle, logError)
 import           PostgreSqlWithPool         (queryWithPool)
-import           Types.Other                (ErrorMessage, Token,
+import           Types.Other                (SomeError (..), Token,
                                              TokenLifeTime (token_life_time))
 
 checkAdmin ::
@@ -19,10 +19,10 @@ checkAdmin ::
     -> Pool Connection
     -> TokenLifeTime
     -> Maybe Token
-    -> IO (Bool, ErrorMessage)
+    -> IO (Bool, SomeError)
 checkAdmin hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
-    return (False, "No token parameter")
+    return (False, OtherError "No token parameter")
 checkAdmin hLogger pool token_lifetime (Just token') =
     catch
         (do rows <-
@@ -32,14 +32,14 @@ checkAdmin hLogger pool token_lifetime (Just token') =
                     (token', token_life_time token_lifetime)
             if Prelude.null rows
                 then do
-                    return (False, "Bad token")
+                    return (False, BadToken)
                 else do
                     let admin'_mark = fromOnly $ Prelude.head rows
                     if admin'_mark
-                        then return (admin'_mark, "")
-                        else return (admin'_mark, "Not admin")) $ \e -> do
+                        then return (admin'_mark, OtherError "")
+                        else return (admin'_mark, NotAdmin)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return (False, "Database error")
+        return (False, DatabaseError)

@@ -21,8 +21,8 @@ import           Network.Wai.Parse         (FileInfo (fileContent), lbsBackEnd,
                                             noLimitParseRequestBodyOptions,
                                             parseRequestBodyEx)
 import           OperationsHandle          (DraftsHandle (create_draft_on_db, delete_draft_from_db, get_draft_by_id_from_db, get_drafts_by_author_token, public_news_on_db, update_draft_in_db))
-import           Responses                 (responseBadRequest, responseCreated,
-                                            responseForbidden,
+import           Responses                 (badResponse, responseBadRequest,
+                                            responseCreated,
                                             responseMethodNotAllowed,
                                             responseNotFound, responseOKJSON,
                                             responseOk)
@@ -50,8 +50,8 @@ sendDrafts hLogger operations token_liferime req =
                     token_liferime
                     token'
             case drafts' of
-                Left _ -> do
-                    return $ responseBadRequest "Draft not created."
+                Left someError ->
+                    return $ badResponse "Drafts not sended." someError
                 Right draftsA -> do
                     logInfo hLogger "Sending drafts to user"
                     return $ responseOKJSON (encode draftsA)
@@ -101,11 +101,8 @@ createDraft hLogger operations token_lifetime req =
                             main_image_triple
                             images_list
                     case result of
-                        Left "Bad token" ->
-                            return $
-                            responseForbidden "Draft not created. Bad token"
-                        Left _ -> do
-                            return $ responseBadRequest "Draft not created."
+                        Left someError ->
+                            return $ badResponse "Draft not created." someError
                         Right n -> do
                             logInfo hLogger "Draft created."
                             return $
@@ -136,9 +133,8 @@ deleteDraft hLogger operations token_lifetime req =
                     token'
                     draft_id
             case result of
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Draft not deleted."
+                Left someError ->
+                    return $ badResponse "Draft not deleted." someError
                 Right _ -> do
                     return $ responseOk "Draft deleted."
 
@@ -166,9 +162,8 @@ getDraftById hLogger operations token_lifetime draft_id req =
                     token'
                     draft_id
             case result of
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Draft not sended."
+                Left someError ->
+                    return $ badResponse "Draft not sended." someError
                 Right draft -> do
                     return $ responseOKJSON $ encode draft
 
@@ -219,10 +214,8 @@ updateDraft hLogger operations token_lifetime draft_id req =
                             images_list
                             draft_id
                     case result of
-                        Left "Bad token" ->
-                            return $ responseForbidden "Bad token"
-                        Left _ -> do
-                            return $ responseBadRequest "Draft not updated"
+                        Left someError ->
+                            return $ badResponse "Draft not updated." someError
                         Right _ -> do
                             return $ responseOk "Draft updated"
 
@@ -250,9 +243,8 @@ publicNews hLogger operations token_lifetime draft_id req =
                     token'
                     draft_id
             case result of
-                Left "Bad token" -> return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "News not created"
+                Left someError ->
+                    return $ badResponse "News not created." someError
                 Right n -> do
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 

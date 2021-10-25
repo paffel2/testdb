@@ -15,8 +15,7 @@ import           Network.Wai               (Request (rawPathInfo, requestMethod)
                                             Response)
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (TagsHandle (create_tag_in_db, delete_tag_from_db, edit_tag_in_db, get_tags_list_from_db))
-import           Responses                 (responseBadRequest, responseCreated,
-                                            responseForbidden,
+import           Responses                 (badResponse, responseCreated,
                                             responseMethodNotAllowed,
                                             responseNotFound, responseOKJSON,
                                             responseOk)
@@ -33,8 +32,8 @@ sendTagsList hLogger operations req =
             logInfo hLogger "Preparing parameters for sending tags list."
             tags_list <- get_tags_list_from_db operations hLogger page
             case tags_list of
-                Left _ -> do
-                    return $ responseBadRequest "Tags list not sended"
+                Left someError ->
+                    return $ badResponse "List of tags not sended." someError
                 Right tl -> do
                     return $ responseOKJSON $ encode tl
   where
@@ -64,14 +63,8 @@ newTag hLogger operations token_lifetime req =
                     token'
                     tag_name_param
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Tag not created. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Tag not created. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Tag not created."
+                Left someError ->
+                    return $ badResponse "Tag not created." someError
                 Right n -> do
                     return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
 
@@ -99,14 +92,8 @@ deleteTag hLogger operations token_lifetime req =
                     token'
                     tag_name_param
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Tag not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Tag not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Tag not deleted."
+                Left someError ->
+                    return $ badResponse "Tag not deleted." someError
                 Right _ -> do
                     return $ responseOk "Tag deleted."
 
@@ -135,14 +122,8 @@ editTag hLogger operations token_lifetime req =
                     token'
                     tag_edit_params
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Tag not edited. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Tag not edited. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Tag not edited."
+                Left someError ->
+                    return $ badResponse "Tag not edited." someError
                 Right _ -> do
                     return $ responseOk "Tag edited."
 

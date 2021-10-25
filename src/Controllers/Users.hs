@@ -16,10 +16,12 @@ import           Network.Wai               (Request (queryString, requestMethod)
                                             Response)
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db))
-import           Responses                 (responseBadRequest, responseCreated,
-                                            responseForbidden,
-                                            responseMethodNotAllowed,
-                                            responseOKJSON, responseOk)
+import Responses
+    ( responseCreated,
+      responseMethodNotAllowed,
+      responseOKJSON,
+      responseOk,
+      badResponse )
 import           Types.Other               (Token (..), TokenLifeTime)
 import           Types.Users               (Login (Login))
 
@@ -36,8 +38,8 @@ login hLogger operations req =
             let pass = toPassword i
             check <- auth operations hLogger login' pass
             case check of
-                Left _ -> do
-                    return $ responseBadRequest "Bad authorization"
+                Left someError ->
+                    return $ badResponse "Bad authorization." someError
                 Right tk -> do
                     return $
                         responseOk $
@@ -57,8 +59,8 @@ registration hLogger operations req =
             user_params <- toCreateUser i avatar
             result <- create_user_in_db operations hLogger user_params
             case result of
-                Left _ -> do
-                    return $ responseBadRequest "User not registered."
+                Left someError ->
+                    return $ badResponse "User not registered." someError
                 Right tk -> do
                     return $
                         responseCreated $
@@ -90,16 +92,10 @@ deleteUser hLogger operations token_lifetime req =
                     token'
                     login'
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "User not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "User not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "User not deleted"
+                Left someError ->
+                    return $ badResponse "User not deleted." someError
                 Right _ -> do
-                    return $ responseOk "User deleted"
+                    return $ responseOk "User deleted."
 
 profile ::
        MonadIO m
@@ -118,9 +114,8 @@ profile hLogger operations token_lifetime req =
             let token' = takeToken req
             result <- profile_on_db operations hLogger token_lifetime token'
             case result of
-                Left "Bad token" -> do
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Information not sended."
+                Left someError ->
+                    return $
+                    badResponse "Profile information not sended." someError
                 Right pro -> do
                     return $ responseOKJSON $ encode pro

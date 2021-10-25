@@ -38,6 +38,10 @@ newtype Id =
 instance ToField Id where
     toField = toField . from_id
 
-type ErrorMessage = T.Text
+data SomeError
+    = BadToken
+    | NotAdmin
+    | DatabaseError
+    | OtherError String
 
 type SendId = Int

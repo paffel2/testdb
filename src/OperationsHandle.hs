@@ -62,8 +62,8 @@ import           Types.NewsAndComments              (AfterDateFilterParam,
                                                      TagFilterParam,
                                                      TagInFilterParam,
                                                      TitleFilterParam)
-import           Types.Other                        (ErrorMessage, Id, Page,
-                                                     SendId, Token,
+import           Types.Other                        (Id, Page, SendId,
+                                                     SomeError, Token,
                                                      TokenLifeTime)
 import           Types.Tags                         (EditTag, TagName, TagsList)
 import           Types.Users                        (CreateUser, Login,
@@ -96,10 +96,10 @@ operationsHandler hLogger pool =
 
 data AuthorsHandle m =
     AuthorsHandle
-        { create_author_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> CreateAuthor -> m (Either ErrorMessage SendId)
-        , delete_author_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe AuthorLogin -> m (Either ErrorMessage ())
-        , get_authors_list :: LoggerHandle m -> Maybe Page -> m (Either ErrorMessage AuthorsList)
-        , edit_author_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either ErrorMessage ())
+        { create_author_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> CreateAuthor -> m (Either SomeError SendId)
+        , delete_author_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe AuthorLogin -> m (Either SomeError ())
+        , get_authors_list :: LoggerHandle m -> Maybe Page -> m (Either SomeError AuthorsList)
+        , edit_author_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> EditAuthor -> m (Either SomeError ())
         }
 
 authorsHandler :: Pool Connection -> AuthorsHandle IO
@@ -113,10 +113,10 @@ authorsHandler pool =
 
 data CategoriesHandle m =
     CategoriesHandle
-        { get_categories_list_from_db :: LoggerHandle m -> Maybe Page -> m (Either ErrorMessage ListOfCategories)
-        , create_category_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> CreateCategory -> m (Either ErrorMessage SendId)
-        , delete_category_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe CategoryName -> m (Either ErrorMessage ())
-        , edit_category_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> EditCategory -> m (Either ErrorMessage ())
+        { get_categories_list_from_db :: LoggerHandle m -> Maybe Page -> m (Either SomeError ListOfCategories)
+        , create_category_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> CreateCategory -> m (Either SomeError SendId)
+        , delete_category_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe CategoryName -> m (Either SomeError ())
+        , edit_category_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> EditCategory -> m (Either SomeError ())
         }
 
 categoriesHandler :: Pool Connection -> CategoriesHandle IO
@@ -130,12 +130,12 @@ categoriesHandler pool =
 
 data DraftsHandle m =
     DraftsHandle
-        { get_drafts_by_author_token :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> m (Either ErrorMessage DraftArray)
-        , delete_draft_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage ())
-        , get_draft_by_id_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Id -> m (Either ErrorMessage Draft)
-        , create_draft_on_db :: LoggerHandle m -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m (Either ErrorMessage SendId)
-        , update_draft_in_db :: LoggerHandle m -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either ErrorMessage ())
-        , public_news_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Id -> m (Either ErrorMessage SendId)
+        { get_drafts_by_author_token :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> m (Either SomeError DraftArray)
+        , delete_draft_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either SomeError ())
+        , get_draft_by_id_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Id -> m (Either SomeError Draft)
+        , create_draft_on_db :: LoggerHandle m -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m (Either SomeError SendId)
+        , update_draft_in_db :: LoggerHandle m -> TokenLifeTime -> DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either SomeError ())
+        , public_news_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Id -> m (Either SomeError SendId)
         }
 
 draftsHandler :: Pool Connection -> DraftsHandle IO
@@ -151,8 +151,8 @@ draftsHandler pool =
 
 data ImagesHandle m =
     ImagesHandle
-        { get_photo :: LoggerHandle m -> Id -> m (Either ErrorMessage ImageB)
-        , get_photo_list :: LoggerHandle m -> Maybe Page -> m (Either ErrorMessage ImageArray)
+        { get_photo :: LoggerHandle m -> Id -> m (Either SomeError ImageB)
+        , get_photo_list :: LoggerHandle m -> Maybe Page -> m (Either SomeError ImageArray)
         }
 
 imagesHandler :: Pool Connection -> ImagesHandle IO
@@ -161,21 +161,21 @@ imagesHandler pool =
 
 data NewsAndCommentsHandle m =
     NewsAndCommentsHandle
-        { add_comment_to_db :: LoggerHandle m -> Comment -> m (Either ErrorMessage ())
-        , delete_comment_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either ErrorMessage ())
-        , get_comments_by_news_id_from_db :: LoggerHandle m -> Maybe Id -> Maybe Page -> m (Either ErrorMessage CommentArray)
-        , get_news_by_id_from_db :: LoggerHandle m -> Maybe Id -> m (Either ErrorMessage GetNews)
-        , get_news_filter_by_tag_in_from_db :: LoggerHandle m -> Maybe TagInFilterParam -> Maybe Page -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_category_id_from_db :: LoggerHandle m -> Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_title_from_db :: LoggerHandle m -> Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_author_name_from_db :: LoggerHandle m -> Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_date_from_db :: LoggerHandle m -> Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_tag_all_from_db :: LoggerHandle m -> Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_content_from_db :: LoggerHandle m -> Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_after_date_from_db :: LoggerHandle m -> Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_before_date_from_db :: LoggerHandle m -> Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_filter_by_tag_id_from_db :: LoggerHandle m -> Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either ErrorMessage NewsArray)
-        , get_news_from_db :: LoggerHandle m -> Sort -> Maybe Page -> m (Either ErrorMessage NewsArray)
+        { add_comment_to_db :: LoggerHandle m -> Comment -> m (Either SomeError ())
+        , delete_comment_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe Id -> m (Either SomeError ())
+        , get_comments_by_news_id_from_db :: LoggerHandle m -> Maybe Id -> Maybe Page -> m (Either SomeError CommentArray)
+        , get_news_by_id_from_db :: LoggerHandle m -> Maybe Id -> m (Either SomeError GetNews)
+        , get_news_filter_by_tag_in_from_db :: LoggerHandle m -> Maybe TagInFilterParam -> Maybe Page -> m (Either SomeError NewsArray)
+        , get_news_filter_by_category_id_from_db :: LoggerHandle m -> Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_title_from_db :: LoggerHandle m -> Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_author_name_from_db :: LoggerHandle m -> Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_date_from_db :: LoggerHandle m -> Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_tag_all_from_db :: LoggerHandle m -> Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_content_from_db :: LoggerHandle m -> Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_after_date_from_db :: LoggerHandle m -> Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_before_date_from_db :: LoggerHandle m -> Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_filter_by_tag_id_from_db :: LoggerHandle m -> Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , get_news_from_db :: LoggerHandle m -> Sort -> Maybe Page -> m (Either SomeError NewsArray)
         }
 
 newsAndCommentsHandler :: Pool Connection -> NewsAndCommentsHandle IO
@@ -204,10 +204,10 @@ newsAndCommentsHandler pool =
 
 data TagsHandle m =
     TagsHandle
-        { create_tag_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either ErrorMessage SendId)
-        , delete_tag_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either ErrorMessage ())
-        , get_tags_list_from_db :: LoggerHandle m -> Maybe Page -> m (Either ErrorMessage TagsList)
-        , edit_tag_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> EditTag -> m (Either ErrorMessage ())
+        { create_tag_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either SomeError SendId)
+        , delete_tag_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe TagName -> m (Either SomeError ())
+        , get_tags_list_from_db :: LoggerHandle m -> Maybe Page -> m (Either SomeError TagsList)
+        , edit_tag_in_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> EditTag -> m (Either SomeError ())
         }
 
 tagsHandler :: Pool Connection -> TagsHandle IO
@@ -221,10 +221,10 @@ tagsHandler pool =
 
 data UsersHandle m =
     UsersHandle
-        { auth :: LoggerHandle m -> Maybe Login -> Maybe Password -> m (Either ErrorMessage Token)
-        , create_user_in_db :: LoggerHandle m -> CreateUser -> m (Either ErrorMessage Token)
-        , delete_user_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either ErrorMessage ())
-        , profile_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> m (Either ErrorMessage Profile)
+        { auth :: LoggerHandle m -> Maybe Login -> Maybe Password -> m (Either SomeError Token)
+        , create_user_in_db :: LoggerHandle m -> CreateUser -> m (Either SomeError Token)
+        , delete_user_from_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> Maybe Login -> m (Either SomeError ())
+        , profile_on_db :: LoggerHandle m -> TokenLifeTime -> Maybe Token -> m (Either SomeError Profile)
         }
 
 usersHandler :: Pool Connection -> UsersHandle IO

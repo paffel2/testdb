@@ -16,8 +16,7 @@ import           Network.Wai               (Request (rawPathInfo, requestMethod)
                                             Response)
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (CategoriesHandle (create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
-import           Responses                 (responseBadRequest, responseCreated,
-                                            responseForbidden,
+import           Responses                 (badResponse, responseCreated,
                                             responseMethodNotAllowed,
                                             responseNotFound, responseOKJSON,
                                             responseOk)
@@ -35,8 +34,7 @@ sendCategoriesList hLogger operations req =
             logInfo hLogger "Preparing data for sending categories list"
             result <- get_categories_list_from_db operations hLogger pageParam
             case result of
-                Left _ -> do
-                    return $ responseBadRequest "List of categories not sended."
+                Left someError -> return $ badResponse "" someError
                 Right loc -> do
                     return $ responseOKJSON $ encode loc
         else do
@@ -70,16 +68,8 @@ createCategory hLogger operations token_lifetime req =
                     token'
                     create_category_params
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Category not created. Not admin."
-                    return $
-                        responseForbidden "Category not created. Not admin."
-                Left "Bad token" -> do
-                    logError hLogger "Category not created. Bad token."
-                    return $
-                        responseForbidden "Category not created. Bad token."
-                Left _ -> do
-                    return $ responseBadRequest "Category not created."
+                Left someError ->
+                    return $ badResponse "Category not created." someError
                 Right category_id -> do
                     logInfo hLogger "Category created."
                     return $
@@ -111,14 +101,8 @@ deleteCategory hLogger operations token_lifetime req =
                     token'
                     category_name
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Category not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Category not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Category not deleted."
+                Left someError ->
+                    return $ badResponse "Category not deleted." someError
                 Right _ -> do
                     return $ responseOk "Category deleted."
 
@@ -147,14 +131,8 @@ editCategory hLogger operations token_lifetime req = do
                     token'
                     edit_category_parameters
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Category not edited. Not admin."
-                    return $ responseForbidden "Category not edited. Not admin."
-                Left "Bad token" -> do
-                    logError hLogger "Category not edited. Bad token."
-                    return $ responseForbidden "Category not edited. Bad token."
-                Left _ -> do
-                    return $ responseBadRequest "Category not edited."
+                Left someError ->
+                    return $ badResponse "Category not edited." someError
                 Right _ -> do
                     return $ responseCreated "Category edited."
 

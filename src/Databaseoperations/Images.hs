@@ -13,13 +13,11 @@ import           Logger                     (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool         (queryWithPool, query_WithPool)
 import           Types.Images               (ElemImageArray,
                                              ImageArray (ImageArray), ImageB)
-import           Types.Other                (ErrorMessage, Id, Page (from_page))
+import           Types.Other                (Id, Page (from_page),
+                                             SomeError (DatabaseError, OtherError))
 
 getPhoto ::
-       Pool Connection
-    -> LoggerHandle IO
-    -> Id
-    -> IO (Either ErrorMessage ImageB)
+       Pool Connection -> LoggerHandle IO -> Id -> IO (Either SomeError ImageB)
 getPhoto pool hLogger image_id' =
     catch
         (do let q =
@@ -31,7 +29,7 @@ getPhoto pool hLogger image_id' =
             if Prelude.null rows
                 then do
                     logError hLogger "Image not exist"
-                    return $ Left "Image not exist"
+                    return . Left . OtherError $ "Image not exist"
                 else do
                     logInfo hLogger "Image sended"
                     return $ Right $ Prelude.head rows) $ \e -> do
@@ -39,13 +37,13 @@ getPhoto pool hLogger image_id' =
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left DatabaseError
 
 getPhotoList ::
        Pool Connection
     -> LoggerHandle IO
     -> Maybe Page
-    -> IO (Either ErrorMessage ImageArray)
+    -> IO (Either SomeError ImageArray)
 getPhotoList pool hLogger pageParam =
     catch
         (do rows <- query_WithPool pool q :: IO [ElemImageArray]
@@ -55,7 +53,7 @@ getPhotoList pool hLogger pageParam =
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left DatabaseError
   where
     pg =
         if isNothing pageParam

@@ -13,7 +13,7 @@ import           Network.HTTP.Types.Method  (methodGet)
 import           Network.Wai                (Request (rawPathInfo, requestMethod),
                                              Response)
 import           OperationsHandle           (ImagesHandle (get_photo, get_photo_list))
-import           Responses                  (responseBadRequest,
+import           Responses                  (badResponse, responseBadRequest,
                                              responseMethodNotAllowed,
                                              responseNotFound, responseOKImage,
                                              responseOKJSON)
@@ -28,8 +28,8 @@ sendImagesList hLogger operations req = do
             logInfo hLogger "Preparing data for sending images list"
             result <- get_photo_list operations hLogger pageParam
             case result of
-                Left _ -> do
-                    return $ responseBadRequest "Images list not sended"
+                Left someError ->
+                    return $ badResponse "List of images not sended." someError
                 Right ia -> do
                     return $ responseOKJSON $ encode ia
         else do
@@ -51,8 +51,8 @@ sendImage hLogger operations imageId req = do
             logInfo hLogger "Preparing data for sending image"
             result <- get_photo operations hLogger imageId
             case result of
-                Left _ -> do
-                    return $ responseBadRequest "Image not sended"
+                Left someError ->
+                    return $ badResponse "Image not sended." someError
                 Right ib -> do
                     return $
                         responseOKImage (con_type ib) (fromBinary $ image_b ib)

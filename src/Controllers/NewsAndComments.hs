@@ -18,14 +18,15 @@ import           Network.Wai.Parse         (lbsBackEnd,
                                             noLimitParseRequestBodyOptions,
                                             parseRequestBodyEx)
 import           OperationsHandle          (NewsAndCommentsHandle (add_comment_to_db, delete_comment_from_db, get_comments_by_news_id_from_db, get_news_by_id_from_db, get_news_filter_by_after_date_from_db, get_news_filter_by_author_name_from_db, get_news_filter_by_before_date_from_db, get_news_filter_by_category_id_from_db, get_news_filter_by_content_from_db, get_news_filter_by_date_from_db, get_news_filter_by_tag_all_from_db, get_news_filter_by_tag_id_from_db, get_news_filter_by_tag_in_from_db, get_news_filter_by_title_from_db, get_news_from_db))
-import           Responses                 (responseBadRequest, responseCreated,
-                                            responseForbidden,
+import           Responses                 (badResponse, responseBadRequest,
+                                            responseCreated,
                                             responseMethodNotAllowed,
                                             responseNotFound, responseOKJSON,
                                             responseOk)
 import           Text.Read                 (readMaybe)
 import           Types.NewsAndComments     (Comment (Comment, comment_news_id, comment_text, comment_token, comment_token_lifetime))
-import           Types.Other               (Id, TokenLifeTime)
+import           Types.Other               (Id, SomeError (OtherError),
+                                            TokenLifeTime)
 
 deleteCommentById ::
        MonadIO m
@@ -51,14 +52,8 @@ deleteCommentById hLogger operations token_lifetime req =
                     token'
                     comment_id
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Commentary not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Commentary not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Commentary not deleted."
+                Left someError ->
+                    return $ badResponse "Commentary not deleted." someError
                 Right _ -> do
                     return $ responseOk "Commentary deleted."
 
@@ -89,14 +84,8 @@ addCommentByNewsId hLogger operations token_lifetime req news'_id =
                         }
             result <- add_comment_to_db operations hLogger comment
             case result of
-                Left "News not exist" -> do
-                    logError hLogger "Commentary not added. News not exist."
-                    return $ responseBadRequest "News not exist"
-                Left "Bad token" -> do
-                    logError hLogger "Commentary not added. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left _ -> do
-                    return $ responseBadRequest "Commentary not added."
+                Left someError ->
+                    return $ badResponse "Commentary not added." someError
                 Right _ -> do
                     return $ responseCreated "Commentary added"
 
@@ -122,8 +111,8 @@ sendCommentsByNewsId hLogger operations req news'_id =
                     news'_id
                     pageParam
             case result of
-                Left _s -> do
-                    return $ responseBadRequest "Commentaries not sended."
+                Left someError ->
+                    return $ badResponse "Commentaries not sended." someError
                 Right ca -> do
                     return $ responseOKJSON $ encode ca
 
@@ -143,11 +132,8 @@ sendNewsById hLogger operations req newsId =
             logInfo hLogger "Preparing data for sending news"
             result <- get_news_by_id_from_db operations hLogger newsId
             case result of
-                Left "News not exist" -> do
-                    logError hLogger "News not sended. News not exist."
-                    return $ responseBadRequest "News not exist"
-                Left _ -> do
-                    return $ responseBadRequest "News not sended."
+                Left someError ->
+                    return $ badResponse "News not sended." someError
                 Right gn -> return $ responseOKJSON $ encode gn
 
 sendNews ::
@@ -232,11 +218,12 @@ sendNews hLogger operations req =
                             sortParam
                     Just _ -> do
                         logError hLogger "Bad request"
-                        return $ Left "Bad request"
+                        return . Left . OtherError $ "Bad request"
                     Nothing ->
                         get_news_from_db operations hLogger sortParam pageParam
             case result of
-                Left _   -> return $ responseBadRequest "News not sended"
+                Left someError ->
+                    return $ badResponse "News not sended." someError
                 Right na -> return $ responseOKJSON $ encode na
         else do
             logError hLogger "Bad request method"

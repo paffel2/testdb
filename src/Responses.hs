@@ -2,19 +2,14 @@
 
 module Responses where
 
+import qualified Data.ByteString.Char8    as BC
 import qualified Data.ByteString.Internal as BI
-import qualified Data.ByteString.Lazy as LBS
-import Network.HTTP.Types
-    ( Status
-    , badRequest400
-    , forbidden403
-    , hContentType
-    , methodNotAllowed405
-    , notFound404
-    , status200
-    , status201
-    )
-import Network.Wai (Response, responseLBS)
+import qualified Data.ByteString.Lazy     as LBS
+import           Network.HTTP.Types       (Status, badRequest400, forbidden403,
+                                           hContentType, methodNotAllowed405,
+                                           notFound404, status200, status201)
+import           Network.Wai              (Response, responseLBS)
+import           Types.Other
 
 responseOk, responseNotFound, responseBadRequest, responseCreated, responseForbidden, responseMethodNotAllowed ::
        LBS.ByteString -> Response
@@ -44,3 +39,15 @@ responseImage contype = (`responseLBS` [(hContentType, contype)])
 
 responseOKImage :: BI.ByteString -> LBS.ByteString -> Response
 responseOKImage contype = responseImage contype status200
+
+badResponse :: LBS.ByteString -> SomeError -> Response
+badResponse prefix BadToken =
+    responseForbidden $ LBS.concat [prefix, " Bad Token."]
+badResponse prefix NotAdmin =
+    responseForbidden $ LBS.concat [prefix, " Not admin."]
+badResponse prefix DatabaseError =
+    responseForbidden $ LBS.concat [prefix, " Database Error."]
+badResponse prefix (OtherError message) =
+    responseForbidden $ LBS.concat [prefix, lbsMessage]
+  where
+    lbsMessage = LBS.fromStrict $ BC.pack message
