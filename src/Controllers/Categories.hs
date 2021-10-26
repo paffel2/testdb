@@ -12,17 +12,19 @@ import           FromRequest               (takeToken, toCategoryName,
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
-import           Network.Wai               (Request (rawPathInfo, requestMethod),
-                                            Response)
+import           Network.Wai               (Request (rawPathInfo, requestMethod))
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (CategoriesHandle (categories_logger, create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
-import           Responses                 (badResponse, responseCreated,
-                                            responseMethodNotAllowed,
-                                            responseNotFound, responseOKJSON,
-                                            responseOk)
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage))
 
-sendCategoriesList :: MonadIO m => CategoriesHandle m -> Request -> m Response
-sendCategoriesList operations req =
+getCategoriesList ::
+       MonadIO m
+    => CategoriesHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getCategoriesList operations req =
     if requestMethod req == methodGet
         then do
             logInfo
@@ -30,21 +32,30 @@ sendCategoriesList operations req =
                 "Preparing data for sending categories list"
             result <- get_categories_list_from_db operations pageParam
             case result of
-                Left someError -> return $ badResponse "" someError
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage
+                        "List of categories not sended."
+                        someError
                 Right loc -> do
-                    return $ responseOKJSON $ encode loc
+                    return $ Right $ OkJSON $ encode loc
         else do
             logError (categories_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
   where
     pageParam = toPage req
 
-createCategory :: MonadIO m => CategoriesHandle m -> Request -> m Response
-createCategory operations req =
+postCategory ::
+       MonadIO m
+    => CategoriesHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postCategory operations req =
     if requestMethod req /= methodPost
         then do
             logError (categories_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (categories_logger operations)
@@ -56,19 +67,25 @@ createCategory operations req =
                 create_category_on_db operations token' create_category_params
             case result of
                 Left someError ->
-                    return $ badResponse "Category not created." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage "Category not created." someError
                 Right category_id -> do
                     logInfo (categories_logger operations) "Category created."
                     return $
-                        responseCreated $
-                        LBS.fromStrict $ BC.pack $ show category_id
+                        Right $
+                        Created $ LBS.fromStrict $ BC.pack $ show category_id
 
-deleteCategory :: MonadIO m => CategoriesHandle m -> Request -> m Response
+deleteCategory ::
+       MonadIO m
+    => CategoriesHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 deleteCategory operations req =
     if requestMethod req /= methodDelete
         then do
             logError (categories_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (categories_logger operations)
@@ -79,16 +96,22 @@ deleteCategory operations req =
             result <- delete_category_from_db operations token' category_name
             case result of
                 Left someError ->
-                    return $ badResponse "Category not deleted." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage "Category not deleted." someError
                 Right _ -> do
-                    return $ responseOk "Category deleted."
+                    return $ Right $ OkMessage "Category deleted."
 
-editCategory :: MonadIO m => CategoriesHandle m -> Request -> m Response
-editCategory operations req = do
+updateCategory ::
+       MonadIO m
+    => CategoriesHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+updateCategory operations req = do
     if requestMethod req /= methodPut
         then do
             logError (categories_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (categories_logger operations)
@@ -100,20 +123,26 @@ editCategory operations req = do
                 edit_category_on_db operations token' edit_category_parameters
             case result of
                 Left someError ->
-                    return $ badResponse "Category not edited." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage "Category not edited." someError
                 Right _ -> do
-                    return $ responseCreated "Category edited."
+                    return $ Right $ OkMessage "Category edited."
 
-categoriesRouter :: MonadIO m => CategoriesHandle m -> Request -> m Response
+categoriesRouter ::
+       MonadIO m
+    => CategoriesHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 categoriesRouter operations req
-    | pathElemsC == 1 = sendCategoriesList operations req
+    | pathElemsC == 1 = getCategoriesList operations req
     | pathElemsC == 2 =
         case last pathElems of
             "delete_category" -> deleteCategory operations req
-            "create_category" -> createCategory operations req
-            "edit_category"   -> editCategory operations req
-            _                 -> return $ responseNotFound "Not Found"
-    | otherwise = return $ responseNotFound "Not Found"
+            "create_category" -> postCategory operations req
+            "edit_category"   -> updateCategory operations req
+            _                 -> return $ Left $ NotFound "Not Found"
+    | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

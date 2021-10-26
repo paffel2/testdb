@@ -1,7 +1,11 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Types.Other where
 
+import qualified Data.ByteString.Lazy               as LBS
 import qualified Data.Text                          as T
 import           Database.PostgreSQL.Simple.ToField (ToField (..))
+import           Types.Images                       (ImageB)
 
 newtype TokenLifeTime =
     TokenLifeTime
@@ -43,5 +47,18 @@ data SomeError
     | NotAdmin
     | DatabaseError
     | OtherError String
+
+data ResponseErrorMessage
+    = Forbidden LBS.ByteString
+    | MethodNotAllowed LBS.ByteString
+    | InternalServerError LBS.ByteString
+    | BadRequest LBS.ByteString
+    | NotFound LBS.ByteString
+
+data ResponseOkMessage
+    = Created LBS.ByteString
+    | OkJSON LBS.ByteString
+    | OkMessage LBS.ByteString
+    | OkImage ImageB
 
 type SendId = Int

@@ -12,20 +12,23 @@ import           FromRequest               (takeToken, toAuthorLogin,
 import           Logger                    (logDebug, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
-import           Network.Wai               (Request (rawPathInfo, requestMethod),
-                                            Response)
+import           Network.Wai               (Request (rawPathInfo, requestMethod))
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (AuthorsHandle (authors_logger, create_author_in_db, delete_author_in_db, edit_author_in_db, get_authors_list))
-import           Responses                 (badResponse, responseCreated,
-                                            responseMethodNotAllowed,
-                                            responseNotFound, responseOKJSON)
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage))
 
-newAuthor :: MonadIO m => AuthorsHandle m -> Request -> m Response
-newAuthor methods req =
+postAuthor ::
+       MonadIO m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postAuthor methods req =
     if requestMethod req /= methodPost
         then do
             logError (authors_logger methods) "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (authors_logger methods)
@@ -37,16 +40,22 @@ newAuthor methods req =
             result <- create_author_in_db methods token' create_author_params
             case result of
                 Left someError ->
-                    return $ badResponse "Author not created." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage "Author not created." someError
                 Right n -> do
-                    return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
+                    return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
-deleteAuthor :: MonadIO m => AuthorsHandle m -> Request -> m Response
+deleteAuthor ::
+       MonadIO m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 deleteAuthor methods req =
     if requestMethod req /= methodDelete
         then do
             logError (authors_logger methods) "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (authors_logger methods)
@@ -57,34 +66,49 @@ deleteAuthor methods req =
             result <- delete_author_in_db methods token' author_login'
             case result of
                 Left someError ->
-                    return $ badResponse "Author not deleted." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage "Author not deleted." someError
                 Right _ -> do
-                    return $ responseCreated "Author deleted."
+                    return $ Right $ OkMessage "Author deleted."
 
-sendAuthorsList :: MonadIO m => AuthorsHandle m -> Request -> m Response
-sendAuthorsList methods req = do
+getAuthorsList ::
+       MonadIO m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getAuthorsList methods req = do
     if requestMethod req /= methodGet
         then do
             logError (authors_logger methods) "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (authors_logger methods)
                 "Preparing data for sending authors list"
             result <- get_authors_list methods pageParam
             case result of
-                Left someError -> return $ badResponse "" someError
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage
+                        "List of authors not sended."
+                        someError
                 Right al -> do
-                    return $ responseOKJSON $ encode al
+                    return $ Right $ OkJSON (encode al)
   where
     pageParam = toPage req
 
-editAuthor :: MonadIO m => AuthorsHandle m -> Request -> m Response
-editAuthor methods req = do
+updateAuthor ::
+       MonadIO m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+updateAuthor methods req = do
     if requestMethod req /= methodPut
         then do
             logError (authors_logger methods) "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (authors_logger methods)
@@ -95,20 +119,25 @@ editAuthor methods req = do
             result <- edit_author_in_db methods token' edit_params
             case result of
                 Left someError ->
-                    return $ badResponse "Author not edited." someError
+                    return $
+                    Left $ toResponseErrorMessage "Author not edited." someError
                 Right _ -> do
-                    return $ responseCreated "Author edited."
+                    return $ Right $ OkMessage "Author edited."
 
-authorsRouter :: MonadIO m => AuthorsHandle m -> Request -> m Response
+authorsRouter ::
+       MonadIO m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 authorsRouter methods req
-    | pathElemsC == 1 = sendAuthorsList methods req
+    | pathElemsC == 1 = getAuthorsList methods req
     | pathElemsC == 2 =
         case last pathElems of
             "delete_author" -> deleteAuthor methods req
-            "create_author" -> newAuthor methods req
-            "edit_author"   -> editAuthor methods req
-            _               -> return $ responseNotFound "Not Found"
-    | otherwise = return $ responseNotFound "Not Found"
+            "create_author" -> postAuthor methods req
+            "edit_author"   -> updateAuthor methods req
+            _               -> return $ Left $ NotFound "Not Found"
+    | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

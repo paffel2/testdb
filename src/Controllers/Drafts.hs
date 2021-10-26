@@ -15,25 +15,26 @@ import           HelpFunction              (foundParametr, readByteStringToId,
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
-import           Network.Wai               (Request (rawPathInfo, requestMethod),
-                                            Response)
+import           Network.Wai               (Request (rawPathInfo, requestMethod))
 import           Network.Wai.Parse         (FileInfo (fileContent), lbsBackEnd,
                                             noLimitParseRequestBodyOptions,
                                             parseRequestBodyEx)
 import           OperationsHandle          (DraftsHandle (create_draft_on_db, delete_draft_from_db, drafts_logger, get_draft_by_id_from_db, get_drafts_by_author_token, public_news_on_db, update_draft_in_db))
-import           Responses                 (badResponse, responseBadRequest,
-                                            responseCreated,
-                                            responseMethodNotAllowed,
-                                            responseNotFound, responseOKJSON,
-                                            responseOk)
-import           Types.Other               (Id)
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (Id,
+                                            ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage))
 
-sendDrafts :: MonadIO m => DraftsHandle m -> Request -> m Response
-sendDrafts operations req =
+getDrafts ::
+       MonadIO m
+    => DraftsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getDrafts operations req =
     if requestMethod req /= methodGet
         then do
             logError (drafts_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (drafts_logger operations)
@@ -42,17 +43,25 @@ sendDrafts operations req =
             drafts' <- get_drafts_by_author_token operations token'
             case drafts' of
                 Left someError ->
-                    return $ badResponse "Drafts not sended." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage
+                        "List of drafts not sended."
+                        someError
                 Right draftsA -> do
                     logInfo (drafts_logger operations) "Sending drafts to user"
-                    return $ responseOKJSON (encode draftsA)
+                    return $ Right $ OkJSON (encode draftsA)
 
-createDraft :: MonadIO m => DraftsHandle m -> Request -> m Response
-createDraft operations req =
+postDraft ::
+       MonadIO m
+    => DraftsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postDraft operations req =
     if requestMethod req /= methodPost
         then do
             logError (drafts_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (drafts_logger operations)
@@ -76,7 +85,7 @@ createDraft operations req =
                checkNotImages images_list
                 then do
                     logError (drafts_logger operations) "Bad image file"
-                    return $ responseBadRequest "Bad image file"
+                    return $ Left $ BadRequest "Bad image file"
                 else do
                     result <-
                         create_draft_on_db
@@ -87,19 +96,27 @@ createDraft operations req =
                             images_list
                     case result of
                         Left someError ->
-                            return $ badResponse "Draft not created." someError
+                            return $
+                            Left $
+                            toResponseErrorMessage
+                                "Draft not created."
+                                someError
                         Right n -> do
                             logInfo (drafts_logger operations) "Draft created."
                             return $
-                                responseCreated $
-                                LBS.fromStrict $ BC.pack $ show n
+                                Right $
+                                Created $ LBS.fromStrict $ BC.pack $ show n
 
-deleteDraft :: MonadIO m => DraftsHandle m -> Request -> m Response
+deleteDraft ::
+       MonadIO m
+    => DraftsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 deleteDraft operations req =
     if requestMethod req /= methodDelete
         then do
             logError (drafts_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (drafts_logger operations)
@@ -109,16 +126,22 @@ deleteDraft operations req =
             result <- delete_draft_from_db operations token' draft_id
             case result of
                 Left someError ->
-                    return $ badResponse "Draft not deleted." someError
+                    return $
+                    Left $ toResponseErrorMessage "Draft not deleted." someError
                 Right _ -> do
-                    return $ responseOk "Draft deleted."
+                    return $ Right $ OkMessage "Draft deleted."
 
-getDraftById :: MonadIO m => DraftsHandle m -> Id -> Request -> m Response
+getDraftById ::
+       MonadIO m
+    => DraftsHandle m
+    -> Id
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 getDraftById operations draft_id req =
     if requestMethod req /= methodGet
         then do
             logError (drafts_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (drafts_logger operations)
@@ -127,16 +150,22 @@ getDraftById operations draft_id req =
             result <- get_draft_by_id_from_db operations token' draft_id
             case result of
                 Left someError ->
-                    return $ badResponse "Draft not sended." someError
+                    return $
+                    Left $ toResponseErrorMessage "Draft not sended." someError
                 Right draft -> do
-                    return $ responseOKJSON $ encode draft
+                    return $ Right $ OkJSON $ encode draft
 
-updateDraft :: MonadIO m => DraftsHandle m -> Id -> Request -> m Response
+updateDraft ::
+       MonadIO m
+    => DraftsHandle m
+    -> Id
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 updateDraft operations draft_id req =
     if requestMethod req /= methodPut
         then do
             logError (drafts_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (drafts_logger operations)
@@ -160,7 +189,7 @@ updateDraft operations draft_id req =
                checkNotImages images_list
                 then do
                     logError (drafts_logger operations) "Bad image file"
-                    return $ responseBadRequest "Bad image file"
+                    return $ Left $ BadRequest "Bad image file"
                 else do
                     result <-
                         update_draft_in_db
@@ -172,45 +201,59 @@ updateDraft operations draft_id req =
                             draft_id
                     case result of
                         Left someError ->
-                            return $ badResponse "Draft not updated." someError
+                            return $
+                            Left $
+                            toResponseErrorMessage
+                                "Draft not updated."
+                                someError
                         Right _ -> do
-                            return $ responseOk "Draft updated"
+                            return $ Right $ OkMessage "Draft updated"
 
-publicNews :: MonadIO m => DraftsHandle m -> Id -> Request -> m Response
-publicNews operations draft_id req =
+postNews ::
+       MonadIO m
+    => DraftsHandle m
+    -> Id
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postNews operations draft_id req =
     if requestMethod req /= methodPut
         then do
             logError (drafts_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo (drafts_logger operations) "Preparing data for public news"
             let token' = takeToken req
             result <- public_news_on_db operations token' draft_id
             case result of
                 Left someError ->
-                    return $ badResponse "News not created." someError
+                    return $
+                    Left $ toResponseErrorMessage "News not created." someError
                 Right n -> do
-                    return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
+                    return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
-draftsRouter :: MonadIO m => DraftsHandle m -> Request -> m Response
+draftsRouter ::
+       MonadIO m
+    => DraftsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 draftsRouter operations req
-    | pathElemsC == 1 = sendDrafts operations req
+    | pathElemsC == 1 = getDrafts operations req
     | pathElemsC == 2 =
         case readByteStringToId $ last pathElems of
             Just n -> getDraftById operations n req
             Nothing ->
                 case last pathElems of
                     "delete_draft" -> deleteDraft operations req
-                    _              -> return $ responseNotFound "Not Found"
+                    _              -> return $ Left $ NotFound "Not Found"
     | pathElemsC == 3 =
         case readByteStringToId $ head $ tail pathElems of
-            Nothing -> return $ responseBadRequest "bad request"
+            Nothing -> return $ Left $ BadRequest "Bad draft id"
             Just n ->
                 case last pathElems of
                     "update_draft" -> updateDraft operations n req
-                    "public_news"  -> publicNews operations n req
-                    _              -> return $ responseNotFound "Not Found"
-    | otherwise = return $ responseNotFound "Not Found"
+                    "public_news"  -> postNews operations n req
+                    _              -> return $ Left $ NotFound "Not Found"
+    | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

@@ -11,21 +11,23 @@ import           FromRequest               (takeToken, toEditTag, toPage,
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
-import           Network.Wai               (Request (rawPathInfo, requestMethod),
-                                            Response)
+import           Network.Wai               (Request (rawPathInfo, requestMethod))
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (TagsHandle (create_tag_in_db, delete_tag_from_db, edit_tag_in_db, get_tags_list_from_db, tags_logger))
-import           Responses                 (badResponse, responseCreated,
-                                            responseMethodNotAllowed,
-                                            responseNotFound, responseOKJSON,
-                                            responseOk)
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage))
 
-sendTagsList :: MonadIO m => TagsHandle m -> Request -> m Response
-sendTagsList operations req =
+getTagsList ::
+       MonadIO m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getTagsList operations req =
     if requestMethod req /= methodGet
         then do
             logError (tags_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (tags_logger operations)
@@ -33,18 +35,24 @@ sendTagsList operations req =
             tags_list <- get_tags_list_from_db operations page
             case tags_list of
                 Left someError ->
-                    return $ badResponse "List of tags not sended." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage "List of tags not sended." someError
                 Right tl -> do
-                    return $ responseOKJSON $ encode tl
+                    return $ Right $ OkJSON $ encode tl
   where
     page = toPage req
 
-newTag :: MonadIO m => TagsHandle m -> Request -> m Response
-newTag operations req =
+postTag ::
+       MonadIO m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postTag operations req =
     if requestMethod req /= methodPost
         then do
             logError (tags_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo (tags_logger operations) "Preparing data for creating tag."
             let token' = takeToken req
@@ -52,16 +60,21 @@ newTag operations req =
             result <- create_tag_in_db operations token' tag_name_param
             case result of
                 Left someError ->
-                    return $ badResponse "Tag not created." someError
+                    return $
+                    Left $ toResponseErrorMessage "Tag not created." someError
                 Right n -> do
-                    return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
+                    return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
-deleteTag :: MonadIO m => TagsHandle m -> Request -> m Response
+deleteTag ::
+       MonadIO m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 deleteTag operations req =
     if requestMethod req /= methodDelete
         then do
             logError (tags_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo (tags_logger operations) "Preparing data for deleting tag."
             let token' = takeToken req
@@ -69,16 +82,21 @@ deleteTag operations req =
             result <- delete_tag_from_db operations token' tag_name_param
             case result of
                 Left someError ->
-                    return $ badResponse "Tag not deleted." someError
+                    return $
+                    Left $ toResponseErrorMessage "Tag not deleted." someError
                 Right _ -> do
-                    return $ responseOk "Tag deleted."
+                    return $ Right $ OkMessage "Tag deleted."
 
-editTag :: MonadIO m => TagsHandle m -> Request -> m Response
-editTag operations req =
+updateTag ::
+       MonadIO m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+updateTag operations req =
     if requestMethod req /= methodPut
         then do
             logError (tags_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo (tags_logger operations) "Preparing data for editing tag."
             let token' = takeToken req
@@ -87,20 +105,25 @@ editTag operations req =
             result <- edit_tag_in_db operations token' tag_edit_params
             case result of
                 Left someError ->
-                    return $ badResponse "Tag not edited." someError
+                    return $
+                    Left $ toResponseErrorMessage "Tag not edited." someError
                 Right _ -> do
-                    return $ responseOk "Tag edited."
+                    return $ Right $ OkMessage "Tag edited."
 
-tagsRouter :: MonadIO m => TagsHandle m -> Request -> m Response
+tagsRouter ::
+       MonadIO m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 tagsRouter operations req
-    | pathElemsC == 1 = sendTagsList operations req
+    | pathElemsC == 1 = getTagsList operations req
     | pathElemsC == 2 =
         case last pathElems of
-            "create_tag" -> newTag operations req
+            "create_tag" -> postTag operations req
             "delete_tag" -> deleteTag operations req
-            "edit_tag"   -> editTag operations req
-            _            -> return $ responseNotFound "Not Found"
-    | otherwise = return $ responseNotFound "Not Found"
+            "edit_tag"   -> updateTag operations req
+            _            -> return $ Left $ NotFound "Not Found"
+    | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

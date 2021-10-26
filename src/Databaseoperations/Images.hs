@@ -16,9 +16,9 @@ import           Types.Images               (ElemImageArray,
 import           Types.Other                (Id, Page (from_page),
                                              SomeError (DatabaseError, OtherError))
 
-getPhoto ::
+getPhotoFromDb ::
        Pool Connection -> LoggerHandle IO -> Id -> IO (Either SomeError ImageB)
-getPhoto pool hLogger image_id' =
+getPhotoFromDb pool hLogger image_id' =
     catch
         (do let q =
                     toQuery $
@@ -39,12 +39,12 @@ getPhoto pool hLogger image_id' =
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
 
-getPhotoList ::
+getPhotoListFromDb ::
        Pool Connection
     -> LoggerHandle IO
     -> Maybe Page
     -> IO (Either SomeError ImageArray)
-getPhotoList pool hLogger pageParam =
+getPhotoListFromDb pool hLogger pageParam =
     catch
         (do rows <- query_WithPool pool q :: IO [ElemImageArray]
             logInfo hLogger "List of images sended"

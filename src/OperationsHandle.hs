@@ -16,7 +16,8 @@ import           Databaseoperations.Drafts          (createDraftOnDb,
                                                      getDraftsByAuthorToken,
                                                      publicNewsOnDb,
                                                      updateDraftInDb)
-import           Databaseoperations.Images          (getPhoto, getPhotoList)
+import           Databaseoperations.Images          (getPhotoFromDb,
+                                                     getPhotoListFromDb)
 import           Databaseoperations.NewsAndComments (addCommentToDb,
                                                      deleteCommentFromDb,
                                                      getCommentsByNewsIdFromDb,
@@ -178,8 +179,8 @@ data ImagesHandle m =
 imagesHandler :: Pool Connection -> LoggerHandle IO -> ImagesHandle IO
 imagesHandler pool hLogger =
     ImagesHandle
-        { get_photo = getPhoto pool hLogger
-        , get_photo_list = getPhotoList pool hLogger
+        { get_photo = getPhotoFromDb pool hLogger
+        , get_photo_list = getPhotoListFromDb pool hLogger
         , photos_logger = hLogger
         }
 

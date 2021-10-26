@@ -15,7 +15,7 @@ import           Logger                           (LoggerHandle (LoggerHandle),
 import           Network.Wai.Handler.Warp         (defaultSettings, runSettings,
                                                    setMaximumBodyFlush, setPort)
 import           OperationsHandle                 (operationsHandler)
-import           Router                           (routes)
+import           Router                           (application)
 
 main :: IO ()
 main = do
@@ -40,5 +40,5 @@ main = do
                  (setMaximumBodyFlush
                       (server_maximum_body_flush . server_conf $ hConfig) $
                   setPort (server_port . server_conf $ hConfig) defaultSettings) $
-             routes hOperations
+             application hOperations
         else logError hLogger "Database not exist"

@@ -12,22 +12,25 @@ import           FromRequest               (takeToken, toCreateUser, toLogin,
 import           HelpFunction              (foundParametr)
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
-import           Network.Wai               (Request (queryString, requestMethod),
-                                            Response)
+import           Network.Wai               (Request (queryString, requestMethod))
 import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
 import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db, users_logger))
-import           Responses                 (badResponse, responseCreated,
-                                            responseMethodNotAllowed,
-                                            responseOKJSON, responseOk)
-import           Types.Other               (Token (..))
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (ResponseErrorMessage (MethodNotAllowed),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage),
+                                            Token (from_token))
 import           Types.Users               (Login (Login))
 
-login :: MonadIO m => UsersHandle m -> Request -> m Response
+login ::
+       MonadIO m
+    => UsersHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 login operations req =
     if requestMethod req /= methodGet
         then do
             logError (users_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo (users_logger operations) "Preparing data for sign in."
             (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
@@ -36,18 +39,24 @@ login operations req =
             check <- auth operations login' pass
             case check of
                 Left someError ->
-                    return $ badResponse "Bad authorization." someError
+                    return $
+                    Left $ toResponseErrorMessage "Bad authorization." someError
                 Right tk -> do
                     return $
-                        responseOk $
+                        Right $
+                        OkMessage $
                         LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
-registration :: MonadIO m => UsersHandle m -> Request -> m Response
+registration ::
+       MonadIO m
+    => UsersHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 registration operations req =
     if requestMethod req /= methodPost
         then do
             logError (users_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (users_logger operations)
@@ -58,18 +67,24 @@ registration operations req =
             result <- create_user_in_db operations user_params
             case result of
                 Left someError ->
-                    return $ badResponse "User not registered." someError
+                    return $
+                    Left $
+                    toResponseErrorMessage "User not registered." someError
                 Right tk -> do
                     return $
-                        responseCreated $
-                        LBS.fromStrict $ E.encodeUtf8 $ from_token tk
+                        Right $
+                        Created $ LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
-deleteUser :: MonadIO m => UsersHandle m -> Request -> m Response
+deleteUser ::
+       MonadIO m
+    => UsersHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 deleteUser operations req =
     if requestMethod req /= methodDelete
         then do
             logError (users_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (users_logger operations)
@@ -81,16 +96,21 @@ deleteUser operations req =
             result <- delete_user_from_db operations token' login'
             case result of
                 Left someError ->
-                    return $ badResponse "User not deleted." someError
+                    return $
+                    Left $ toResponseErrorMessage "User not deleted." someError
                 Right _ -> do
-                    return $ responseOk "User deleted."
+                    return $ Right $ OkMessage "User deleted."
 
-profile :: MonadIO m => UsersHandle m -> Request -> m Response
+profile ::
+       MonadIO m
+    => UsersHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
 profile operations req =
     if requestMethod req /= methodGet
         then do
             logError (users_logger operations) "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
                 (users_logger operations)
@@ -100,6 +120,9 @@ profile operations req =
             case result of
                 Left someError ->
                     return $
-                    badResponse "Profile information not sended." someError
+                    Left $
+                    toResponseErrorMessage
+                        "Profile inforamtion not sended."
+                        someError
                 Right pro -> do
-                    return $ responseOKJSON $ encode pro
+                    return $ Right $ OkJSON $ encode pro
