@@ -1,5 +1,6 @@
 module OperationsHandle where
 
+import qualified Data.ByteString.Lazy               as LBS
 import           Data.Pool                          (Pool)
 import           Database.PostgreSQL.Simple         (Connection)
 import           Databaseoperations.Authors         (createAuthorInDb,
@@ -42,6 +43,10 @@ import           Databaseoperations.Users           (authentication,
                                                      deleteUserFromDb,
                                                      profileOnDb)
 import           Logger                             (LoggerHandle)
+import           Network.Wai                        (Request)
+import           Network.Wai.Parse                  (BackEnd, File, Param,
+                                                     lbsBackEnd,
+                                                     parseRequestBody)
 import           Types.Authors                      (AuthorLogin, AuthorsList,
                                                      CreateAuthor, EditAuthor)
 import           Types.Categories                   (CategoryName,
@@ -106,6 +111,8 @@ data AuthorsHandle m =
         , get_authors_list :: Maybe Page -> m (Either SomeError AuthorsList)
         , edit_author_in_db :: Maybe Token -> EditAuthor -> m (Either SomeError ())
         , authors_logger :: LoggerHandle m
+        , authors_parse_request_body :: Request -> m ( [Param]
+                                                     , [File LBS.ByteString])
         }
 
 authorsHandler ::
@@ -117,6 +124,7 @@ authorsHandler pool hLogger tokenLifeTime =
         , get_authors_list = getAuthorsList pool hLogger
         , edit_author_in_db = editAuthorInDb pool tokenLifeTime hLogger
         , authors_logger = hLogger
+        , authors_parse_request_body = parseRequestBody lbsBackEnd
         }
 
 data CategoriesHandle m =
@@ -126,6 +134,8 @@ data CategoriesHandle m =
         , delete_category_from_db :: Maybe Token -> Maybe CategoryName -> m (Either SomeError ())
         , edit_category_on_db :: Maybe Token -> EditCategory -> m (Either SomeError ())
         , categories_logger :: LoggerHandle m
+        , cat_parse_request_body :: Request -> m ( [Param]
+                                                 , [File LBS.ByteString])
         }
 
 categoriesHandler ::
@@ -141,6 +151,7 @@ categoriesHandler pool hLogger tokenLifeTime =
               deleteCategoryFromDb pool tokenLifeTime hLogger
         , edit_category_on_db = editCategoryOnDb pool tokenLifeTime hLogger
         , categories_logger = hLogger
+        , cat_parse_request_body = parseRequestBody lbsBackEnd
         }
 
 data DraftsHandle m =
@@ -152,6 +163,8 @@ data DraftsHandle m =
         , update_draft_in_db :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either SomeError ())
         , public_news_on_db :: Maybe Token -> Id -> m (Either SomeError SendId)
         , drafts_logger :: LoggerHandle m
+        , drafts_parse_request_body :: Request -> m ( [Param]
+                                                    , [File LBS.ByteString])
         }
 
 draftsHandler ::
@@ -167,6 +180,7 @@ draftsHandler pool hLogger tokenLifeTime =
         , update_draft_in_db = updateDraftInDb pool tokenLifeTime hLogger
         , public_news_on_db = publicNewsOnDb pool tokenLifeTime hLogger
         , drafts_logger = hLogger
+        , drafts_parse_request_body = parseRequestBody lbsBackEnd
         }
 
 data ImagesHandle m =
@@ -202,6 +216,8 @@ data NewsAndCommentsHandle m =
         , get_news_filter_by_tag_id_from_db :: Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
         , get_news_from_db :: Sort -> Maybe Page -> m (Either SomeError NewsArray)
         , news_logger :: LoggerHandle m
+        , news_parse_request_body :: Request -> m ( [Param]
+                                                  , [File LBS.ByteString])
         }
 
 newsAndCommentsHandler ::
@@ -239,6 +255,7 @@ newsAndCommentsHandler pool hLogger tokenLifeTime =
               getNewsFilterByTagIdFromDb pool hLogger
         , get_news_from_db = getNewsFromDb pool hLogger
         , news_logger = hLogger
+        , news_parse_request_body = parseRequestBody lbsBackEnd
         }
 
 data TagsHandle m =
@@ -248,6 +265,8 @@ data TagsHandle m =
         , get_tags_list_from_db :: Maybe Page -> m (Either SomeError TagsList)
         , edit_tag_in_db :: Maybe Token -> EditTag -> m (Either SomeError ())
         , tags_logger :: LoggerHandle m
+        , tags_parse_request_body :: Request -> m ( [Param]
+                                                  , [File LBS.ByteString])
         }
 
 tagsHandler ::
@@ -259,6 +278,7 @@ tagsHandler pool hLogger tokenLifeTime =
         , get_tags_list_from_db = getTagsListFromDb pool hLogger
         , edit_tag_in_db = editTagInDb pool tokenLifeTime hLogger
         , tags_logger = hLogger
+        , tags_parse_request_body = parseRequestBody lbsBackEnd
         }
 
 data UsersHandle m =
@@ -268,6 +288,8 @@ data UsersHandle m =
         , delete_user_from_db :: Maybe Token -> Maybe Login -> m (Either SomeError ())
         , profile_on_db :: Maybe Token -> m (Either SomeError Profile)
         , users_logger :: LoggerHandle m
+        , users_parse_request_body :: Request -> m ( [Param]
+                                                   , [File LBS.ByteString])
         }
 
 usersHandler ::
@@ -279,4 +301,5 @@ usersHandler pool hLogger tokenLifeTime =
         , delete_user_from_db = deleteUserFromDb pool tokenLifeTime hLogger
         , profile_on_db = profileOnDb pool tokenLifeTime hLogger
         , users_logger = hLogger
+        , users_parse_request_body = parseRequestBody lbsBackEnd
         }

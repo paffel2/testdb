@@ -3,13 +3,11 @@
 module FromRequest where
 
 import           Control.Monad                    (join)
-import           Control.Monad.IO.Class           (MonadIO (..))
 import qualified Data.ByteString.Char8            as BC
 import qualified Data.ByteString.Lazy             as LBS
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as E
-import           Data.Time                        (getCurrentTime)
 import           Database.PostgreSQL.Simple.Types (Binary (..))
 import           HelpFunction                     (readByteStringListInt,
                                                    readByteStringToDay,
@@ -137,15 +135,12 @@ toLogin :: [Param] -> Maybe Login
 toLogin params = Login . E.decodeUtf8 <$> lookup "login" params
 
 toCreateUser ::
-       MonadIO m
-    => [(BC.ByteString, BC.ByteString)]
+    [(BC.ByteString, BC.ByteString)]
     -> [FileInfo LBS.ByteString]
-    -> m CreateUser
-toCreateUser params file = do
-    now <- liftIO getCurrentTime
+    ->  CreateUser
+toCreateUser params file = 
     if null file
-        then do
-            return
+        then 
                 CreateUser
                     { avatar_file_name = Nothing
                     , avatar_content = Nothing
@@ -155,10 +150,9 @@ toCreateUser params file = do
                     , user_login = toLogin params
                     , user_password =
                           Password . E.decodeUtf8 <$> lookup "password" params
-                    , creation_date = now
                     , admin_mark = False
                     }
-        else return
+        else 
                  CreateUser
                      { avatar_file_name = Just . fileName . head $ file
                      , avatar_content =
@@ -170,7 +164,6 @@ toCreateUser params file = do
                      , user_login = toLogin params
                      , user_password =
                            Password . E.decodeUtf8 <$> lookup "password" params
-                     , creation_date = now
                      , admin_mark = False
                      }
 

@@ -2,7 +2,6 @@
 
 module Controllers.Drafts where
 
-import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import qualified Data.ByteString.Lazy      as LBS
@@ -16,17 +15,15 @@ import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           Network.Wai.Parse         (FileInfo (fileContent), lbsBackEnd,
-                                            noLimitParseRequestBodyOptions,
-                                            parseRequestBodyEx)
-import           OperationsHandle          (DraftsHandle (create_draft_on_db, delete_draft_from_db, drafts_logger, get_draft_by_id_from_db, get_drafts_by_author_token, public_news_on_db, update_draft_in_db))
+import           Network.Wai.Parse         (FileInfo (fileContent))
+import           OperationsHandle          (DraftsHandle (create_draft_on_db, delete_draft_from_db, drafts_logger, drafts_parse_request_body, get_draft_by_id_from_db, get_drafts_by_author_token, public_news_on_db, update_draft_in_db))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (Id,
                                             ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage))
 
 getDrafts ::
-       MonadIO m
+       Monad m
     => DraftsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -53,7 +50,7 @@ getDrafts operations req =
                     return $ Right $ OkJSON (encode draftsA)
 
 postDraft ::
-       MonadIO m
+       Monad m
     => DraftsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -66,9 +63,7 @@ postDraft operations req =
             logInfo
                 (drafts_logger operations)
                 "Preparing data for creating draft"
-            (i, f) <-
-                liftIO $
-                parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            (i, f) <- drafts_parse_request_body operations req
             let draft_inf = toDraftInf req i
             let list_of_tags = toDraftTags i
             let main'_image = foundParametr "main_image" f
@@ -108,7 +103,7 @@ postDraft operations req =
                                 Created $ LBS.fromStrict $ BC.pack $ show n
 
 deleteDraft ::
-       MonadIO m
+       Monad m
     => DraftsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -132,7 +127,7 @@ deleteDraft operations req =
                     return $ Right $ OkMessage "Draft deleted."
 
 getDraftById ::
-       MonadIO m
+       Monad m
     => DraftsHandle m
     -> Id
     -> Request
@@ -156,7 +151,7 @@ getDraftById operations draft_id req =
                     return $ Right $ OkJSON $ encode draft
 
 updateDraft ::
-       MonadIO m
+       Monad m
     => DraftsHandle m
     -> Id
     -> Request
@@ -170,9 +165,7 @@ updateDraft operations draft_id req =
             logInfo
                 (drafts_logger operations)
                 "Preparing data for updating draft"
-            (i, f) <-
-                liftIO $
-                parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            (i, f) <- drafts_parse_request_body operations req
             let dr_inf_update = toDraftInf req i
             let list_of_tags = toDraftTags i
             let main'_image = foundParametr "main_image" f
@@ -210,7 +203,7 @@ updateDraft operations draft_id req =
                             return $ Right $ OkMessage "Draft updated"
 
 postNews ::
-       MonadIO m
+       Monad m
     => DraftsHandle m
     -> Id
     -> Request
@@ -232,7 +225,7 @@ postNews operations draft_id req =
                     return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
 draftsRouter ::
-       MonadIO m
+       Monad m
     => DraftsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)

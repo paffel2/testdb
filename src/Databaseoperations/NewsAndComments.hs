@@ -17,7 +17,21 @@ import           HelpFunction                  (readByteStringToInt, toQuery)
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
-import           Types.NewsAndComments
+import           Types.NewsAndComments         (AfterDateFilterParam,
+                                                AuthorFilterParam (from_author_fp),
+                                                BeforeDateFilterParam,
+                                                CategoryFilterParam (from_category_fp),
+                                                CommentArray (CommentArray),
+                                                CommentWithoutTokenLifeTime (CommentWithoutTokenLifeTime),
+                                                ContentFilterParam (from_content_fp),
+                                                DateFilterParam, GetNews,
+                                                NewsArray (NewsArray),
+                                                Sort (from_sort),
+                                                TagAllFilterParam (from_tag_all_fp),
+                                                TagFilterParam,
+                                                TagInFilterParam (from_tag_in_fp),
+                                                TitleFilterParam (from_title_fp),
+                                                toComment)
 import           Types.Other                   (Id (from_id), Page (from_page),
                                                 SomeError (BadToken, DatabaseError, OtherError),
                                                 Token, TokenLifeTime)

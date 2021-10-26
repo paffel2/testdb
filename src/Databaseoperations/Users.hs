@@ -18,7 +18,7 @@ import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool)
 import           Types.Other                   (SomeError (BadToken, DatabaseError, OtherError),
                                                 Token (Token), TokenLifeTime)
-import           Types.Users                   (CreateUser (CreateUser, creation_date, first_name, last_name, user_login, user_password),
+import           Types.Users                   (CreateUser (CreateUser, first_name, last_name, user_login, user_password),
                                                 Login (from_login), Password,
                                                 Profile,
                                                 TokenProfile (TokenProfile))
@@ -72,19 +72,19 @@ createUserInDb ::
     -> LoggerHandle IO
     -> CreateUser
     -> IO (Either SomeError Token)
-createUserInDb _ hLogger (CreateUser _ _ _ Nothing _ _ _ _ _) = do
+createUserInDb _ hLogger (CreateUser _ _ _ Nothing _ _ _ _) = do
     logError hLogger "User not created. No first_name parameter"
     return . Left . OtherError $ "User not created. No first_name parameter"
-createUserInDb _ hLogger (CreateUser _ _ _ _ Nothing _ _ _ _) = do
+createUserInDb _ hLogger (CreateUser _ _ _ _ Nothing _ _ _) = do
     logError hLogger "User not created. No last_name parameter"
     return . Left . OtherError $ "No last_name parameter"
-createUserInDb _ hLogger (CreateUser _ _ _ _ _ Nothing _ _ _) = do
+createUserInDb _ hLogger (CreateUser _ _ _ _ _ Nothing _ _) = do
     logError hLogger "User not created. No login parameter"
     return . Left . OtherError $ "No login parameter"
-createUserInDb _ hLogger (CreateUser _ _ _ _ _ _ Nothing _ _) = do
+createUserInDb _ hLogger (CreateUser _ _ _ _ _ _ Nothing _) = do
     logError hLogger "User not created. No password parameter"
     return . Left . OtherError $ "No password parameter"
-createUserInDb pool hLogger c_user@(CreateUser (Just av_file_name) (Just av_con) (Just av_con_type) (Just _) (Just _) (Just _) (Just _) _ _) = do
+createUserInDb pool hLogger c_user@(CreateUser (Just av_file_name) (Just av_con) (Just av_con_type) (Just _) (Just _) (Just _) (Just _) _) = do
     if av_file_name == "" ||
        av_con_type == "" ||
        fromBinary av_con == "" || BC.take 5 av_con_type /= "image"
@@ -122,9 +122,9 @@ createUserInDb pool hLogger c_user@(CreateUser (Just av_file_name) (Just av_con)
         BC.concat
             [ "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) "
             , "insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) "
-            , "values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),?,?)"
+            , "values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),now(),?)"
             ]
-createUserInDb pool hLogger c_user@(CreateUser Nothing Nothing Nothing (Just _) (Just _) (Just _) (Just _) _ _) =
+createUserInDb pool hLogger c_user@(CreateUser Nothing Nothing Nothing (Just _) (Just _) (Just _) (Just _) _) =
     catch
         (do logInfo hLogger "Registartion without avatar"
             n <-
@@ -135,7 +135,6 @@ createUserInDb pool hLogger c_user@(CreateUser Nothing Nothing Nothing (Just _) 
                     , last_name c_user
                     , user_login c_user
                     , user_password c_user
-                    , creation_date c_user
                     , False)
             if n > 0
                 then do
@@ -163,7 +162,7 @@ createUserInDb pool hLogger c_user@(CreateUser Nothing Nothing Nothing (Just _) 
         toQuery $
         BC.concat
             [ "insert into users (first_name, last_name, login, user_password, creation_date, admin_mark) "
-            , "values (?,?,?,crypt(?,gen_salt('md5')),?,?)"
+            , "values (?,?,?,crypt(?,gen_salt('md5')),now(),?)"
             ]
 createUserInDb _ hLogger _ = do
     logError hLogger "Unexpected error"

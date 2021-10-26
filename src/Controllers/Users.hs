@@ -2,7 +2,6 @@
 
 module Controllers.Users where
 
-import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Lazy      as LBS
 import           Data.Maybe                (fromMaybe)
@@ -13,8 +12,7 @@ import           HelpFunction              (foundParametr)
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import           Network.Wai               (Request (queryString, requestMethod))
-import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
-import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db, users_logger))
+import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db, users_logger, users_parse_request_body))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed),
                                             ResponseOkMessage (Created, OkJSON, OkMessage),
@@ -22,7 +20,7 @@ import           Types.Other               (ResponseErrorMessage (MethodNotAllow
 import           Types.Users               (Login (Login))
 
 login ::
-       MonadIO m
+       Monad m
     => UsersHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -33,7 +31,7 @@ login operations req =
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo (users_logger operations) "Preparing data for sign in."
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, _) <- users_parse_request_body operations req
             let login' = toLogin i
             let pass = toPassword i
             check <- auth operations login' pass
@@ -48,7 +46,7 @@ login operations req =
                         LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
 registration ::
-       MonadIO m
+       Monad m
     => UsersHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -61,9 +59,9 @@ registration operations req =
             logInfo
                 (users_logger operations)
                 "Preparing data for registration new user."
-            (i, f) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, f) <- users_parse_request_body operations req
             let avatar = foundParametr "avatar" f
-            user_params <- toCreateUser i avatar
+            let user_params = toCreateUser i avatar
             result <- create_user_in_db operations user_params
             case result of
                 Left someError ->
@@ -76,7 +74,7 @@ registration operations req =
                         Created $ LBS.fromStrict $ E.encodeUtf8 $ from_token tk
 
 deleteUser ::
-       MonadIO m
+       Monad m
     => UsersHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -102,7 +100,7 @@ deleteUser operations req =
                     return $ Right $ OkMessage "User deleted."
 
 profile ::
-       MonadIO m
+       Monad m
     => UsersHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)

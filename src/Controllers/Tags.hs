@@ -2,7 +2,6 @@
 
 module Controllers.Tags where
 
-import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import qualified Data.ByteString.Lazy      as LBS
@@ -12,14 +11,13 @@ import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
-import           OperationsHandle          (TagsHandle (create_tag_in_db, delete_tag_from_db, edit_tag_in_db, get_tags_list_from_db, tags_logger))
+import           OperationsHandle          (TagsHandle (create_tag_in_db, delete_tag_from_db, edit_tag_in_db, get_tags_list_from_db, tags_logger, tags_parse_request_body))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage))
 
 getTagsList ::
-       MonadIO m
+       Monad m
     => TagsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -44,7 +42,7 @@ getTagsList operations req =
     page = toPage req
 
 postTag ::
-       MonadIO m
+       Monad m
     => TagsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -66,7 +64,7 @@ postTag operations req =
                     return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
 deleteTag ::
-       MonadIO m
+       Monad m
     => TagsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -88,7 +86,7 @@ deleteTag operations req =
                     return $ Right $ OkMessage "Tag deleted."
 
 updateTag ::
-       MonadIO m
+       Monad m
     => TagsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -100,7 +98,7 @@ updateTag operations req =
         else do
             logInfo (tags_logger operations) "Preparing data for editing tag."
             let token' = takeToken req
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, _) <- tags_parse_request_body operations req
             let tag_edit_params = toEditTag i
             result <- edit_tag_in_db operations token' tag_edit_params
             case result of
@@ -111,7 +109,7 @@ updateTag operations req =
                     return $ Right $ OkMessage "Tag edited."
 
 tagsRouter ::
-       MonadIO m
+       Monad m
     => TagsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)

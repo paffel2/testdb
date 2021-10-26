@@ -2,7 +2,6 @@
 
 module Controllers.Authors where
 
-import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import qualified Data.ByteString.Lazy      as LBS
@@ -13,14 +12,13 @@ import           Logger                    (logDebug, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
-import           OperationsHandle          (AuthorsHandle (authors_logger, create_author_in_db, delete_author_in_db, edit_author_in_db, get_authors_list))
+import           OperationsHandle          (AuthorsHandle (authors_logger, authors_parse_request_body, create_author_in_db, delete_author_in_db, edit_author_in_db, get_authors_list))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage))
 
 postAuthor ::
-       MonadIO m
+       Monad m
     => AuthorsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -34,7 +32,8 @@ postAuthor methods req =
                 (authors_logger methods)
                 "Preparing parameters for creating new author."
             let token' = takeToken req
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, _) <- authors_parse_request_body methods req
+            --let b = i
             let create_author_params = toCreateAuthor i
             logDebug (authors_logger methods) "Creating Author on database"
             result <- create_author_in_db methods token' create_author_params
@@ -47,7 +46,7 @@ postAuthor methods req =
                     return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
 deleteAuthor ::
-       MonadIO m
+       Monad m
     => AuthorsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -61,7 +60,7 @@ deleteAuthor methods req =
                 (authors_logger methods)
                 "Preparing parameters for deleting author."
             let token' = takeToken req
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, _) <- authors_parse_request_body methods req
             let author_login' = toAuthorLogin i
             result <- delete_author_in_db methods token' author_login'
             case result of
@@ -73,7 +72,7 @@ deleteAuthor methods req =
                     return $ Right $ OkMessage "Author deleted."
 
 getAuthorsList ::
-       MonadIO m
+       Monad m
     => AuthorsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -100,7 +99,7 @@ getAuthorsList methods req = do
     pageParam = toPage req
 
 updateAuthor ::
-       MonadIO m
+       Monad m
     => AuthorsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -114,8 +113,9 @@ updateAuthor methods req = do
                 (authors_logger methods)
                 "Preparing data for editing author's description."
             let token' = takeToken req
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
-            let edit_params = toEditAuthor i
+            (i, _) <- authors_parse_request_body methods req
+            let b = i
+            let edit_params = toEditAuthor b
             result <- edit_author_in_db methods token' edit_params
             case result of
                 Left someError ->
@@ -125,7 +125,7 @@ updateAuthor methods req = do
                     return $ Right $ OkMessage "Author edited."
 
 authorsRouter ::
-       MonadIO m
+       Monad m
     => AuthorsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)

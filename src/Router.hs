@@ -2,7 +2,6 @@
 
 module Router where
 
-import           Control.Monad.IO.Class      (MonadIO (..))
 import           Controllers.Authors         (authorsRouter)
 import           Controllers.Categories      (categoriesRouter)
 import           Controllers.Drafts          (draftsRouter, postDraft)
@@ -19,7 +18,7 @@ import           Types.Other                 (ResponseErrorMessage (NotFound),
                                               ResponseOkMessage)
 
 routes ::
-       MonadIO m
+       Monad m
     => OperationsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -44,10 +43,10 @@ routes operations req =
     pathHead = head pathElems
 
 responder ::
-       MonadIO m => Either ResponseErrorMessage ResponseOkMessage -> m Response
+       Monad m => Either ResponseErrorMessage ResponseOkMessage -> m Response
 responder something = return $ toResponse something
 
 application ::
-       MonadIO m => OperationsHandle m -> Request -> (Response -> m b) -> m b
+       Monad m => OperationsHandle m -> Request -> (Response -> m b) -> m b
 application operations req respond =
     routes operations req >>= responder >>= respond

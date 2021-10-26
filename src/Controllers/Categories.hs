@@ -2,7 +2,6 @@
 
 module Controllers.Categories where
 
-import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import qualified Data.ByteString.Lazy      as LBS
@@ -13,14 +12,13 @@ import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           Network.Wai.Parse         (lbsBackEnd, parseRequestBody)
-import           OperationsHandle          (CategoriesHandle (categories_logger, create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
+import           OperationsHandle          (CategoriesHandle (cat_parse_request_body, categories_logger, create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage))
 
 getCategoriesList ::
-       MonadIO m
+       Monad m
     => CategoriesHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -47,7 +45,7 @@ getCategoriesList operations req =
     pageParam = toPage req
 
 postCategory ::
-       MonadIO m
+       Monad m
     => CategoriesHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -60,7 +58,7 @@ postCategory operations req =
             logInfo
                 (categories_logger operations)
                 "Preparing data for creating category"
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, _) <- cat_parse_request_body operations req
             let token' = takeToken req
             let create_category_params = toCreateCategory i
             result <-
@@ -77,7 +75,7 @@ postCategory operations req =
                         Created $ LBS.fromStrict $ BC.pack $ show category_id
 
 deleteCategory ::
-       MonadIO m
+       Monad m
     => CategoriesHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -91,7 +89,7 @@ deleteCategory operations req =
                 (categories_logger operations)
                 "Preparing data for deleting category"
             let token' = takeToken req
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, _) <- cat_parse_request_body operations req
             let category_name = toCategoryName i
             result <- delete_category_from_db operations token' category_name
             case result of
@@ -103,7 +101,7 @@ deleteCategory operations req =
                     return $ Right $ OkMessage "Category deleted."
 
 updateCategory ::
-       MonadIO m
+       Monad m
     => CategoriesHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -117,7 +115,7 @@ updateCategory operations req = do
                 (categories_logger operations)
                 "Preparing data for editing category"
             let token' = takeToken req
-            (i, _) <- liftIO $ parseRequestBody lbsBackEnd req
+            (i, _) <- cat_parse_request_body operations req
             let edit_category_parameters = toEditCategory i
             result <-
                 edit_category_on_db operations token' edit_category_parameters
@@ -130,7 +128,7 @@ updateCategory operations req = do
                     return $ Right $ OkMessage "Category edited."
 
 categoriesRouter ::
-       MonadIO m
+       Monad m
     => CategoriesHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)

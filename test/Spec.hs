@@ -1,6 +1,7 @@
+import           AuthorsTests      (authorsTests)
 import           FromRequestTests  (fromRequestTests)
 import           HelpFunctionTests (functionsTests)
-import           ImagesTests
+import           ImagesTests       (imagesTests)
 
 --import OperationsHandleTest (operationsTests)
 main :: IO ()
@@ -9,4 +10,5 @@ main
  = do
     functionsTests
     fromRequestTests
-    imagesTests'
+    imagesTests
+    authorsTests

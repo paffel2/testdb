@@ -2,7 +2,6 @@
 
 module Controllers.Images where
 
-import           Control.Monad.IO.Class    (MonadIO)
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import           FromRequest               (toPage)
@@ -17,7 +16,7 @@ import           Types.Other               (Id,
                                             ResponseOkMessage (OkImage, OkJSON))
 
 getImagesList ::
-       MonadIO m
+       Monad m
     => ImagesHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -44,7 +43,7 @@ getImagesList operations req = do
     pageParam = toPage req
 
 getImage ::
-       MonadIO m
+       Monad m
     => ImagesHandle m
     -> Id
     -> Request
@@ -67,7 +66,7 @@ getImage operations imageId req = do
             return $ Left $ MethodNotAllowed "Bad request method"
 
 imagesRouter ::
-       MonadIO m
+       Monad m
     => ImagesHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)

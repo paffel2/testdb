@@ -54,11 +54,13 @@ data ResponseErrorMessage
     | InternalServerError LBS.ByteString
     | BadRequest LBS.ByteString
     | NotFound LBS.ByteString
+    deriving (Show, Eq)
 
 data ResponseOkMessage
     = Created LBS.ByteString
     | OkJSON LBS.ByteString
     | OkMessage LBS.ByteString
     | OkImage ImageB
+    deriving (Show, Eq)
 
 type SendId = Int

@@ -3,7 +3,6 @@
 module Controllers.NewsAndComments where
 
 import           Control.Applicative       (Alternative ((<|>)))
-import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import           FromRequest               (FilterParam (toFilterParam),
@@ -13,10 +12,7 @@ import           HelpFunction              (myLookup, readByteStringToId)
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import           Network.Wai               (Request (queryString, rawPathInfo, requestMethod))
-import           Network.Wai.Parse         (lbsBackEnd,
-                                            noLimitParseRequestBodyOptions,
-                                            parseRequestBodyEx)
-import           OperationsHandle          (NewsAndCommentsHandle (add_comment_to_db, delete_comment_from_db, get_comments_by_news_id_from_db, get_news_by_id_from_db, get_news_filter_by_after_date_from_db, get_news_filter_by_author_name_from_db, get_news_filter_by_before_date_from_db, get_news_filter_by_category_id_from_db, get_news_filter_by_content_from_db, get_news_filter_by_date_from_db, get_news_filter_by_tag_all_from_db, get_news_filter_by_tag_id_from_db, get_news_filter_by_tag_in_from_db, get_news_filter_by_title_from_db, get_news_from_db, news_logger))
+import           OperationsHandle          (NewsAndCommentsHandle (add_comment_to_db, delete_comment_from_db, get_comments_by_news_id_from_db, get_news_by_id_from_db, get_news_filter_by_after_date_from_db, get_news_filter_by_author_name_from_db, get_news_filter_by_before_date_from_db, get_news_filter_by_category_id_from_db, get_news_filter_by_content_from_db, get_news_filter_by_date_from_db, get_news_filter_by_tag_all_from_db, get_news_filter_by_tag_id_from_db, get_news_filter_by_tag_in_from_db, get_news_filter_by_title_from_db, get_news_from_db, news_logger, news_parse_request_body))
 import           Responses                 (toResponseErrorMessage)
 import           Text.Read                 (readMaybe)
 import           Types.NewsAndComments     (CommentWithoutTokenLifeTime (CommentWithoutTokenLifeTime, comment_news_id', comment_text'', comment_token'))
@@ -26,7 +22,7 @@ import           Types.Other               (Id,
                                             SomeError (OtherError))
 
 deleteCommentById ::
-       MonadIO m
+       Monad m
     => NewsAndCommentsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -82,7 +78,7 @@ addCommentByNewsId hLogger operations token_lifetime req news'_id =
                 Right _ -> do
                     return $ responseCreated "Commentary added" -}
 postCommentByNewsId ::
-       MonadIO m
+       Monad m
     => NewsAndCommentsHandle m
     -> Request
     -> Maybe Id
@@ -96,9 +92,7 @@ postCommentByNewsId operations req news'_id =
             logInfo
                 (news_logger operations)
                 "Preparing data for adding commentary"
-            (i, _) <-
-                liftIO $
-                parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
+            (i, _) <- news_parse_request_body operations req
             let comment =
                     CommentWithoutTokenLifeTime
                         { comment_token' = takeToken req
@@ -115,7 +109,7 @@ postCommentByNewsId operations req news'_id =
                     return $ Right $ Created "Commentary added"
 
 sendCommentsByNewsId ::
-       MonadIO m
+       Monad m
     => NewsAndCommentsHandle m
     -> Request
     -> Maybe Id
@@ -141,7 +135,7 @@ sendCommentsByNewsId operations req news'_id =
                     return $ Right $ OkJSON $ encode ca
 
 getNewsById ::
-       MonadIO m
+       Monad m
     => NewsAndCommentsHandle m
     -> Request
     -> Maybe Id
@@ -161,7 +155,7 @@ getNewsById operations req newsId =
                 Right gn -> return $ Right $ OkJSON $ encode gn
 
 getNews ::
-       MonadIO m
+       Monad m
     => NewsAndCommentsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
@@ -257,7 +251,7 @@ getNews operations req =
         myLookup "before_date" queryParams
 
 newsAndCommentsRouter ::
-       MonadIO m
+       Monad m
     => NewsAndCommentsHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
