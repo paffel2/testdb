@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a93ccc04aafe764441b6690ce27425c14da6f3b84893076b7ac4f8b525450cde
+-- hash: d902bd1cf50b86978fce0bb91ad224aeddf56c93a1fd86051c2d7b34a5280b33
 
 name:           testdb
 version:        0.1.0.0
@@ -113,9 +113,12 @@ test-suite testdb-test
   other-modules:
       AuthorsTests
       CategoriesTests
+      CommentsTests
+      DraftsTests
       FromRequestTests
       HelpFunctionTests
       ImagesTests
+      NewsTests
       OperationsHandleTest
       TagsTests
       UsersTests

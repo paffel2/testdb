@@ -44,8 +44,7 @@ import           Databaseoperations.Users           (authentication,
                                                      profileOnDb)
 import           Logger                             (LoggerHandle)
 import           Network.Wai                        (Request)
-import           Network.Wai.Parse                  (BackEnd, File, Param,
-                                                     lbsBackEnd,
+import           Network.Wai.Parse                  (File, Param, lbsBackEnd,
                                                      parseRequestBody)
 import           Types.Authors                      (AuthorLogin, AuthorsList,
                                                      CreateAuthor, EditAuthor)

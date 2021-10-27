@@ -3,23 +3,22 @@
 
 module CategoriesTests where
 
-import           Data.Functor.Identity      (Identity)
-import           Database.PostgreSQL.Simple (Binary (Binary))
-import           Logger                     (LoggerHandle (..),
-                                             Priority (Debug))
-import           Network.HTTP.Types         (methodDelete, methodGet,
-                                             methodPost, methodPut)
-import           Network.Wai                (Request (rawPathInfo, requestMethod),
-                                             defaultRequest)
-import           OperationsHandle           (CategoriesHandle (..),
-                                             OperationsHandle (..))
+import           Data.Functor.Identity (Identity)
+import           Logger                (LoggerHandle (..), Priority (Debug))
 
-import           Router                     (routes)
-import           Test.Hspec                 (describe, hspec, it, shouldBe)
-import           Types.Categories           (ListOfCategories (ListOfCategories))
-import           Types.Other                (ResponseErrorMessage (BadRequest, Forbidden, InternalServerError, MethodNotAllowed, NotFound),
-                                             ResponseOkMessage (Created, OkJSON, OkMessage),
-                                             SomeError (BadToken, DatabaseError, NotAdmin, OtherError))
+import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
+                                        methodPut)
+import           Network.Wai           (Request (rawPathInfo, requestMethod),
+                                        defaultRequest)
+import           OperationsHandle      (CategoriesHandle (..),
+                                        OperationsHandle (..))
+
+import           Router                (routes)
+import           Test.Hspec            (describe, hspec, it, shouldBe)
+import           Types.Categories      (ListOfCategories (ListOfCategories))
+import           Types.Other           (ResponseErrorMessage (BadRequest, Forbidden, InternalServerError, MethodNotAllowed, NotFound),
+                                        ResponseOkMessage (Created, OkJSON, OkMessage),
+                                        SomeError (BadToken, DatabaseError, NotAdmin, OtherError))
 
 hLogger :: LoggerHandle Identity
 hLogger =

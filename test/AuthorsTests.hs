@@ -8,7 +8,7 @@ import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
                                         methodPut)
-import           Network.Wai           (Request (queryString, rawPathInfo, requestBody, requestMethod),
+import           Network.Wai           (Request (rawPathInfo, requestMethod),
                                         defaultRequest)
 import           OperationsHandle      (AuthorsHandle (..),
                                         OperationsHandle (..))

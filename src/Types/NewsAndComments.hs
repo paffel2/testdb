@@ -70,12 +70,12 @@ instance ToJSON CommentArray where
 
 data GetNews =
     GetNews
-        { gn_news_id''         :: Int
-        , gn_short_title''     :: T.Text
-        , gn_date_creation''   :: Day
-        , gn_author_name'      :: T.Text
-        , gn_category_name'''  :: T.Text
-        , gn_news_text''       :: T.Text
+        { gn_news_id           :: Int
+        , gn_short_title       :: T.Text
+        , gn_date_creation     :: Day
+        , gn_author_name       :: T.Text
+        , gn_category_name     :: T.Text
+        , gn_news_text         :: T.Text
         , gn_news_main_image   :: Maybe Int
         , gn_news_other_images :: Maybe (PGArray Int)
         , gn_news_tags         :: Maybe (PGArray T.Text)
@@ -85,12 +85,12 @@ data GetNews =
 instance ToJSON GetNews where
     toJSON (GetNews gnni gnst gndc gnan gncn gnnt gnnmi gnnoi gnnts) =
         object
-            [ "news_id''" .= gnni
-            , "short_title''" .= gnst
-            , "date_creation''" .= gndc
-            , "author_name'" .= gnan
-            , "category_name'''" .= gncn
-            , "news_text''" .= gnnt
+            [ "news_id" .= gnni
+            , "short_title" .= gnst
+            , "date_creation" .= gndc
+            , "author_name" .= gnan
+            , "category_name" .= gncn
+            , "news_text" .= gnnt
             , "news_main_image" .= gnnmi
             , "news_other_images" .= (fromPGArray <$> gnnoi)
             , "news_tags" .= (fromPGArray <$> gnnts)

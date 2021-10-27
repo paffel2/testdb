@@ -1,16 +1,16 @@
 import           AuthorsTests      (authorsTests)
 import           CategoriesTests   (categoriesTests)
+import           CommentsTests     (commentsTests)
+import           DraftsTests       (draftsTests)
 import           FromRequestTests  (fromRequestTests)
 import           HelpFunctionTests (functionsTests)
 import           ImagesTests       (imagesTests)
+import           NewsTests         (newsTests)
 import           TagsTests         (tagsTests)
 import           UsersTests        (usersTests)
 
---import OperationsHandleTest (operationsTests)
 main :: IO ()
-main
-    --operationsTests
- = do
+main = do
     functionsTests
     fromRequestTests
     imagesTests
@@ -18,3 +18,6 @@ main
     categoriesTests
     tagsTests
     usersTests
+    draftsTests
+    commentsTests
+    newsTests
