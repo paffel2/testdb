@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module AuthorsTests where
 
@@ -12,11 +11,7 @@ import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
 import           Network.Wai           (Request (queryString, rawPathInfo, requestBody, requestMethod),
                                         defaultRequest)
 import           OperationsHandle      (AuthorsHandle (..),
-                                        CategoriesHandle (..),
-                                        DraftsHandle (..), ImagesHandle (..),
-                                        NewsAndCommentsHandle (..),
-                                        OperationsHandle (..), TagsHandle (..),
-                                        UsersHandle (..))
+                                        OperationsHandle (..))
 import           Router                (routes)
 import           Test.Hspec            (describe, hspec, it, shouldBe)
 import           Types.Authors         (AuthorsList (AuthorsList))
@@ -267,7 +262,7 @@ authorsTests =
                         (tstUpdateAuthorReq
                              {rawPathInfo = "/authors/edit_aythor"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
-                it "server should return message about successful delting" $
+                it "server should return message about successful editing" $
                     routes
                         (operationsHandler
                              { authors_handle =

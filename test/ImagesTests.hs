@@ -180,23 +180,23 @@ imagesTests =
     hspec $ do
         describe "testing images functions" $ do
             describe "testing get_photo_list" $ do
-                it "server should return error 400 because something happend" $
+                it "server should return error because something happend" $
                     routes operationsHandler tstGetPhotoListReq `shouldBe`
                     return
                         (Left $
                          BadRequest "List of images not sended. ErrorMessage")
                 it
-                    "server should return status 405, because request sended with bad requestMethod" $
+                    "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
                         (tstGetPhotoListReq {requestMethod = methodPut}) `shouldBe`
                     return (Left $ MethodNotAllowed "Bad request method")
-                it "server should return 404, because path is wrong" $
+                it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
                         (tstGetPhotoListReq {rawPathInfo = "/imagewertyuio"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
-                it "server should return 200, because all is good" $
+                it "server should return list of images, because all is good" $
                     routes
                         (operationsHandler
                              { images_handle =
@@ -209,21 +209,21 @@ imagesTests =
                         (tstGetPhotoListReq {rawPathInfo = "/image"}) `shouldBe`
                     return (Right $ OkJSON "{\"images\":[]}")
             describe "testing get_photo" $ do
-                it "server should return error 400 because something happend" $
+                it "server should return error  because something happend" $
                     routes operationsHandler tstGetPhotoReq `shouldBe`
                     return (Left $ BadRequest "Image not sended. ErrorMessage")
                 it
-                    "server should return status 405, because request sended with bad requestMethod" $
+                    "server should return status error, because request sended with bad request method" $
                     routes
                         operationsHandler
                         (tstGetPhotoReq {requestMethod = methodPut}) `shouldBe`
                     return (Left $ MethodNotAllowed "Bad request method")
-                it "server should return 400, because image id is wrong" $
+                it "server should return error, because image id is wrong" $
                     routes
                         operationsHandler
                         (tstGetPhotoReq {rawPathInfo = "/image/wertyuio"}) `shouldBe`
                     return (Left $ BadRequest "Bad image id")
-                it "server should return 200, because all is good" $
+                it "server should return image, because all is good" $
                     routes
                         (operationsHandler
                              { images_handle =
