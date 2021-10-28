@@ -2,34 +2,36 @@
 
 module Databaseoperations.Tags where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple
-    ( Connection
-    , Only(fromOnly)
-    , SqlError(sqlState)
-    )
-import Databaseoperations.CheckAdmin (checkAdmin)
-import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logError, logInfo)
-import PostgreSqlWithPool (executeWithPool, queryWithPool, query_WithPool)
-import Types (TagsList(TagsList), TokenLifeTime)
+import           Control.Exception             (catch)
+import qualified Data.ByteString.Char8         as BC
+import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Pool                     (Pool)
+import qualified Data.Text                     as T
+import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
+                                                SqlError (sqlState))
+import           Databaseoperations.CheckAdmin (checkAdmin)
+import           HelpFunction                  (readByteStringToInt, toQuery)
+import           Logger                        (LoggerHandle, logError, logInfo)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool)
+import           Types.Other                   (Page (from_page),
+                                                SomeError (DatabaseError, OtherError),
+                                                Token, TokenLifeTime)
+import           Types.Tags                    (EditTag (EditTag),
+                                                TagName (from_tag_name),
+                                                TagsList (TagsList))
 
 createTagInDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString Int)
-createTagInDb hLogger _ _ _ Nothing = do
-    logError hLogger "No tag_name parameter"
-    return $ Left "No tag_name parameter"
-createTagInDb hLogger pool token_lifetime token' (Just tag_name') =
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> Maybe TagName
+    -> IO (Either SomeError Int)
+createTagInDb _ _ hLogger _ Nothing = do
+    logError hLogger "Tag not created. No tag_name parameter"
+    return . Left . OtherError $ "No tag_name parameter"
+createTagInDb pool token_lifetime hLogger token' (Just tag_name') =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
@@ -38,7 +40,8 @@ createTagInDb hLogger pool token_lifetime token' (Just tag_name') =
                     rows <- queryWithPool pool q [tag_name'] :: IO [Only Int]
                     if Prelude.null rows
                         then do
-                            return $ Left "Tag not created"
+                            logError hLogger "Tag not created."
+                            return . Left . OtherError $ "Tag not created."
                         else do
                             return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
         let errState = sqlState e
@@ -46,29 +49,30 @@ createTagInDb hLogger pool token_lifetime token' (Just tag_name') =
         case errStateInt of
             23505 -> do
                 logError hLogger "Tag already exist"
-                return $ Left "Tag already exist"
+                return . Left . OtherError $ "Tag already exist"
             _ -> do
                 logError hLogger $
                     T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
+                return $ Left DatabaseError
   where
     q =
         toQuery $
         BC.concat ["insert into tags (tag_name) values (?) returning tag_id"]
 
 deleteTagFromDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString LBS.ByteString)
-deleteTagFromDb hLogger _ _ _ Nothing = do
-    logError hLogger "No tag_name parameter"
-    return $ Left "No tag_name parameter"
-deleteTagFromDb hLogger pool token_lifetime token' (Just tag_name') =
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> Maybe TagName
+    -> IO (Either SomeError ())
+deleteTagFromDb _ _ hLogger _ Nothing = do
+    logError hLogger "Tag not deleted. No tag_name parameter"
+    return . Left . OtherError $ "Tag not deleted. No tag_name parameter"
+deleteTagFromDb pool token_lifetime hLogger token' (Just tag_name') =
     catch
-        (do logInfo hLogger $ T.concat ["Deleting tag ", tag_name']
+        (do logInfo hLogger $
+                T.concat ["Deleting tag ", from_tag_name tag_name']
             ch <- checkAdmin hLogger pool token_lifetime token'
             case ch of
                 (False, bs) -> return $ Left bs
@@ -77,88 +81,92 @@ deleteTagFromDb hLogger pool token_lifetime token' (Just tag_name') =
                     if n > 0
                         then do
                             logInfo hLogger $
-                                T.concat ["Tag ", tag_name', " deleted"]
-                            return $ Right "Tag deleted"
+                                T.concat
+                                    [ "Tag "
+                                    , from_tag_name tag_name'
+                                    , " deleted"
+                                    ]
+                            return $ Right ()
                         else do
                             logError hLogger $
-                                T.concat ["Tag ", tag_name', " not deleted"]
-                            return $ Right "Tag not deleted") $ \e -> do
+                                T.concat
+                                    [ "Tag "
+                                    , from_tag_name tag_name'
+                                    , " not deleted"
+                                    ]
+                            return $ Right ()) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left DatabaseError
   where
     q = toQuery $ BC.concat ["delete from tags where tag_name = ?"]
 
 getTagsListFromDb ::
-       Handle
-    -> Pool Connection
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString TagsList)
-getTagsListFromDb hLogger pool maybe_page =
+       Pool Connection
+    -> LoggerHandle IO
+    -> Maybe Page
+    -> IO (Either SomeError TagsList)
+getTagsListFromDb pool hLogger maybe_page =
     catch
         (do rows <- query_WithPool pool q
+            logInfo hLogger "List of tags sended"
             return $ Right $ TagsList rows) $ \e -> do
         let _ = sqlState e
         logError hLogger "Database error"
-        return $ Left "Database error"
+        return $ Left DatabaseError
   where
     pg =
         if isNothing maybe_page
             then " limit 10 offset 0"
             else BC.concat
                      [ " limit 10 offset "
-                     , BC.pack $
-                       show $
-                       (fromMaybe
-                            1
-                            (readByteStringToInt (fromMaybe "" maybe_page)) -
-                        1) *
-                       10
+                     , BC.pack $ show $ (maybe 1 from_page maybe_page - 1) * 10
                      ]
     q = toQuery $ BC.concat ["select tag_name from tags order by tag_name", pg]
 
 editTagInDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString LBS.ByteString)
-editTagInDb hLogger _ _ _ _ Nothing = do
-    logError hLogger "No new_tag_name field"
-    return $ Left "No new_tag_name field"
-editTagInDb hLogger _ _ _ Nothing _ = do
-    logError hLogger "No old_tag_name field"
-    return $ Left "No old_tag_name field"
-editTagInDb hLogger _ _ Nothing _ _ = do
-    logError hLogger "No token param"
-    return $ Left "No token param"
-editTagInDb hLogger pool token_lifetime token (Just old_tag_name) (Just new_tag_name) =
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> EditTag
+    -> IO (Either SomeError ())
+editTagInDb _ _ hLogger _ (EditTag Nothing _) = do
+    logError hLogger "Tag not edited. No new_tag_name field"
+    return . Left . OtherError $ "No new_tag_name field"
+editTagInDb _ _ hLogger _ (EditTag _ Nothing) = do
+    logError hLogger "Tag not edited. No old_tag_name field"
+    return . Left . OtherError $ "Tag not edited. No old_tag_name field"
+editTagInDb _ _ hLogger Nothing _ = do
+    logError hLogger "Tag not edited. No token param"
+    return . Left . OtherError $ "No token param"
+editTagInDb pool token_lifetime hLogger token edit_tag_params@(EditTag (Just new_tag_name) (Just old_tag_name)) =
     catch
         (do ch <- checkAdmin hLogger pool token_lifetime token
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
-                    n <- executeWithPool pool q (new_tag_name, old_tag_name)
+                    n <- executeWithPool pool q edit_tag_params
                     if n > 0
                         then do
                             logInfo hLogger $
                                 T.concat
                                     [ "Tag '"
-                                    , old_tag_name
+                                    , from_tag_name old_tag_name
                                     , "' renaimed to '"
-                                    , new_tag_name
+                                    , from_tag_name new_tag_name
                                     , "'"
                                     ]
-                            return $ Right "Tag edited"
-                        else return $ Left "Tag not exist") $ \e -> do
+                            return $ Right ()
+                        else do
+                            logError hLogger "Tag not exist"
+                            return . Left . OtherError $ "Tag not exist") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left DatabaseError
   where
     q = toQuery $ BC.concat ["update tags set tag_name = ? where tag_name = ?"]

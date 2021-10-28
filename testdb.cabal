@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1079de543e50422af1e8b4fb3cf5d6f9d214571c44a885109cd0f46ef9431ca3
+-- hash: d902bd1cf50b86978fce0bb91ad224aeddf56c93a1fd86051c2d7b34a5280b33
 
 name:           testdb
 version:        0.1.0.0
@@ -32,28 +32,33 @@ library
       Controllers.Categories
       Controllers.Drafts
       Controllers.Images
-      Controllers.InitDb
       Controllers.NewsAndComments
       Controllers.Tags
       Controllers.Users
-      ControllersHandle
       Databaseoperations.Authors
       Databaseoperations.Categories
       Databaseoperations.CheckAdmin
       Databaseoperations.CheckDatabase
       Databaseoperations.Drafts
       Databaseoperations.Images
-      Databaseoperations.InitDb
       Databaseoperations.NewsAndComments
       Databaseoperations.Tags
       Databaseoperations.Users
       FromRequest
       HelpFunction
       Logger
+      OperationsHandle
       PostgreSqlWithPool
       Responses
       Router
-      Types
+      Types.Authors
+      Types.Categories
+      Types.Drafts
+      Types.Images
+      Types.NewsAndComments
+      Types.Other
+      Types.Tags
+      Types.Users
   other-modules:
       Paths_testdb
   hs-source-dirs:
@@ -106,12 +111,21 @@ test-suite testdb-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      AuthorsTests
+      CategoriesTests
+      CommentsTests
+      DraftsTests
       FromRequestTests
       HelpFunctionTests
+      ImagesTests
+      NewsTests
+      OperationsHandleTest
+      TagsTests
+      UsersTests
       Paths_testdb
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -119,6 +133,7 @@ test-suite testdb-test
     , configurator
     , directory
     , hspec
+    , hspec-wai
     , http-client
     , http-types
     , postgresql-simple

@@ -2,170 +2,142 @@
 
 module Controllers.Authors where
 
-import Data.Aeson (encode)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.Authors
-    ( createAuthorInDb
-    , deleteAuthorInDb
-    , editAuthorInDb
-    , getAuthorsList
-    )
-import FromRequest (takeToken)
-import HelpFunction (readByteStringToInt)
-import Logger (Handle, logDebug, logError, logInfo)
-import Network.HTTP.Types.Method
-    ( methodDelete
-    , methodGet
-    , methodPost
-    , methodPut
-    )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
-import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import Responses
-    ( responseBadRequest
-    , responseCreated
-    , responseForbidden
-    , responseMethodNotAllowed
-    , responseNotFound
-    , responseOKJSON
-    , responseOk
-    )
-import Types (TokenLifeTime)
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Char8     as BC
+import qualified Data.ByteString.Lazy      as LBS
+import           FromRequest               (takeToken, toAuthorLogin,
+                                            toCreateAuthor, toEditAuthor,
+                                            toPage)
+import           Logger                    (logDebug, logError, logInfo)
+import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
+                                            methodPut)
+import           Network.Wai               (Request (rawPathInfo, requestMethod))
+import           OperationsHandle          (AuthorsHandle (authors_logger, authors_parse_request_body, create_author_in_db, delete_author_in_db, edit_author_in_db, get_authors_list))
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage))
 
-newAuthor ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-newAuthor hLogger pool token_lifetime req =
+postAuthor ::
+       Monad m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postAuthor methods req =
     if requestMethod req /= methodPost
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (authors_logger methods) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing parameters for creating new author."
-            let token' = E.decodeUtf8 <$> takeToken req
-            (i, _) <- parseRequestBody lbsBackEnd req
-            let author_login = E.decodeUtf8 <$> lookup "author_login" i
-            let description = E.decodeUtf8 <$> lookup "description" i
-            logDebug hLogger "Creating Author on database"
-            result <-
-                createAuthorInDb
-                    hLogger
-                    pool
-                    token_lifetime
-                    token'
-                    author_login
-                    description
+            logInfo
+                (authors_logger methods)
+                "Preparing parameters for creating new author."
+            let token' = takeToken req
+            (i, _) <- authors_parse_request_body methods req
+            --let b = i
+            let create_author_params = toCreateAuthor i
+            logDebug (authors_logger methods) "Creating Author on database"
+            result <- create_author_in_db methods token' create_author_params
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Author not created. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Author not created. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Author not created."
-                    return $ responseCreated bs
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage "Author not created." someError
                 Right n -> do
-                    logInfo hLogger "Author created."
-                    return $ responseOk $ LBS.fromStrict $ BC.pack $ show n
+                    return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
 deleteAuthor ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteAuthor hLogger pool token_lifetime req =
+       Monad m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+deleteAuthor methods req =
     if requestMethod req /= methodDelete
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (authors_logger methods) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing parameters for deleting author."
-            let token' = E.decodeUtf8 <$> takeToken req
-            (i, _) <- parseRequestBody lbsBackEnd req
-            let author_login = E.decodeUtf8 <$> lookup "author_login" i
-            result <-
-                deleteAuthorInDb hLogger pool token_lifetime token' author_login
+            logInfo
+                (authors_logger methods)
+                "Preparing parameters for deleting author."
+            let token' = takeToken req
+            (i, _) <- authors_parse_request_body methods req
+            let author_login' = toAuthorLogin i
+            result <- delete_author_in_db methods token' author_login'
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Author not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Author not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Author not deleted."
-                    return $ responseCreated bs
-                Right bs -> do
-                    logInfo hLogger "Author deleted."
-                    return $ responseOk bs
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage "Author not deleted." someError
+                Right _ -> do
+                    return $ Right $ OkMessage "Author deleted."
 
-sendAuthorsList :: Handle -> Pool Connection -> Request -> IO Response
-sendAuthorsList hLogger pool req = do
+getAuthorsList ::
+       Monad m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getAuthorsList methods req = do
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (authors_logger methods) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for sending authors list"
-            result <- getAuthorsList hLogger pool pageParam
+            logInfo
+                (authors_logger methods)
+                "Preparing data for sending authors list"
+            result <- get_authors_list methods pageParam
             case result of
-                Left bs -> do
-                    logError hLogger "Authors list not sended."
-                    return $ responseBadRequest bs
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage
+                        "List of authors not sended."
+                        someError
                 Right al -> do
-                    logInfo hLogger "Authors list sended."
-                    return $ responseOKJSON $ encode al
+                    return $ Right $ OkJSON (encode al)
   where
-    pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
+    pageParam = toPage req
 
-editAuthor ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-editAuthor hLogger pool token_lifetime req = do
+updateAuthor ::
+       Monad m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+updateAuthor methods req = do
     if requestMethod req /= methodPut
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (authors_logger methods) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for editing author's description."
-            let token' = E.decodeUtf8 <$> takeToken req
-            (i, _) <- parseRequestBody lbsBackEnd req
-            let new_description = E.decodeUtf8 <$> lookup "new_description" i
-            let a_id = readByteStringToInt =<< lookup "author_id" i
-            result <-
-                editAuthorInDb
-                    hLogger
-                    pool
-                    token_lifetime
-                    token'
-                    a_id
-                    new_description
+            logInfo
+                (authors_logger methods)
+                "Preparing data for editing author's description."
+            let token' = takeToken req
+            (i, _) <- authors_parse_request_body methods req
+            let b = i
+            let edit_params = toEditAuthor b
+            result <- edit_author_in_db methods token' edit_params
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Author not edited. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Author not edited. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Author not edited."
-                    return $ responseCreated bs
-                Right bs -> do
-                    logInfo hLogger "Author edited."
-                    return $ responseOk bs
+                Left someError ->
+                    return $
+                    Left $ toResponseErrorMessage "Author not edited." someError
+                Right _ -> do
+                    return $ Right $ OkMessage "Author edited."
 
-authorsBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-authorsBlock hLogger pool token_lifetime req
-    | pathElemsC == 1 = sendAuthorsList hLogger pool req
+authorsRouter ::
+       Monad m
+    => AuthorsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+authorsRouter methods req
+    | pathElemsC == 1 = getAuthorsList methods req
     | pathElemsC == 2 =
         case last pathElems of
-            "delete_author" -> deleteAuthor hLogger pool token_lifetime req
-            "create_author" -> newAuthor hLogger pool token_lifetime req
-            "edit_author" -> editAuthor hLogger pool token_lifetime req
-            _ -> return $ responseNotFound "Not Found"
-    | otherwise = return $ responseNotFound "Not Found"
+            "delete_author" -> deleteAuthor methods req
+            "create_author" -> postAuthor methods req
+            "edit_author"   -> updateAuthor methods req
+            _               -> return $ Left $ NotFound "Not Found"
+    | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

@@ -74,7 +74,8 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    - -Wall
-    - -Werror
+  #  - -Wall
+  #  - -Werror
     dependencies:
     - testdb
+    - hspec-wai

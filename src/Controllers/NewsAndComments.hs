@@ -2,89 +2,59 @@
 
 module Controllers.NewsAndComments where
 
-import Control.Applicative (Alternative((<|>)))
-import Data.Aeson (encode)
-import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.NewsAndComments
-    ( addCommentToDb
-    , deleteCommentFromDb
-    , getCommentsByNewsIdFromDb
-    , getNewsByIdFromDb
-    , getNewsFilterByAfterDateFromDb
-    , getNewsFilterByAuthorNameFromDb
-    , getNewsFilterByBeforeDateFromDb
-    , getNewsFilterByCategoryIdFromDb
-    , getNewsFilterByContentFromDb
-    , getNewsFilterByDateFromDb
-    , getNewsFilterByTagAllFromDb
-    , getNewsFilterByTagIdFromDb
-    , getNewsFilterByTagInFromDb
-    , getNewsFilterByTitleFromDb
-    , getNewsFromDb
-    )
-import FromRequest (takeToken)
-import HelpFunction (myLookup)
-import Logger (Handle, logError, logInfo)
-import Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
-import Network.Wai.Parse
-    ( lbsBackEnd
-    , noLimitParseRequestBodyOptions
-    , parseRequestBodyEx
-    )
-import Responses
-    ( responseBadRequest
-    , responseCreated
-    , responseForbidden
-    , responseMethodNotAllowed
-    , responseNotFound
-    , responseOKJSON
-    , responseOk
-    )
-import Text.Read (readMaybe)
-import Types (TokenLifeTime)
+import           Control.Applicative       (Alternative ((<|>)))
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Char8     as BC
+import           FromRequest               (FilterParam (toFilterParam),
+                                            takeToken, toCommentId,
+                                            toCommentText, toPage, toSort)
+import           HelpFunction              (myLookup, readByteStringToId)
+import           Logger                    (logError, logInfo)
+import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
+import           Network.Wai               (Request (queryString, rawPathInfo, requestMethod))
+import           OperationsHandle          (NewsAndCommentsHandle (add_comment_to_db, delete_comment_from_db, get_comments_by_news_id_from_db, get_news_by_id_from_db, get_news_filter_by_after_date_from_db, get_news_filter_by_author_name_from_db, get_news_filter_by_before_date_from_db, get_news_filter_by_category_id_from_db, get_news_filter_by_content_from_db, get_news_filter_by_date_from_db, get_news_filter_by_tag_all_from_db, get_news_filter_by_tag_id_from_db, get_news_filter_by_tag_in_from_db, get_news_filter_by_title_from_db, get_news_from_db, news_logger, news_parse_request_body))
+import           Responses                 (toResponseErrorMessage)
+import           Text.Read                 (readMaybe)
+import           Types.NewsAndComments     (CommentWithoutTokenLifeTime (CommentWithoutTokenLifeTime, comment_news_id', comment_text'', comment_token'))
+import           Types.Other               (Id,
+                                            ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage),
+                                            SomeError (OtherError))
 
 deleteCommentById ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteCommentById hLogger pool token_lifetime req =
+       Monad m
+    => NewsAndCommentsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+deleteCommentById operations req =
     if requestMethod req /= methodDelete
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (news_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for deleting commentary"
-            let token' = E.decodeUtf8 <$> takeToken req
-            let comment_id =
-                    fromMaybe Nothing (lookup "comment_id" $ queryString req)
-            let c_id' = read . BC.unpack <$> comment_id :: Maybe Int
-            result <-
-                deleteCommentFromDb hLogger pool token_lifetime token' c_id'
+            logInfo
+                (news_logger operations)
+                "Preparing data for deleting commentary"
+            let token' = takeToken req
+            let comment_id = toCommentId req
+            result <- delete_comment_from_db operations token' comment_id
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Commentary not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Commentary not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Commentary not deleted."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Commentary deleted."
-                    return $ responseOk bs
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage "Commentary not deleted." someError
+                Right _ -> do
+                    return $ Right $ OkMessage "Commentary deleted."
 
-addCommentByNewsId ::
-       Handle
-    -> Pool Connection
+{-addCommentByNewsId ::
+       MonadIO m
+    => LoggerHandle m
+    -> NewsAndCommentsHandle m
     -> TokenLifeTime
     -> Request
-    -> Maybe Int
-    -> IO Response
-addCommentByNewsId hLogger pool token_lifetime req news'_id =
+    -> Maybe Id
+    -> m Response
+addCommentByNewsId hLogger operations token_lifetime req news'_id =
     if requestMethod req /= methodPost
         then do
             logError hLogger "Bad request method"
@@ -92,157 +62,183 @@ addCommentByNewsId hLogger pool token_lifetime req news'_id =
         else do
             logInfo hLogger "Preparing data for adding commentary"
             (i, _) <-
+                liftIO $
                 parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-            let token' = takeToken req
-            let comment = lookup "comment_text" i
-            result <-
-                addCommentToDb
-                    hLogger
-                    pool
-                    token_lifetime
-                    (E.decodeUtf8 $ fromMaybe "" token')
-                    news'_id
-                    (E.decodeUtf8 <$> comment)
+            let comment =
+                    Comment
+                        { comment_token = takeToken req
+                        , comment_token_lifetime = token_lifetime
+                        , comment_text = toCommentText i
+                        , comment_news_id = news'_id
+                        }
+            result <- add_comment_to_db operations hLogger comment
             case result of
-                Left "News not exist" -> do
-                    logError hLogger "Commentary not added. News not exist."
-                    return $ responseBadRequest "News not exist"
-                Left "Bad token" -> do
-                    logError hLogger "Commentary not added. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Commentary not added."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Commentary added."
-                    return $ responseCreated bs
+                Left someError ->
+                    return $ badResponse "Commentary not added." someError
+                Right _ -> do
+                    return $ responseCreated "Commentary added" -}
+postCommentByNewsId ::
+       Monad m
+    => NewsAndCommentsHandle m
+    -> Request
+    -> Maybe Id
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postCommentByNewsId operations req news'_id =
+    if requestMethod req /= methodPost
+        then do
+            logError (news_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
+        else do
+            logInfo
+                (news_logger operations)
+                "Preparing data for adding commentary"
+            (i, _) <- news_parse_request_body operations req
+            let comment =
+                    CommentWithoutTokenLifeTime
+                        { comment_token' = takeToken req
+                        , comment_text'' = toCommentText i
+                        , comment_news_id' = news'_id
+                        }
+            result <- add_comment_to_db operations comment
+            case result of
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage "Commentary not added." someError
+                Right _ -> do
+                    return $ Right $ Created "Commentary added"
 
 sendCommentsByNewsId ::
-       Handle -> Pool Connection -> Request -> Maybe Int -> IO Response
-sendCommentsByNewsId hLogger pool req news'_id =
+       Monad m
+    => NewsAndCommentsHandle m
+    -> Request
+    -> Maybe Id
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+sendCommentsByNewsId operations req news'_id =
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (news_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for sending commentary list"
-            let pageParam = fromMaybe Nothing (lookup "page" $ queryString req)
-            result <- getCommentsByNewsIdFromDb hLogger pool news'_id pageParam
+            logInfo
+                (news_logger operations)
+                "Preparing data for sending commentary list"
+            let pageParam = toPage req
+            result <-
+                get_comments_by_news_id_from_db operations news'_id pageParam
             case result of
-                Left bs -> do
-                    logError hLogger "Commentaries not sended."
-                    return $ responseBadRequest bs
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage "Commentaries not sended." someError
                 Right ca -> do
-                    logInfo hLogger "Commentaries sended."
-                    return $ responseOKJSON $ encode ca
+                    return $ Right $ OkJSON $ encode ca
 
-sendNewsById :: Handle -> Pool Connection -> Request -> Maybe Int -> IO Response
-sendNewsById hLogger pool req newsId =
+getNewsById ::
+       Monad m
+    => NewsAndCommentsHandle m
+    -> Request
+    -> Maybe Id
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getNewsById operations req newsId =
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (news_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for sending news"
-            result <- getNewsByIdFromDb hLogger pool newsId
+            logInfo (news_logger operations) "Preparing data for sending news"
+            result <- get_news_by_id_from_db operations newsId
             case result of
-                Left "News not exist" -> do
-                    logError hLogger "News not sended. News not exist."
-                    return $ responseBadRequest "News not exist"
-                Left bs -> do
-                    logError hLogger "News not sended."
-                    return $ responseBadRequest bs
-                Right gn -> return $ responseOKJSON $ encode gn
+                Left someError ->
+                    return $
+                    Left $ toResponseErrorMessage "News not sended." someError
+                Right gn -> return $ Right $ OkJSON $ encode gn
 
-sendNews :: Handle -> Pool Connection -> Request -> IO Response
-sendNews hLogger pool req =
+getNews ::
+       Monad m
+    => NewsAndCommentsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getNews operations req =
     if requestMethod req == methodGet
         then do
             result <-
                 case filterParamName of
                     Just "tag_in" ->
-                        getNewsFilterByTagInFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_tag_in_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
                     Just "category" ->
-                        getNewsFilterByCategoryIdFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_category_id_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "title" ->
-                        getNewsFilterByTitleFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_title_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "author" ->
-                        getNewsFilterByAuthorNameFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_author_name_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "date" ->
-                        getNewsFilterByDateFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_date_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "tag_all" ->
-                        getNewsFilterByTagAllFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_tag_all_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "content" ->
-                        getNewsFilterByContentFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_content_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "after_date" ->
-                        getNewsFilterByAfterDateFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_after_date_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "before_date" ->
-                        getNewsFilterByBeforeDateFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_before_date_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just "tag" ->
-                        getNewsFilterByTagIdFromDb
-                            hLogger
-                            pool
-                            filterParam
+                        get_news_filter_by_tag_id_from_db
+                            operations
+                            (toFilterParam req)
                             pageParam
-                            sortParam'
+                            sortParam
                     Just _ -> do
-                        logError hLogger "Bad request"
-                        return $ Left "Bad request"
-                    Nothing -> getNewsFromDb hLogger pool sortParam' pageParam
+                        logError (news_logger operations) "Bad request"
+                        return . Left . OtherError $ "Bad request"
+                    Nothing -> get_news_from_db operations sortParam pageParam
             case result of
-                Left bs -> return $ responseBadRequest bs
-                Right na -> return $ responseOKJSON $ encode na
+                Left someError ->
+                    return $
+                    Left $ toResponseErrorMessage "News not sended." someError
+                Right na -> return $ Right $ OkJSON $ encode na
         else do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
+            logError (news_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
   where
     queryParams = queryString req
-    pageParam = fromMaybe Nothing (lookup "page" queryParams)
-    sortParam = fromMaybe Nothing (lookup "sort" queryParams)
+    pageParam = toPage req
+    sortParam = toSort req
     filterParamName =
         myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
         myLookup "tag" queryParams <|>
@@ -253,50 +249,43 @@ sendNews hLogger pool req =
         myLookup "date" queryParams <|>
         myLookup "after_date" queryParams <|>
         myLookup "before_date" queryParams
-    filterParam =
-        fromMaybe Nothing (lookup (fromMaybe "" filterParamName) queryParams)
-    sortParam' =
-        case sortParam of
-            Nothing -> ""
-            Just "author_name" -> "author_name"
-            Just "date_creation" -> "date_creation"
-            Just "category_name" -> "category_name"
-            Just _ -> ""
 
-newsMethodBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-newsMethodBlock hLogger pool token_lifetime req
-    | pathElemC == 1 = do sendNews hLogger pool req
+newsAndCommentsRouter ::
+       Monad m
+    => NewsAndCommentsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+newsAndCommentsRouter operations req
+    | pathElemC == 1 = do getNews operations req
     | pathElemC == 2 = do
-        let newsId = readMaybe $ BC.unpack $ last pathElems :: Maybe Int
-        sendNewsById hLogger pool req newsId
+        let newsId = readByteStringToId . last $ pathElems
+        getNewsById operations req newsId
     | pathElemC == 3 = do
-        let newsId = readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
+        let newsId = readByteStringToId . head . tail $ pathElems
         if last pathElems == "comments"
-            then sendCommentsByNewsId hLogger pool req newsId
+            then sendCommentsByNewsId operations req newsId
             else do
-                logError hLogger "Bad url"
-                return $ responseNotFound "Not Found"
+                logError (news_logger operations) "Bad url"
+                return $ Left $ NotFound "Not Found"
     | pathElemC == 4 =
         case last pathElems of
             "add_comment" -> do
-                let news'_id =
-                        readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
-                addCommentByNewsId hLogger pool token_lifetime req news'_id
+                let news'_id = readByteStringToId . head . tail $ pathElems
+                postCommentByNewsId operations req news'_id
             "delete_comment" -> do
                 let news'_id =
                         readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
                 case news'_id of
                     Nothing -> do
-                        logError hLogger "bad comment id"
-                        return $ responseBadRequest "bad comment id"
-                    Just _ -> deleteCommentById hLogger pool token_lifetime req
+                        logError (news_logger operations) "Bad news id"
+                        return $ Left $ BadRequest "Bad news id"
+                    Just _ -> deleteCommentById operations req
             _ -> do
-                logError hLogger "Bad url"
-                return $ responseNotFound "Not Found"
+                logError (news_logger operations) "Bad url"
+                return $ Left $ NotFound "Not Found"
     | otherwise = do
-        logError hLogger "Bad url"
-        return $ responseNotFound "Not Found"
+        logError (news_logger operations) "Bad url"
+        return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

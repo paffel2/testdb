@@ -2,19 +2,24 @@
 
 module HelpFunctionTests where
 
-import Config (ConfigModules(Database))
+import Config (DatabaseConf(DatabaseConf))
 import qualified Data.ByteString.Char8 as BC
+import Data.Time.Calendar (fromGregorian)
 import HelpFunction
     ( dbAddress
     , dbServerAddress
     , foundParametr
     , myLookup
     , readByteStringListInt
+    , readByteStringToDay
+    , readByteStringToId
     , readByteStringToInt
+    , saveHead
     , takeEnd
     )
 import Network.Wai.Parse (FileInfo(FileInfo))
 import Test.Hspec (describe, hspec, it, shouldBe)
+import Types.Other (Id(Id))
 
 functionsTests :: IO ()
 functionsTests =
@@ -65,41 +70,29 @@ functionsTests =
             describe "dbAddress" $ do
                 it "db addres from config" $
                     dbAddress
-                        (Database "localhost" "8000" "root" "admin" "DbName") `shouldBe`
+                        (DatabaseConf "localhost" "8000" "root" "admin" "DbName") `shouldBe`
                     "host=localhost port=8000 user='root' password='admin' dbname='DbName'"
             describe "dbServerAddress" $ do
                 it "database's server addres from config" $
                     dbServerAddress
-                        (Database "localhost" "8000" "root" "admin" "DbName") `shouldBe`
+                        (DatabaseConf "localhost" "8000" "root" "admin" "DbName") `shouldBe`
                     "host=localhost port=8000 user='root' password='admin'"
             describe "takeEnd" $ do
                 it "take last n elements" $
                     takeEnd 4 "img.jpg" `shouldBe` ".jpg"
                 it "take last n elements from a string shorter than n" $
                     takeEnd 100 "img.jpg" `shouldBe` "img.jpg"
-{-{-# LANGUAGE OverloadedStrings #-}
-
-module APITests where
-
-import Test.Hspec (describe, hspec, it, shouldBe)
-import Vk.API (findRepeatNumber, updateListUsers)
-
-apiTests :: IO ()
-apiTests =
-    hspec $ do
-        describe "API" $ do
-            describe "findRepeatNumber" $ do
-                it "empty user list" $ findRepeatNumber [] 5 `shouldBe` 1
-                it "user in the list" $ findRepeatNumber [(5, 3)] 5 `shouldBe` 3
-                it "user is not in the list" $
-                    findRepeatNumber [(5, 3)] 6 `shouldBe` 1
-            describe "updateListUsers" $ do
-                it "empty update" $ updateListUsers [] [] `shouldBe` []
-                it "Nothing update" $ updateListUsers [] [Nothing] `shouldBe` []
-                it "update empty list" $
-                    updateListUsers [] [Just (5, 3)] `shouldBe` [(5, 3)]
-                it "update number of repeats" $
-                    updateListUsers [(5, 3)] [Just (5, 4)] `shouldBe` [(5, 4)]
-                it "update empty list" $
-                    updateListUsers [(5, 3)] [Just (4, 3)] `shouldBe`
-                    [(5, 3), (4, 3)]-}
+            describe "readByteStringToDay" $ do
+                it "read day" $
+                    readByteStringToDay "2021-09-01" `shouldBe`
+                    Just (fromGregorian 2021 09 01)
+                it "read another" $
+                    readByteStringToDay "something" `shouldBe` Nothing
+            describe "readByteStringToId" $ do
+                it "read Id" $ readByteStringToId "3" `shouldBe` Just (Id 3)
+                it "read another" $
+                    readByteStringToId "something" `shouldBe` Nothing
+            describe "saveHead" $ do
+                it "return head of list" $ saveHead [1, 2, 3] `shouldBe` Just 1
+                it "return nothing" $
+                    saveHead [] `shouldBe` (Nothing :: Maybe Int)

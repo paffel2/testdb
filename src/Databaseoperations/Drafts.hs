@@ -1,58 +1,53 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Databaseoperations.Drafts where
 
-import Control.Exception (catch)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple
-    ( Connection
-    , In(In)
-    , Only(..)
-    , SqlError(sqlState)
-    )
-import HelpFunction (readByteStringToInt, toQuery)
-import Logger (Handle, logDebug, logError, logInfo)
-import PostgreSqlWithPool
-    ( executeManyWithPool
-    , executeWithPool
-    , execute_WithPool
-    , queryWithPool
-    )
-import Types
-    ( Draft
-    , DraftArray(DraftArray)
-    , Image
-    , TokenLifeTime
-    , TokenProfile(TokenProfile)
-    )
+import           Control.Exception          (catch)
+import qualified Data.ByteString.Char8      as BC
+import           Data.Maybe                 (fromMaybe)
+import           Data.Pool                  (Pool)
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as E
+import           Database.PostgreSQL.Simple (Connection, In (In), Only (..),
+                                             SqlError (sqlErrorMsg, sqlState))
+
+import           HelpFunction               (readByteStringToInt, toQuery)
+import           Logger                     (LoggerHandle, logDebug, logError,
+                                             logInfo)
+import           PostgreSqlWithPool         (executeManyWithPool,
+                                             executeWithPool, execute_WithPool,
+                                             queryWithPool)
+import           Types.Drafts               (Draft, DraftArray (DraftArray),
+                                             DraftInf (DraftInf),
+                                             DraftTags (from_draft_tags))
+import           Types.Images               (Image)
+import           Types.Other                (Id (from_id), SendId,
+                                             SomeError (BadToken, DatabaseError, OtherError),
+                                             Token, TokenLifeTime)
+import           Types.Users                (TokenProfile (TokenProfile))
 
 checkAuthor ::
-       Handle
+       LoggerHandle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString Int)
+    -> Maybe Token
+    -> IO (Either SomeError SendId)
 checkAuthor hLogger _ _ Nothing = do
     logError hLogger "No token parameter"
-    return $ Left "No token parameter"
+    return . Left . OtherError $ "No token parameter"
 checkAuthor hLogger pool token_lifetime (Just token') =
     catch
         (do rows <- queryWithPool pool q [token']
             if Prelude.null rows
                 then do
-                    return $ Left "Bad token"
-                else return $ Right (fromOnly $ Prelude.head rows)) $ \e
-     -> do
+                    return $ Left BadToken
+                else return $ Right (fromOnly $ Prelude.head rows)) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left DatabaseError
   where
     q =
         toQuery $
@@ -64,28 +59,28 @@ checkAuthor hLogger pool token_lifetime (Just token') =
             ]
 
 getDraftsByAuthorToken ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> IO (Either LBS.ByteString DraftArray)
-getDraftsByAuthorToken hLogger _ _ Nothing = do
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> IO (Either SomeError DraftArray)
+getDraftsByAuthorToken _ _ hLogger Nothing = do
     logError hLogger "No token parameter"
-    return $ Left "No token parameter"
-getDraftsByAuthorToken hLogger pool token_lifetime (Just token') =
+    return . Left . OtherError $ "No token parameter"
+getDraftsByAuthorToken pool token_lifetime hLogger (Just token') =
     catch
         (do rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
             if Prelude.null rows
                 then do
                     logError hLogger "User use bad token or haven't drafts"
-                    return $ Left "You are not author or don't have drafts "
-                else return $ Right $ DraftArray rows) $ \e
-     -> do
+                    return . Left . OtherError $
+                        "You are not author or don't have drafts "
+                else return $ Right $ DraftArray rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left DatabaseError
   where
     q =
         toQuery $
@@ -96,112 +91,110 @@ getDraftsByAuthorToken hLogger pool token_lifetime (Just token') =
             ]
 
 deleteDraftFromDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Maybe BC.ByteString
-    -> IO (Either LBS.ByteString LBS.ByteString)
-deleteDraftFromDb hLogger _ _ _ Nothing = do
-    logError hLogger "No draft_id parameter"
-    return $ Left "No draft_id parameter"
-deleteDraftFromDb hLogger pool token_lifetime token' (Just draft_id) =
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> Maybe Id
+    -> IO (Either SomeError ())
+deleteDraftFromDb _ _ hLogger _ Nothing = do
+    logError hLogger "Draft not deleted. No draft_id parameter"
+    return . Left . OtherError $ "Draft not deleted. No draft_id parameter"
+deleteDraftFromDb pool token_lifetime hLogger token' (Just draft_id) =
     catch
         (do ch <- checkAuthor hLogger pool token_lifetime token'
             case ch of
                 Left bs -> return $ Left bs
-                Right author_id -> do
+                Right author_id' -> do
                     let q =
                             "delete from drafts where draft_id = ? and author_id = ?"
-                    let dr_id = fromMaybe (-1) $ readByteStringToInt draft_id
-                    n <- executeWithPool pool q (dr_id, author_id)
+                    n <- executeWithPool pool q (draft_id, author_id')
                     if n > 0
                         then do
-                            return $ Right "Draft deleted"
+                            logInfo hLogger "Draft deleted"
+                            return $ Right ()
                         else do
                             logError
                                 hLogger
                                 "Deleting not existing draft or bad draft_id parameter"
-                            return $
-                                Left "Draft not exist or bad draft_id parameter") $ \e -> do
+                            return . Left . OtherError $
+                                "Draft not exist or bad draft_id parameter") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
-        return $ Left "Database error"
+        return $ Left DatabaseError
 
 getDraftByIdFromDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Int
-    -> IO (Either LBS.ByteString Draft)
-getDraftByIdFromDb hLogger _ _ Nothing _ = do
-    logError hLogger "No token parameter"
-    return $ Left "No Token parameter"
-getDraftByIdFromDb hLogger pool token_lifetime token' draft_id = do
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> Id
+    -> IO (Either SomeError Draft)
+getDraftByIdFromDb _ _ hLogger Nothing _ = do
+    logError hLogger "Draft not sended. No token parameter"
+    return . Left . OtherError $ "Draft not sended. No token parameter"
+getDraftByIdFromDb pool token_lifetime hLogger token' draft_id = do
     ch_author <- checkAuthor hLogger pool token_lifetime token'
     case ch_author of
         Left bs -> return $ Left bs
-        Right author_id ->
+        Right author_id' ->
             catch
-                (do rows <- queryWithPool pool q [author_id]
+                (do rows <- queryWithPool pool q [author_id']
                     if Prelude.null rows
                         then do
                             logError hLogger "Wrong draft id or draft not exist"
-                            return $ Left "Wrong draft id or draft not exist"
+                            return . Left . OtherError $
+                                "Wrong draft id or draft not exist"
                         else do
-                            return $ Right $ Prelude.head rows) $ \e
-             -> do
+                            logInfo hLogger "Draft sended"
+                            return $ Right $ Prelude.head rows) $ \e -> do
                 let errState = sqlState e
                 let errStateInt = fromMaybe 0 (readByteStringToInt errState)
                 logError hLogger $
                     T.concat ["Database error ", T.pack $ show errStateInt]
-                return $ Left "Database error"
+                return $ Left DatabaseError
   where
     q =
         toQuery $
         BC.concat
             [ "with image_arr as (select array_agg(image_id) from drafts_images where draft_id = "
-            , BC.pack $ show draft_id
+            , BC.pack . show . from_id $ draft_id
             , "), "
             , " tags_arr as (select array_agg(tag_name) from draft_tags join tags using (tag_id) where draft_id = "
-            , BC.pack $ show draft_id
+            , BC.pack . show . from_id $ draft_id
             , ") "
             , "select short_title, date_of_changes, category_id, draft_text, main_image, "
             , "(select * from image_arr) as other_images, (select * from  tags_arr) as tags from drafts where author_id = ? and draft_id = "
-            , BC.pack $ show draft_id
+            , BC.pack . show . from_id $ draft_id
             ]
 
 createDraftOnDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe BC.ByteString
-    -> Maybe T.Text
-    -> Maybe BC.ByteString
-    -> Maybe T.Text
-    -> Maybe T.Text
+    -> LoggerHandle IO
+    -> DraftInf
+    -> Maybe DraftTags
     -> Maybe Image
     -> Maybe [Image]
-    -> IO (Either LBS.ByteString Int)
-createDraftOnDb hLogger _ _ Nothing _ _ _ _ _ _ = do
+    -> IO (Either SomeError SendId)
+createDraftOnDb _ _ hLogger (DraftInf Nothing _ _ _) _ _ _ = do
     logError hLogger "No token param"
-    return $ Left "No token param"
-createDraftOnDb hLogger _ _ _ Nothing _ _ _ _ _ = do
+    return . Left . OtherError $ "No token param"
+createDraftOnDb _ _ hLogger (DraftInf _ Nothing _ _) _ _ _ = do
     logError hLogger "No category field"
-    return $ Left "No category field"
-createDraftOnDb hLogger _ _ _ _ Nothing _ _ _ _ = do
+    return . Left . OtherError $ "No category field"
+createDraftOnDb _ _ hLogger _ Nothing _ _ = do
     logError hLogger "No tags field"
-    return $ Left "No tags field"
-createDraftOnDb hLogger _ _ _ _ _ Nothing _ _ _ = do
+    return . Left . OtherError $ "No tags field"
+createDraftOnDb _ _ hLogger (DraftInf _ _ Nothing _) _ _ _ = do
     logError hLogger "No short_title field"
-    return $ Left "No short_title field"
-createDraftOnDb hLogger _ _ _ _ _ _ Nothing _ _ = do
+    return . Left . OtherError $ "No short_title field"
+createDraftOnDb _ _ hLogger (DraftInf _ _ _ Nothing) _ _ _ = do
     logError hLogger "No text field"
-    return $ Left "No text field"
-createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just tags_list) (Just short'_title) (Just text) main'_image images_list = do
+    return . Left . OtherError $ "No text field"
+createDraftOnDb pool token_lifetime hLogger draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list = do
     logInfo hLogger "Someone try add new draft"
     draft_id <- newDraft
     c <- createTagConnections draft_id
@@ -213,9 +206,8 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
             (do let q =
                         toQuery $
                         BC.concat
-                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = '"
-                            , token'
-                            , "' and (now() - tokens.creation_date) < make_interval(secs => "
+                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = ?"
+                            , " and (now() - tokens.creation_date) < make_interval(secs => "
                             , BC.pack $ show token_lifetime
                             , ")), get_c as (select category_id from categories where category_name = ?) "
                             , "insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a),"
@@ -223,30 +215,28 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , " ?) returning draft_id"
                             ]
                 logDebug hLogger "Insert draft info"
-                rows <-
-                    queryWithPool pool q (category, short'_title, text) :: IO [Only Int]
+                rows <- queryWithPool pool q draft_upd :: IO [Only Int]
                 if Prelude.null rows
                     then do
                         logError hLogger "Draft not created"
-                        return $ Left "Draft not created"
+                        return . Left . OtherError $ "Draft not created"
                     else do
                         logDebug hLogger "Draft info added"
-                        return $ Right $ fromOnly $ Prelude.head rows) $ \e
-         -> do
+                        return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             case errStateInt of
                 23502 -> do
                     logError hLogger "Bad token"
-                    return $ Left "Bad token"
+                    return $ Left BadToken
                 _ -> do
-                    logError hLogger $
-                        T.concat ["Database error ", T.pack $ show errStateInt]
-                    return $ Left "Database error"
-    createTagConnections (Left message) = return $ Left message
+                    let err = E.decodeUtf8 $ sqlErrorMsg e
+                    logError hLogger err
+                    return $ Left DatabaseError
+    createTagConnections (Left someError) = return $ Left someError
     createTagConnections (Right draft_id) =
         catch
-            (do tag_ids <- getTagsIds hLogger pool tags_list
+            (do tag_ids <- getTagsIds hLogger pool (from_draft_tags tags_list)
                 case tag_ids of
                     Left bs -> return $ Left bs
                     Right ns -> do
@@ -262,19 +252,19 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         if fromIntegral n < nt
                             then do
                                 logError hLogger "Some tags not added"
-                                return $ Left "Some tags not added"
+                                return . Left . OtherError $
+                                    "Some tags not added"
                             else do
                                 logDebug hLogger "Connections added"
-                                return $ Right draft_id) $ \e
-         -> do
+                                return $ Right draft_id) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    loadMainImage (Left message) _ = return $ Left message
+            return $ Left DatabaseError
+    loadMainImage (Left someError) _ = return $ Left someError
     loadMainImage (Right draft_id) Nothing = return $ Right draft_id
-    loadMainImage (Right draft_id) (Just image) =
+    loadMainImage (Right draft_id) (Just image') =
         catch
             (do let q =
                         toQuery $
@@ -284,23 +274,22 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , BC.pack $ show draft_id
                             ]
                 logDebug hLogger "Load main image"
-                n <- executeWithPool pool q image
+                n <- executeWithPool pool q image'
                 if n < 1
                     then do
                         logError hLogger "Image not loaded"
-                        return $ Left "Image not loaded"
+                        return . Left . OtherError $ "Image not loaded"
                     else do
                         logDebug hLogger "Main image loaded"
-                        return $ Right draft_id) $ \e
-         -> do
+                        return $ Right draft_id) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    loadImages (Left message) _ = return $ Left message
+            return $ Left DatabaseError
+    loadImages (Left someError) _ = return $ Left someError
     loadImages (Right draft_id) Nothing = return $ Right draft_id
-    loadImages (Right draft_id) (Just images) =
+    loadImages (Right draft_id) (Just images') =
         catch
             (do let q =
                         toQuery $
@@ -312,49 +301,45 @@ createDraftOnDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                             , "insert into drafts_images (draft_id,image_id) select * from d_i"
                             ]
                 logDebug hLogger "Load other images"
-                n <- executeManyWithPool pool q images
-                if fromIntegral n < Prelude.length images
+                n <- executeManyWithPool pool q images'
+                if fromIntegral n < Prelude.length images'
                     then do
                         logError hLogger "Images not loaded"
-                        return $ Left "Images not loaded"
+                        return . Left . OtherError $ "Images not loaded"
                     else do
-                        return $ Right draft_id) $ \e
-         -> do
+                        return $ Right draft_id) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
+            return $ Left DatabaseError
 
 updateDraftInDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe BC.ByteString
-    -> Maybe T.Text
-    -> Maybe BC.ByteString
-    -> Maybe T.Text
-    -> Maybe T.Text
+    -> LoggerHandle IO
+    -> DraftInf
+    -> Maybe DraftTags
     -> Maybe Image
     -> Maybe [Image]
-    -> Int
-    -> IO (Either LBS.ByteString LBS.ByteString)
-updateDraftInDb hLogger _ _ Nothing _ _ _ _ _ _ _ = do
+    -> Id
+    -> IO (Either SomeError ())
+updateDraftInDb _ _ hLogger (DraftInf Nothing _ _ _) _ _ _ _ = do
     logError hLogger "No token param"
-    return $ Left "No token param"
-updateDraftInDb hLogger _ _ _ Nothing _ _ _ _ _ _ = do
+    return . Left . OtherError $ "No token param"
+updateDraftInDb _ _ hLogger (DraftInf _ Nothing _ _) _ _ _ _ = do
     logError hLogger "No category field"
-    return $ Left "No category field"
-updateDraftInDb hLogger _ _ _ _ Nothing _ _ _ _ _ = do
+    return . Left . OtherError $ "No category field"
+updateDraftInDb _ _ hLogger _ Nothing _ _ _ = do
     logError hLogger "No tags field"
-    return $ Left "No tags field"
-updateDraftInDb hLogger _ _ _ _ _ Nothing _ _ _ _ = do
+    return . Left . OtherError $ "No tags field"
+updateDraftInDb _ _ hLogger (DraftInf _ _ Nothing _) _ _ _ _ = do
     logError hLogger "No short_title field"
-    return $ Left "No short_title field"
-updateDraftInDb hLogger _ _ _ _ _ _ Nothing _ _ _ = do
+    return . Left . OtherError $ "No short_title field"
+updateDraftInDb _ _ hLogger (DraftInf _ _ _ Nothing) _ _ _ _ = do
     logError hLogger "No text field"
-    return $ Left "No text field"
-updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just tags_list) (Just short'_title) (Just text) main'_image images_list draft_id = do
+    return . Left . OtherError $ "No text field"
+updateDraftInDb pool token_lifetime hLogger draft_upd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tags_list) main'_image images_list draft_id = do
     logInfo hLogger "Someone try update draft"
     u <- updateDraft
     dt <- deleteTagConnections u
@@ -370,29 +355,27 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                 let q =
                         toQuery $
                         BC.concat
-                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = '"
-                            , token'
-                            , "' and (now() - tokens.creation_date) < make_interval(secs => "
+                            [ "with get_a as (select author_id from authors join tokens using (user_id) where token = ?"
+                            , " and (now() - tokens.creation_date) < make_interval(secs => "
                             , BC.pack $ show token_lifetime
                             , ")), get_c as (select category_id from categories where category_name = ?) "
                             , "update drafts set short_title = ?, date_of_changes = now(), category_id = (select * from get_c), "
                             , "draft_text = ? where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             ]
-                n <- executeWithPool pool q (category, short'_title, text)
+                n <- executeWithPool pool q draft_upd
                 if n < 1
                     then do
-                        return $ Left "Draft not updated"
+                        return . Left . OtherError $ "Draft not updated"
                     else do
                         logDebug hLogger "Update drafts complete"
-                        return $ Right "Draft updated") $ \e
-         -> do
+                        return $ Right ()) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    deleteTagConnections (Left mess) = return $ Left mess
+            return $ Left DatabaseError
+    deleteTagConnections (Left someError) = return $ Left someError
     deleteTagConnections (Right mess) =
         catch
             (do logDebug hLogger "Deleting old tags"
@@ -400,26 +383,25 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         toQuery $
                         BC.concat
                             [ "delete from draft_tags where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             ]
                 n <- execute_WithPool pool q
                 if n < 1
                     then do
                         logError hLogger "Draft tags not updated"
-                        return $ Left "Draft tags not updated"
+                        return . Left . OtherError $ "Draft tags not updated"
                     else do
                         logDebug hLogger "Deleting old tags complete"
-                        return $ Right mess) $ \e
-         -> do
+                        return $ Right mess) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    createTagConnections (Left message) = return $ Left message
+            return $ Left DatabaseError
+    createTagConnections (Left someError) = return $ Left someError
     createTagConnections (Right mess) =
         catch
-            (do tag_ids <- getTagsIds hLogger pool tags_list
+            (do tag_ids <- getTagsIds hLogger pool (from_draft_tags tags_list)
                 case tag_ids of
                     Left bs -> return $ Left bs
                     Right ns -> do
@@ -435,17 +417,17 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         if fromIntegral n < nt
                             then do
                                 logError hLogger "Some tags not added"
-                                return $ Left "Some tags not added"
+                                return . Left . OtherError $
+                                    "Some tags not added"
                             else do
                                 logDebug hLogger "Add new tags complete"
-                                return $ Right mess) $ \e
-         -> do
+                                return $ Right mess) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    deleteMainImage (Left mess) _ = return $ Left mess
+            return $ Left DatabaseError
+    deleteMainImage (Left someError) _ = return $ Left someError
     deleteMainImage (Right mess) Nothing = return $ Right mess
     deleteMainImage (Right mess) (Just _) =
         catch
@@ -454,20 +436,19 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         toQuery $
                         BC.concat
                             [ "with m_id as (select main_image from drafts where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , ") "
                             , "delete from images where image_id = (select * from m_id)"
                             ]
                 _ <- execute_WithPool pool q
                 logDebug hLogger "Deleting old main image complete"
-                return $ Right mess) $ \e
-         -> do
+                return $ Right mess) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    loadMainImage (Left mess) _ = return $ Left mess
+            return $ Left DatabaseError
+    loadMainImage (Left someError) _ = return $ Left someError
     loadMainImage (Right mess) Nothing = return $ Right mess
     loadMainImage (Right mess) (Just image) =
         catch
@@ -477,23 +458,22 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         BC.concat
                             [ "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) "
                             , "update drafts set main_image = (select * from m_id) where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             ]
                 n <- executeWithPool pool q image
                 if n < 1
                     then do
                         logError hLogger "Image not loaded"
-                        return $ Left "Image not loaded"
+                        return . Left . OtherError $ "Image not loaded"
                     else do
                         logDebug hLogger "Add new main image"
-                        return $ Right mess) $ \e
-         -> do
+                        return $ Right mess) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    deleteOldImages (Left mess) _ = return $ Left mess
+            return $ Left DatabaseError
+    deleteOldImages (Left someError) _ = return $ Left someError
     deleteOldImages (Right mess) Nothing = return $ Right mess
     deleteOldImages (Right mess) (Just _) =
         catch
@@ -502,21 +482,20 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         toQuery $
                         BC.concat
                             [ "delete from images where image_id in (select image_id from drafts_images where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , ")"
                             ]
                 _ <- execute_WithPool pool q
                 logDebug hLogger "Deleting old images complete"
-                return $ Right mess) $ \e
-         -> do
+                return $ Right mess) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    loadImages (Left mess) _ = return $ Left mess
+            return $ Left DatabaseError
+    loadImages (Left someError) _ = return $ Left someError
     loadImages (Right mess) Nothing = return $ Right mess
-    loadImages (Right mess) (Just images) =
+    loadImages (Right mess) (Just images') =
         catch
             (do logDebug hLogger "Add new images"
                 let q =
@@ -524,30 +503,29 @@ updateDraftInDb hLogger pool token_lifetime (Just token') (Just category) (Just 
                         BC.concat
                             [ "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id), "
                             , "d_i as (select "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , " as draft_id, image_id from m_id) "
                             , "insert into drafts_images (draft_id,image_id) select * from d_i"
                             ]
-                n <- executeManyWithPool pool q images
-                if fromIntegral n < Prelude.length images
+                n <- executeManyWithPool pool q images'
+                if fromIntegral n < Prelude.length images'
                     then do
                         logError hLogger "Images not loaded"
-                        return $ Left "Images not loaded"
+                        return . Left . OtherError $ "Images not loaded"
                     else do
                         logDebug hLogger "Add new images complete"
-                        return $ Right mess) $ \e
-         -> do
+                        return $ Right mess) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
+            return $ Left DatabaseError
 
 getTagsIds ::
-       Handle
+       LoggerHandle IO
     -> Pool Connection
     -> BC.ByteString
-    -> IO (Either LBS.ByteString [Int])
+    -> IO (Either SomeError [Int])
 getTagsIds hLogger pool tags_bs = do
     let n = Prelude.length $ BC.split ' ' tags_bs
     let l = BC.split ' ' tags_bs
@@ -556,18 +534,18 @@ getTagsIds hLogger pool tags_bs = do
     if Prelude.length rows < n
         then do
             logError hLogger "Someone tags not exist"
-            return $ Left "Someone tags not exist"
+            return . Left . OtherError $ "Someone tags not exist"
         else do
             return $ Right $ fromOnly <$> rows
 
 publicNewsOnDb ::
-       Handle
-    -> Pool Connection
+       Pool Connection
     -> TokenLifeTime
-    -> Maybe T.Text
-    -> Int
-    -> IO (Either LBS.ByteString Int)
-publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> Id
+    -> IO (Either SomeError SendId)
+publicNewsOnDb pool token_lifetime hLogger token' draft_id = do
     ch <- checkAuthor hLogger pool token_lifetime token'
     case ch of
         Left bs -> return $ Left bs
@@ -595,17 +573,16 @@ publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
                 if Prelude.null rows
                     then do
                         logError hLogger "News not published"
-                        return $ Left "News not published"
+                        return . Left . OtherError $ "News not published"
                     else do
                         logDebug hLogger "Adding news to db complete"
-                        return $ Right $ fromOnly $ Prelude.head rows) $ \e
-         -> do
+                        return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    insertTags (Left mess) = return $ Left mess
+            return $ Left DatabaseError
+    insertTags (Left someError) = return $ Left someError
     insertTags (Right news_id) =
         catch
             (do logDebug hLogger "Adding news tags to db"
@@ -613,7 +590,7 @@ publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
                         toQuery $
                         BC.concat
                             [ "with tags_ids as (select tag_id from draft_tags where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , " ), "
                             , "tag_n as (select "
                             , BC.pack $ show news_id
@@ -622,14 +599,13 @@ publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
                             ]
                 _ <- execute_WithPool pool q
                 logDebug hLogger "Adding news tags to db complete"
-                return $ Right news_id) $ \e
-         -> do
+                return $ Right news_id) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
-    insertImages (Left mess) = return $ Left mess
+            return $ Left DatabaseError
+    insertImages (Left someError) = return $ Left someError
     insertImages (Right news_id) =
         catch
             (do logDebug hLogger "Adding news images to db"
@@ -637,7 +613,7 @@ publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
                         toQuery $
                         BC.concat
                             [ "with images_ids as (select image_id from drafts_images where draft_id = "
-                            , BC.pack $ show draft_id
+                            , BC.pack $ show $ from_id draft_id
                             , "), "
                             , "image_n as (select "
                             , BC.pack $ show news_id
@@ -646,10 +622,9 @@ publicNewsOnDb hLogger pool token_lifetime token' draft_id = do
                             ]
                 _ <- execute_WithPool pool q
                 logDebug hLogger "Adding news images to db complete"
-                return $ Right news_id) $ \e
-         -> do
+                return $ Right news_id) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $
                 T.concat ["Database error ", T.pack $ show errStateInt]
-            return $ Left "Database error"
+            return $ Left DatabaseError

@@ -2,71 +2,81 @@
 
 module Controllers.Images where
 
-import Data.Aeson (encode)
-import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import Database.PostgreSQL.Simple (Binary(fromBinary), Connection)
-import Databaseoperations.Images (getPhoto, getPhotoList)
-import HelpFunction (readByteStringToInt)
-import Logger (Handle, logError, logInfo)
-import Network.HTTP.Types.Method (methodGet)
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
-import Responses
-    ( responseBadRequest
-    , responseMethodNotAllowed
-    , responseNotFound
-    , responseOKImage
-    , responseOKJSON
-    )
-import Types (ImageB(con_type, image_b))
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Char8     as BC
+import           FromRequest               (toPage)
+import           HelpFunction              (readByteStringToId)
+import           Logger                    (logError, logInfo)
+import           Network.HTTP.Types.Method (methodGet)
+import           Network.Wai               (Request (rawPathInfo, requestMethod))
+import           OperationsHandle          (ImagesHandle (get_photo, get_photo_list, photos_logger))
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (Id,
+                                            ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (OkImage, OkJSON))
 
-sendImagesList :: Handle -> Pool Connection -> Request -> IO Response
-sendImagesList hLogger pool req = do
+getImagesList ::
+       Monad m
+    => ImagesHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getImagesList operations req = do
     if requestMethod req == methodGet
         then do
-            logInfo hLogger "Preparing data for sending images list"
-            result <- getPhotoList hLogger pool pageParam
+            logInfo
+                (photos_logger operations)
+                "Preparing data for sending images list"
+            result <- get_photo_list operations pageParam
             case result of
-                Left bs -> do
-                    logError hLogger "Images list not sended"
-                    return $ responseBadRequest bs
-                Right ia -> do
-                    logInfo hLogger "Images list sended"
-                    return $ responseOKJSON $ encode ia
-        else do
-            logError hLogger "Bad method request"
-            return $ responseMethodNotAllowed "Bad method request"
-  where
-    queryParams = queryString req
-    pageParam = fromMaybe Nothing (lookup "page" queryParams)
-
-sendImage :: Handle -> Pool Connection -> Int -> Request -> IO Response
-sendImage hLogger pool imageId req = do
-    if requestMethod req == methodGet
-        then do
-            logInfo hLogger "Preparing data for sending image"
-            result <- getPhoto hLogger pool imageId
-            case result of
-                Left bs -> do
-                    logError hLogger "Image not sended"
-                    return $ responseBadRequest bs
-                Right ib -> do
-                    logInfo hLogger "Image sended"
+                Left someError ->
                     return $
-                        responseOKImage (con_type ib) (fromBinary $ image_b ib)
+                    Left $
+                    toResponseErrorMessage
+                        "List of images not sended."
+                        someError
+                Right ia -> do
+                    return $ Right $ OkJSON $ encode ia
         else do
-            logError hLogger "Bad method request"
-            return $ responseMethodNotAllowed "Bad method request"
+            logError (photos_logger operations) "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
+  where
+    pageParam = toPage req
 
-imageBlock :: Handle -> Pool Connection -> Request -> IO Response
-imageBlock hLogger pool req
-    | pathElemsC == 1 = sendImagesList hLogger pool req
+getImage ::
+       Monad m
+    => ImagesHandle m
+    -> Id
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getImage operations imageId req = do
+    if requestMethod req == methodGet
+        then do
+            logInfo
+                (photos_logger operations)
+                "Preparing data for sending image"
+            result <- get_photo operations imageId
+            case result of
+                Left someError ->
+                    return $
+                    Left $ toResponseErrorMessage "Image not sended." someError
+                Right ib -> do
+                    return $ Right $ OkImage ib
+        else do
+            logError (photos_logger operations) "Bad method request"
+            return $ Left $ MethodNotAllowed "Bad request method"
+
+imagesRouter ::
+       Monad m
+    => ImagesHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+imagesRouter operations req
+    | pathElemsC == 1 = getImagesList operations req
     | pathElemsC == 2 =
-        case readByteStringToInt $ last pathElems of
-            Nothing -> return $ responseBadRequest "Bad image id"
-            Just n -> sendImage hLogger pool n req
-    | otherwise = return $ responseNotFound "Not Found"
+        case readByteStringToId $ last pathElems of
+            Nothing -> return $ Left $ BadRequest "Bad image id"
+            Just n  -> getImage operations n req
+    | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

@@ -2,9 +2,9 @@
 
 module Logger where
 
-import Control.Monad (when)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+import           Control.Monad (when)
+import qualified Data.Text     as T
+import qualified Data.Text.IO  as TIO
 
 data Priority
     = Debug
@@ -13,19 +13,20 @@ data Priority
     | Error
     deriving (Eq, Ord, Show)
 
-data Handle =
-    Handle
+data LoggerHandle m =
+    LoggerHandle
         { priority :: Priority
-        , log :: Priority -> T.Text -> IO ()
+        , log      :: Priority -> T.Text -> m ()
         }
 
-logging :: Priority -> Handle -> T.Text -> IO ()
+logging :: Monad m => Priority -> LoggerHandle m -> T.Text -> m ()
 logging pr h text = when (pr >= p) (somePrint pr text)
   where
     p = Logger.priority h
     somePrint = Logger.log h
 
-logDebug, logInfo, logWarning, logError :: Handle -> T.Text -> IO ()
+logDebug, logInfo, logWarning, logError ::
+       Monad m => LoggerHandle m -> T.Text -> m ()
 logDebug = logging Debug
 
 logInfo = logging Info

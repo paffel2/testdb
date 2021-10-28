@@ -2,167 +2,126 @@
 
 module Controllers.Tags where
 
-import Data.Aeson (encode)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromMaybe)
-import Data.Pool (Pool)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Database.PostgreSQL.Simple (Connection)
-import Databaseoperations.Tags
-    ( createTagInDb
-    , deleteTagFromDb
-    , editTagInDb
-    , getTagsListFromDb
-    )
-import FromRequest (takeToken)
-import Logger (Handle, logError, logInfo)
-import Network.HTTP.Types.Method
-    ( methodDelete
-    , methodGet
-    , methodPost
-    , methodPut
-    )
-import Network.Wai (Request(queryString, rawPathInfo, requestMethod), Response)
-import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import Responses
-    ( responseBadRequest
-    , responseCreated
-    , responseForbidden
-    , responseMethodNotAllowed
-    , responseNotFound
-    , responseOKJSON
-    , responseOk
-    )
-import Types (TokenLifeTime)
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Char8     as BC
+import qualified Data.ByteString.Lazy      as LBS
+import           FromRequest               (takeToken, toEditTag, toPage,
+                                            toTagName)
+import           Logger                    (logError, logInfo)
+import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
+                                            methodPut)
+import           Network.Wai               (Request (rawPathInfo, requestMethod))
+import           OperationsHandle          (TagsHandle (create_tag_in_db, delete_tag_from_db, edit_tag_in_db, get_tags_list_from_db, tags_logger, tags_parse_request_body))
+import           Responses                 (toResponseErrorMessage)
+import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
+                                            ResponseOkMessage (Created, OkJSON, OkMessage))
 
-sendTagsList :: Handle -> Pool Connection -> Request -> IO Response
-sendTagsList hLogger pool req =
+getTagsList ::
+       Monad m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+getTagsList operations req =
     if requestMethod req /= methodGet
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            logError (tags_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing parameters for sending tags list."
-            tags_list <- getTagsListFromDb hLogger pool page
+            logInfo
+                (tags_logger operations)
+                "Preparing parameters for sending tags list."
+            tags_list <- get_tags_list_from_db operations page
             case tags_list of
-                Left bs -> do
-                    logError hLogger "Tags list not sended"
-                    return $ responseBadRequest bs
+                Left someError ->
+                    return $
+                    Left $
+                    toResponseErrorMessage "List of tags not sended." someError
                 Right tl -> do
-                    logInfo hLogger "Tags list sended"
-                    return $ responseOKJSON $ encode tl
+                    return $ Right $ OkJSON $ encode tl
   where
-    page = fromMaybe Nothing (lookup "page" $ queryString req)
+    page = toPage req
 
-newTag :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-newTag hLogger pool token_lifetime req =
+postTag ::
+       Monad m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+postTag operations req =
     if requestMethod req /= methodPost
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            logError (tags_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for creating tag."
-            let token' = E.decodeUtf8 <$> takeToken req
-            let tag_name_param =
-                    T.toLower . E.decodeUtf8 <$>
-                    fromMaybe Nothing (lookup "tag_name" $ queryString req)
-            result <-
-                createTagInDb hLogger pool token_lifetime token' tag_name_param
+            logInfo (tags_logger operations) "Preparing data for creating tag."
+            let token' = takeToken req
+            let tag_name_param = toTagName req
+            result <- create_tag_in_db operations token' tag_name_param
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Tag not created. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Tag not created. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Tag not created."
-                    return $ responseBadRequest bs
+                Left someError ->
+                    return $
+                    Left $ toResponseErrorMessage "Tag not created." someError
                 Right n -> do
-                    logInfo hLogger "Tag created."
-                    return $ responseCreated $ LBS.fromStrict $ BC.pack $ show n
+                    return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
 
 deleteTag ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-deleteTag hLogger pool token_lifetime req =
+       Monad m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+deleteTag operations req =
     if requestMethod req /= methodDelete
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            logError (tags_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for deleting tag."
-            let token' = E.decodeUtf8 <$> takeToken req
-            let tag_name_param =
-                    T.toLower . E.decodeUtf8 <$>
-                    fromMaybe Nothing (lookup "tag_name" $ queryString req)
-            result <-
-                deleteTagFromDb
-                    hLogger
-                    pool
-                    token_lifetime
-                    token'
-                    tag_name_param
+            logInfo (tags_logger operations) "Preparing data for deleting tag."
+            let token' = takeToken req
+            let tag_name_param = toTagName req
+            result <- delete_tag_from_db operations token' tag_name_param
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Tag not deleted. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Tag not deleted. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Tag not deleted."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Tag deleted."
-                    return $ responseOk bs
+                Left someError ->
+                    return $
+                    Left $ toResponseErrorMessage "Tag not deleted." someError
+                Right _ -> do
+                    return $ Right $ OkMessage "Tag deleted."
 
-editTag :: Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-editTag hLogger pool token_lifetime req =
+updateTag ::
+       Monad m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+updateTag operations req =
     if requestMethod req /= methodPut
         then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad method request"
+            logError (tags_logger operations) "Bad request method"
+            return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo hLogger "Preparing data for editing tag."
-            let token' = E.decodeUtf8 <$> takeToken req
-            (i, _) <- parseRequestBody lbsBackEnd req
-            let old_tag_name = E.decodeUtf8 <$> lookup "old_tag_name" i
-            let new_tag_name = E.decodeUtf8 <$> lookup "new_tag_name" i
-            result <-
-                editTagInDb
-                    hLogger
-                    pool
-                    token_lifetime
-                    token'
-                    old_tag_name
-                    new_tag_name
+            logInfo (tags_logger operations) "Preparing data for editing tag."
+            let token' = takeToken req
+            (i, _) <- tags_parse_request_body operations req
+            let tag_edit_params = toEditTag i
+            result <- edit_tag_in_db operations token' tag_edit_params
             case result of
-                Left "Not admin" -> do
-                    logError hLogger "Tag not edited. Not admin."
-                    return $ responseForbidden "Not admin"
-                Left "Bad token" -> do
-                    logError hLogger "Tag not edited. Bad token."
-                    return $ responseForbidden "Bad token"
-                Left bs -> do
-                    logError hLogger "Tag not edited."
-                    return $ responseBadRequest bs
-                Right bs -> do
-                    logInfo hLogger "Tag edited."
-                    return $ responseOk bs
+                Left someError ->
+                    return $
+                    Left $ toResponseErrorMessage "Tag not edited." someError
+                Right _ -> do
+                    return $ Right $ OkMessage "Tag edited."
 
-tagsBlock ::
-       Handle -> Pool Connection -> TokenLifeTime -> Request -> IO Response
-tagsBlock hLogger pool token_lifetime req
-    | pathElemsC == 1 = sendTagsList hLogger pool req
+tagsRouter ::
+       Monad m
+    => TagsHandle m
+    -> Request
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+tagsRouter operations req
+    | pathElemsC == 1 = getTagsList operations req
     | pathElemsC == 2 =
         case last pathElems of
-            "create_tag" -> newTag hLogger pool token_lifetime req
-            "delete_tag" -> deleteTag hLogger pool token_lifetime req
-            "edit_tag" -> editTag hLogger pool token_lifetime req
-            _ -> return $ responseNotFound "Not Found"
-    | otherwise = return $ responseNotFound "Not Found"
+            "create_tag" -> postTag operations req
+            "delete_tag" -> deleteTag operations req
+            "edit_tag"   -> updateTag operations req
+            _            -> return $ Left $ NotFound "Not Found"
+    | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path
