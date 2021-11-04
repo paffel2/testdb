@@ -27,13 +27,13 @@ hLogger =
 imagesHandler :: ImagesHandle Identity
 imagesHandler =
     ImagesHandle
-        { get_photo = \photo_id -> return $ Left $ OtherError "ErrorMessage"
-        , get_photo_list = \page -> return $ Left $ OtherError "ErrorMessage"
-        , photos_logger = hLogger
+        { ihGetPhoto = \photo_id -> return $ Left $ OtherError "ErrorMessage"
+        , ihGetPhotoList = \page -> return $ Left $ OtherError "ErrorMessage"
+        , ihLogger = hLogger
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler = OperationsHandle {images_handle = imagesHandler}
+operationsHandler = OperationsHandle {imagesHandle = imagesHandler}
 
 tstGetPhotoListReq :: Request
 tstGetPhotoListReq =
@@ -47,7 +47,7 @@ imagesTests :: IO ()
 imagesTests =
     hspec $ do
         describe "testing images functions" $ do
-            describe "testing get_photo_list" $ do
+            describe "testing ihGetPhotoList" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetPhotoListReq `shouldBe`
                     return
@@ -67,16 +67,16 @@ imagesTests =
                 it "server should return list of images, because all is good" $
                     routes
                         (operationsHandler
-                             { images_handle =
+                             { imagesHandle =
                                    imagesHandler
-                                       { get_photo_list =
+                                       { ihGetPhotoList =
                                              \_ ->
                                                  return $ Right (ImageArray [])
                                        }
                              })
                         (tstGetPhotoListReq {rawPathInfo = "/image"}) `shouldBe`
                     return (Right $ OkJSON "{\"images\":[]}")
-            describe "testing get_photo" $ do
+            describe "testing ihGetPhoto" $ do
                 it "server should return error  because something happend" $
                     routes operationsHandler tstGetPhotoReq `shouldBe`
                     return (Left $ BadRequest "Image not sended. ErrorMessage")
@@ -94,9 +94,9 @@ imagesTests =
                 it "server should return image, because all is good" $
                     routes
                         (operationsHandler
-                             { images_handle =
+                             { imagesHandle =
                                    imagesHandler
-                                       { get_photo =
+                                       { ihGetPhoto =
                                              \_ ->
                                                  return $
                                                  Right (ImageB (Binary "") "")

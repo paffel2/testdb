@@ -2,7 +2,6 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module UsersTests where
-
 import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
@@ -25,18 +24,18 @@ hLogger =
 usersHandler :: UsersHandle Identity
 usersHandler =
     UsersHandle
-        { auth = \login password -> return $ Left $ OtherError "ErrorMessage"
-        , create_user_in_db =
+        { uhAuth = \login password -> return $ Left $ OtherError "ErrorMessage"
+        , uhCreateUserInDb =
               \create_user -> return $ Left $ OtherError "ErrorMessage"
-        , delete_user_from_db =
+        , uhDeleteUserFromDb =
               \token login -> return $ Left $ OtherError "ErrorMessage"
-        , profile_on_db = \token -> return $ Left $ OtherError "ErrorMessage"
-        , users_logger = hLogger
-        , users_parse_request_body = \_ -> return ([], [])
+        , uhProfileOnDb = \token -> return $ Left $ OtherError "ErrorMessage"
+        , uhLogger = hLogger
+        , uhParseRequestBody = \_ -> return ([], [])
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler = OperationsHandle {users_handle = usersHandler}
+operationsHandler = OperationsHandle {usersHandle = usersHandler}
 
 tstProfileReq :: Request
 tstProfileReq =
@@ -57,7 +56,7 @@ usersTests :: IO ()
 usersTests =
     hspec $ do
         describe "testing users functions" $ do
-            describe "testing auth" $ do
+            describe "testing uhAuth" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstLoginReq `shouldBe`
                     return (Left $ BadRequest "Bad authorization. ErrorMessage")
@@ -75,9 +74,9 @@ usersTests =
                 it "server should return token, because all is good" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { auth =
+                                       { uhAuth =
                                              \_ _ ->
                                                  return $ Right (Token "token")
                                        }
@@ -88,9 +87,9 @@ usersTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { auth =
+                                       { uhAuth =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -102,7 +101,7 @@ usersTests =
 {-
                                 REGISTRATION TESTS
 -}
-            describe "testing create_user_in_db" $ do
+            describe "testing uhCreateUserInDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstRegistrationReq `shouldBe`
                     return
@@ -122,9 +121,9 @@ usersTests =
                 it "server should return token, because all is good" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { create_user_in_db =
+                                       { uhCreateUserInDb =
                                              \_ ->
                                                  return $ Right $ Token "token"
                                        }
@@ -135,9 +134,9 @@ usersTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { create_user_in_db =
+                                       { uhCreateUserInDb =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })
@@ -149,7 +148,7 @@ usersTests =
 {-
                                 DELETE USER TESTS
 -}
-            describe "testing delete_user_from_db" $ do
+            describe "testing uhDeleteUserFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstDeleteUserReq `shouldBe`
                     return (Left $ BadRequest "User not deleted. ErrorMessage")
@@ -167,9 +166,9 @@ usersTests =
                 it "server should return message about successful deleting" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { delete_user_from_db =
+                                       { uhDeleteUserFromDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -178,9 +177,9 @@ usersTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { delete_user_from_db =
+                                       { uhDeleteUserFromDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -189,9 +188,9 @@ usersTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { delete_user_from_db =
+                                       { uhDeleteUserFromDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -201,9 +200,9 @@ usersTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { delete_user_from_db =
+                                       { uhDeleteUserFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -215,7 +214,7 @@ usersTests =
 {-
                                 PROFILE TESTS
 -}
-            describe "testing profile_on_db" $ do
+            describe "testing uhProfileOnDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstProfileReq `shouldBe`
                     return
@@ -236,9 +235,9 @@ usersTests =
                 it "server should return message about profile information" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { profile_on_db =
+                                       { uhProfileOnDb =
                                              \_ ->
                                                  return $
                                                  Right $
@@ -256,9 +255,9 @@ usersTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { profile_on_db =
+                                       { uhProfileOnDb =
                                              \_ -> return $ Left BadToken
                                        }
                              })
@@ -271,9 +270,9 @@ usersTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { users_handle =
+                             { usersHandle =
                                    usersHandler
-                                       { profile_on_db =
+                                       { uhProfileOnDb =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })

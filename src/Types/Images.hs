@@ -1,42 +1,38 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Types.Images where
 
-import Data.Aeson
-    ( KeyValue((.=))
-    , ToJSON(toJSON)
-    , defaultOptions
-    , genericToJSON
-    , object
-    )
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Internal as BI
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple (Binary, FromRow, ToRow)
-import GHC.Generics (Generic)
+import           Data.Aeson                 (KeyValue ((.=)), ToJSON (toJSON),
+                                             defaultOptions, genericToJSON,
+                                             object)
+import qualified Data.ByteString.Char8      as BC
+import qualified Data.ByteString.Internal   as BI
+import qualified Data.ByteString.Lazy       as LBS
+import qualified Data.Text                  as T
+import           Database.PostgreSQL.Simple (Binary, FromRow, ToRow)
+import           GHC.Generics               (Generic)
 
 data Image =
     Image
-        { image_file_name :: BC.ByteString
-        , image_content_type :: BC.ByteString
-        , image_content :: Binary LBS.ByteString
+        { imageFileName    :: BC.ByteString
+        , imageContentType :: BC.ByteString
+        , imageContent     :: Binary LBS.ByteString
         }
     deriving (Show, Generic, ToRow, FromRow, Eq)
 
 data ImageB =
     ImageB
-        { image_b :: Binary LBS.ByteString
-        , con_type :: BI.ByteString
+        { imageB  :: Binary LBS.ByteString
+        , conType :: BI.ByteString
         }
     deriving (Show, Generic, ToRow, FromRow, Eq)
 
 data ElemImageArray =
     ElemImageArray
-        { image_id :: Int
-        , image_name :: T.Text
+        { imageId   :: Int
+        , imageName :: T.Text
         }
     deriving (Show, Generic, ToRow, FromRow, Eq)
 

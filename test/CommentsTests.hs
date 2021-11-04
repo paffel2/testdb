@@ -27,19 +27,18 @@ hLogger =
 commentsHandler :: NewsAndCommentsHandle Identity
 commentsHandler =
     NewsAndCommentsHandle
-        { add_comment_to_db =
+        { nchAddCommentToDb =
               \comment_information -> return $ Left $ OtherError "ErrorMessage"
-        , delete_comment_from_db =
+        , nchDeleteCommentFromDb =
               \token comment_id -> return $ Left $ OtherError "ErrorMessage"
-        , get_comments_by_news_id_from_db =
+        , nchGetCommentsByNewsIdFromDb =
               \news_id page -> return $ Left $ OtherError "ErrorMessage"
-        , news_logger = hLogger
-        , news_parse_request_body = \request -> return ([], [])
+        , nchLogger = hLogger
+        , nchParseRequestBody = \request -> return ([], [])
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler =
-    OperationsHandle {news_and_comments_handle = commentsHandler}
+operationsHandler = OperationsHandle {newsAndCommentsHandle = commentsHandler}
 
 tstGetCommentsListReq :: Request
 tstGetCommentsListReq =
@@ -63,7 +62,7 @@ commentsTests :: IO ()
 commentsTests =
     hspec $ do
         describe "testing comments functions" $ do
-            describe "testing get_comments_by_news_id_from_db" $ do
+            describe "testing nchGetCommentsByNewsIdFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetCommentsListReq `shouldBe`
                     return
@@ -84,9 +83,9 @@ commentsTests =
                 it "server should return list of comments, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { get_comments_by_news_id_from_db =
+                                       { nchGetCommentsByNewsIdFromDb =
                                              \_ _ ->
                                                  return $
                                                  Right (CommentArray [])
@@ -98,9 +97,9 @@ commentsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { get_comments_by_news_id_from_db =
+                                       { nchGetCommentsByNewsIdFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -112,7 +111,7 @@ commentsTests =
 {-
                                 CREATE COMMENT TESTS
 -}
-            describe "testing add_comment_to_db" $ do
+            describe "testing nchAddCommentToDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstPostCommentReq `shouldBe`
                     return
@@ -133,9 +132,9 @@ commentsTests =
                     "server should return message about successful adding commentary, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { add_comment_to_db =
+                                       { nchAddCommentToDb =
                                              \_ -> return $ Right ()
                                        }
                              })
@@ -144,9 +143,9 @@ commentsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { add_comment_to_db =
+                                       { nchAddCommentToDb =
                                              \_ -> return $ Left BadToken
                                        }
                              })
@@ -156,9 +155,9 @@ commentsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { add_comment_to_db =
+                                       { nchAddCommentToDb =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })
@@ -170,7 +169,7 @@ commentsTests =
 {-
                                 DELETE COMMENT TESTS
 -}
-            describe "testing delete_comment_from_db" $ do
+            describe "testing nchDeleteCommentFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstDeleteCommentReq `shouldBe`
                     return
@@ -191,9 +190,9 @@ commentsTests =
                 it "server should return message about successful deleting" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { delete_comment_from_db =
+                                       { nchDeleteCommentFromDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -202,9 +201,9 @@ commentsTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { delete_comment_from_db =
+                                       { nchDeleteCommentFromDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -214,9 +213,9 @@ commentsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { delete_comment_from_db =
+                                       { nchDeleteCommentFromDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -227,9 +226,9 @@ commentsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    commentsHandler
-                                       { delete_comment_from_db =
+                                       { nchDeleteCommentFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })

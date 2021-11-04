@@ -17,7 +17,7 @@ import           Test.Hspec                       (describe, hspec, it,
                                                    shouldBe)
 
 import           Database.PostgreSQL.Simple.Types (PGArray (PGArray))
-import           Types.NewsAndComments            (GetNews (GetNews, gn_author_name, gn_category_name, gn_date_creation, gn_news_id, gn_news_main_image, gn_news_other_images, gn_news_tags, gn_news_text, gn_short_title),
+import           Types.NewsAndComments            (GetNews (..),
                                                    NewsArray (NewsArray))
 import           Types.Other                      (ResponseErrorMessage (BadRequest, InternalServerError, MethodNotAllowed, NotFound),
                                                    ResponseOkMessage (OkJSON),
@@ -30,46 +30,46 @@ hLogger =
 newsHandler :: NewsAndCommentsHandle Identity
 newsHandler =
     NewsAndCommentsHandle
-        { get_news_by_id_from_db =
+        { nchGetNewsByIdFromDb =
               \news_id -> return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_tag_in_from_db =
+        , nchGetNewsFilterByTagInFromDb =
               \tag_in_filter_param page ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_category_id_from_db =
+        , nchGetNewsFilterByCategoryIdFromDb =
               \category_id_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_title_from_db =
+        , nchGetNewsFilterByTitleFromDb =
               \title_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_author_name_from_db =
+        , nchGetgetNewsFilterByAuthorNameFromDb =
               \author_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_date_from_db =
+        , nchGetNewsFilterByDateFromDb =
               \date_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_tag_all_from_db =
+        , nchGetNewsFilterByTagAllFromDb =
               \tag_all_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_content_from_db =
+        , nchGetNewsFilterByContentFromDb =
               \content_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_after_date_from_db =
+        , nchGetNewsFilterByAfterDateFromDb =
               \after_date_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_before_date_from_db =
+        , nchGetNewsFilterByBeforeDateFromDb =
               \before_date_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_filter_by_tag_id_from_db =
+        , nchGetNewsFilterByTagIdFromDb =
               \tag_filter_param page sort ->
                   return $ Left $ OtherError "ErrorMessage"
-        , get_news_from_db =
+        , nchGetNewsFromDb =
               \sort page -> return $ Left $ OtherError "ErrorMessage"
-        , news_logger = hLogger
-        , news_parse_request_body = \request -> return ([], [])
+        , nchLogger = hLogger
+        , nchParseRequestBody = \request -> return ([], [])
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler = OperationsHandle {news_and_comments_handle = newsHandler}
+operationsHandler = OperationsHandle {newsAndCommentsHandle = newsHandler}
 
 tstGetNewsListReq :: Request
 tstGetNewsListReq =
@@ -159,24 +159,25 @@ tstGetNewsFilterdByBeforeDateReq =
         , queryString = [("before_date", Just "2021-11-19")]
         }
 
+tstNews :: GetNews
 tstNews =
     GetNews
-        { gn_news_id = 1
-        , gn_short_title = "title"
-        , gn_date_creation = read "2021-11-19" :: Day
-        , gn_author_name = "name"
-        , gn_category_name = "category"
-        , gn_news_text = "news text"
-        , gn_news_main_image = Just 1
-        , gn_news_other_images = Just (PGArray [2])
-        , gn_news_tags = Just (PGArray ["tag"])
+        { gnNewsId = 1
+        , gnShortTitle = "title"
+        , gnDateCreation = read "2021-11-19" :: Day
+        , gnAuthorName = "name"
+        , gnCategoryName = "category"
+        , gnNewsText = "news text"
+        , gnNewsMainImage = Just 1
+        , gnNewsOtherImages = Just (PGArray [2])
+        , gnNewsTags = Just (PGArray ["tag"])
         }
 
 newsTests :: IO ()
 newsTests =
     hspec $ do
         describe "testing news functions" $ do
-            describe "testing get_news_from_db" $ do
+            describe "testing nchGetNewsFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsListReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -194,9 +195,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_from_db =
+                                       { nchGetNewsFromDb =
                                              \_ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -207,9 +208,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_from_db =
+                                       { nchGetNewsFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -221,7 +222,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY TAG TESTS
 -}
-            describe "testing get_news_filter_by_tag_id_from_db" $ do
+            describe "testing nchGetNewsFilterByTagIdFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByTagIdReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -239,9 +240,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_tag_id_from_db =
+                                       { nchGetNewsFilterByTagIdFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -252,9 +253,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_tag_id_from_db =
+                                       { nchGetNewsFilterByTagIdFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -267,7 +268,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY TAG_IN TESTS
 -}
-            describe "testing get_news_filter_by_tag_in_from_db" $ do
+            describe "testing nchGetNewsFilterByTagInFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByTagInReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -285,9 +286,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_tag_in_from_db =
+                                       { nchGetNewsFilterByTagInFromDb =
                                              \_ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -298,9 +299,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_tag_in_from_db =
+                                       { nchGetNewsFilterByTagInFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -312,7 +313,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY CATEGORY ID TESTS
 -}
-            describe "testing get_news_filter_by_category_id_from_db" $ do
+            describe "testing nchGetNewsFilterByCategoryIdFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByCatIdReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -330,9 +331,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_category_id_from_db =
+                                       { nchGetNewsFilterByCategoryIdFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -343,9 +344,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_category_id_from_db =
+                                       { nchGetNewsFilterByCategoryIdFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -358,7 +359,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY TITLE TESTS
 -}
-            describe "testing get_news_filter_by_category_id_from_db" $ do
+            describe "testing nchGetNewsFilterByTitleFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByTitleReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -376,9 +377,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_title_from_db =
+                                       { nchGetNewsFilterByTitleFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -389,9 +390,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_title_from_db =
+                                       { nchGetNewsFilterByTitleFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -404,7 +405,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY AUTHOR TESTS
 -}
-            describe "testing get_news_filter_by_author_name_from_db" $ do
+            describe "testing nchGetgetNewsFilterByAuthorNameFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByAuthorReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -423,9 +424,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_author_name_from_db =
+                                       { nchGetgetNewsFilterByAuthorNameFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -436,9 +437,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_author_name_from_db =
+                                       { nchGetgetNewsFilterByAuthorNameFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -451,7 +452,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY DATE TESTS
 -}
-            describe "testing get_news_filter_by_date_from_db" $ do
+            describe "testing nchGetNewsFilterByDateFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByDateReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -469,9 +470,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_date_from_db =
+                                       { nchGetNewsFilterByDateFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -482,9 +483,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_date_from_db =
+                                       { nchGetNewsFilterByDateFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -497,7 +498,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY TAG_ALL TESTS
 -}
-            describe "testing get_news_filter_by_tag_all_from_db" $ do
+            describe "testing nchGetNewsFilterByTagAllFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByTagAllReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -516,9 +517,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_tag_all_from_db =
+                                       { nchGetNewsFilterByTagAllFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -529,9 +530,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_tag_all_from_db =
+                                       { nchGetNewsFilterByTagAllFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -544,7 +545,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY TAG_ALL TESTS
 -}
-            describe "testing get_news_filter_by_content_from_db" $ do
+            describe "testing nchGetNewsFilterByContentFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByContentReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -563,9 +564,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_content_from_db =
+                                       { nchGetNewsFilterByContentFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -576,9 +577,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_content_from_db =
+                                       { nchGetNewsFilterByContentFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -591,7 +592,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY AFTER_DATE TESTS
 -}
-            describe "testing get_news_filter_by_after_date_from_db" $ do
+            describe "testing nchGetNewsFilterByAfterDateFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByAfterDateReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -611,9 +612,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_after_date_from_db =
+                                       { nchGetNewsFilterByAfterDateFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -624,9 +625,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_after_date_from_db =
+                                       { nchGetNewsFilterByAfterDateFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -639,7 +640,7 @@ newsTests =
 {-
                     GET NEWS FILTERED BY BEFORE_DATE TESTS
 -}
-            describe "testing get_news_filter_by_before_date_from_db" $ do
+            describe "testing nchGetNewsFilterByBeforeDateFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsFilterdByBeforeDateReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -659,9 +660,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_before_date_from_db =
+                                       { nchGetNewsFilterByBeforeDateFromDb =
                                              \_ _ _ ->
                                                  return $ Right (NewsArray [])
                                        }
@@ -672,9 +673,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_filter_by_before_date_from_db =
+                                       { nchGetNewsFilterByBeforeDateFromDb =
                                              \_ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -687,7 +688,7 @@ newsTests =
 {-
                     GET NEWS BY ID TESTS
 -}
-            describe "testing get_news_by_id_from_db" $ do
+            describe "testing nchGetNewsByIdFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetNewsByIdReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
@@ -700,9 +701,9 @@ newsTests =
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_by_id_from_db =
+                                       { nchGetNewsByIdFromDb =
                                              \_ -> return $ Right tstNews
                                        }
                              })
@@ -715,9 +716,9 @@ newsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { news_and_comments_handle =
+                             { newsAndCommentsHandle =
                                    newsHandler
-                                       { get_news_by_id_from_db =
+                                       { nchGetNewsByIdFromDb =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })

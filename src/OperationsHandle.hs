@@ -77,13 +77,13 @@ import           Types.Users                        (CreateUser, Login,
 
 data OperationsHandle m =
     OperationsHandle
-        { authors_handle           :: AuthorsHandle m
-        , categories_handle        :: CategoriesHandle m
-        , drafts_handle            :: DraftsHandle m
-        , images_handle            :: ImagesHandle m
-        , news_and_comments_handle :: NewsAndCommentsHandle m
-        , tags_handle              :: TagsHandle m
-        , users_handle             :: UsersHandle m
+        { authorsHandle         :: AuthorsHandle m
+        , categoriesHandle      :: CategoriesHandle m
+        , draftsHandle          :: DraftsHandle m
+        , imagesHandle          :: ImagesHandle m
+        , newsAndCommentsHandle :: NewsAndCommentsHandle m
+        , tagsHandle            :: TagsHandle m
+        , usersHandle           :: UsersHandle m
         }
 
 operationsHandler ::
@@ -93,48 +93,46 @@ operationsHandler ::
     -> OperationsHandle IO
 operationsHandler hLogger pool tokenLifeTime =
     OperationsHandle
-        { authors_handle = authorsHandler pool hLogger tokenLifeTime
-        , categories_handle = categoriesHandler pool hLogger tokenLifeTime
-        , drafts_handle = draftsHandler pool hLogger tokenLifeTime
-        , images_handle = imagesHandler pool hLogger
-        , news_and_comments_handle =
+        { authorsHandle = authorsHandler pool hLogger tokenLifeTime
+        , categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
+        , draftsHandle = draftsHandler pool hLogger tokenLifeTime
+        , imagesHandle = imagesHandler pool hLogger
+        , newsAndCommentsHandle =
               newsAndCommentsHandler pool hLogger tokenLifeTime
-        , tags_handle = tagsHandler pool hLogger tokenLifeTime
-        , users_handle = usersHandler pool hLogger tokenLifeTime
+        , tagsHandle = tagsHandler pool hLogger tokenLifeTime
+        , usersHandle = usersHandler pool hLogger tokenLifeTime
         }
 
 data AuthorsHandle m =
     AuthorsHandle
-        { create_author_in_db :: Maybe Token -> CreateAuthor -> m (Either SomeError SendId)
-        , delete_author_in_db :: Maybe Token -> Maybe AuthorLogin -> m (Either SomeError ())
-        , get_authors_list :: Maybe Page -> m (Either SomeError AuthorsList)
-        , edit_author_in_db :: Maybe Token -> EditAuthor -> m (Either SomeError ())
-        , authors_logger :: LoggerHandle m
-        , authors_parse_request_body :: Request -> m ( [Param]
-                                                     , [File LBS.ByteString])
+        { ahCreateAuthorInDb :: Maybe Token -> CreateAuthor -> m (Either SomeError SendId)
+        , ahDeleteAuthorInDb :: Maybe Token -> Maybe AuthorLogin -> m (Either SomeError ())
+        , ahGetAuthorsList :: Maybe Page -> m (Either SomeError AuthorsList)
+        , ahEditAuthorInDb :: Maybe Token -> EditAuthor -> m (Either SomeError ())
+        , ahLogger :: LoggerHandle m
+        , ahParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 authorsHandler ::
        Pool Connection -> LoggerHandle IO -> TokenLifeTime -> AuthorsHandle IO
 authorsHandler pool hLogger tokenLifeTime =
     AuthorsHandle
-        { create_author_in_db = createAuthorInDb pool tokenLifeTime hLogger
-        , delete_author_in_db = deleteAuthorInDb pool tokenLifeTime hLogger
-        , get_authors_list = getAuthorsList pool hLogger
-        , edit_author_in_db = editAuthorInDb pool tokenLifeTime hLogger
-        , authors_logger = hLogger
-        , authors_parse_request_body = parseRequestBody lbsBackEnd
+        { ahCreateAuthorInDb = createAuthorInDb pool tokenLifeTime hLogger
+        , ahDeleteAuthorInDb = deleteAuthorInDb pool tokenLifeTime hLogger
+        , ahGetAuthorsList = getAuthorsList pool hLogger
+        , ahEditAuthorInDb = editAuthorInDb pool tokenLifeTime hLogger
+        , ahLogger = hLogger
+        , ahParseRequestBody = parseRequestBody lbsBackEnd
         }
 
 data CategoriesHandle m =
     CategoriesHandle
-        { get_categories_list_from_db :: Maybe Page -> m (Either SomeError ListOfCategories)
-        , create_category_on_db :: Maybe Token -> CreateCategory -> m (Either SomeError SendId)
-        , delete_category_from_db :: Maybe Token -> Maybe CategoryName -> m (Either SomeError ())
-        , edit_category_on_db :: Maybe Token -> EditCategory -> m (Either SomeError ())
-        , categories_logger :: LoggerHandle m
-        , cat_parse_request_body :: Request -> m ( [Param]
-                                                 , [File LBS.ByteString])
+        { chGetCategoriesListFromDb :: Maybe Page -> m (Either SomeError ListOfCategories)
+        , chCreateCategoryOnDb :: Maybe Token -> CreateCategory -> m (Either SomeError SendId)
+        , chDeleteCategoryFromDb :: Maybe Token -> Maybe CategoryName -> m (Either SomeError ())
+        , chEditCategoryOnDb :: Maybe Token -> EditCategory -> m (Either SomeError ())
+        , chLogger :: LoggerHandle m
+        , chParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 categoriesHandler ::
@@ -144,79 +142,76 @@ categoriesHandler ::
     -> CategoriesHandle IO
 categoriesHandler pool hLogger tokenLifeTime =
     CategoriesHandle
-        { get_categories_list_from_db = getCategoriesListFromDb pool hLogger
-        , create_category_on_db = createCategoryOnDb pool tokenLifeTime hLogger
-        , delete_category_from_db =
+        { chGetCategoriesListFromDb = getCategoriesListFromDb pool hLogger
+        , chCreateCategoryOnDb = createCategoryOnDb pool tokenLifeTime hLogger
+        , chDeleteCategoryFromDb =
               deleteCategoryFromDb pool tokenLifeTime hLogger
-        , edit_category_on_db = editCategoryOnDb pool tokenLifeTime hLogger
-        , categories_logger = hLogger
-        , cat_parse_request_body = parseRequestBody lbsBackEnd
+        , chEditCategoryOnDb = editCategoryOnDb pool tokenLifeTime hLogger
+        , chLogger = hLogger
+        , chParseRequestBody = parseRequestBody lbsBackEnd
         }
 
 data DraftsHandle m =
     DraftsHandle
-        { get_drafts_by_author_token :: Maybe Token -> m (Either SomeError DraftArray)
-        , delete_draft_from_db :: Maybe Token -> Maybe Id -> m (Either SomeError ())
-        , get_draft_by_id_from_db :: Maybe Token -> Id -> m (Either SomeError Draft)
-        , create_draft_on_db :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m (Either SomeError SendId)
-        , update_draft_in_db :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either SomeError ())
-        , public_news_on_db :: Maybe Token -> Id -> m (Either SomeError SendId)
-        , drafts_logger :: LoggerHandle m
-        , drafts_parse_request_body :: Request -> m ( [Param]
-                                                    , [File LBS.ByteString])
+        { dhGetDraftsByAuthorToken :: Maybe Token -> m (Either SomeError DraftArray)
+        , dhDeleteDraftFromDb :: Maybe Token -> Maybe Id -> m (Either SomeError ())
+        , dhGetDraftByIdFromDb :: Maybe Token -> Id -> m (Either SomeError Draft)
+        , dhCreateDraftOnDb :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m (Either SomeError SendId)
+        , dhUpdateDraftInDb :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either SomeError ())
+        , dhPublicNewsOnDb :: Maybe Token -> Id -> m (Either SomeError SendId)
+        , dhLogger :: LoggerHandle m
+        , dhParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 draftsHandler ::
        Pool Connection -> LoggerHandle IO -> TokenLifeTime -> DraftsHandle IO
 draftsHandler pool hLogger tokenLifeTime =
     DraftsHandle
-        { get_drafts_by_author_token =
+        { dhGetDraftsByAuthorToken =
               getDraftsByAuthorToken pool tokenLifeTime hLogger
-        , delete_draft_from_db = deleteDraftFromDb pool tokenLifeTime hLogger
-        , get_draft_by_id_from_db =
-              getDraftByIdFromDb pool tokenLifeTime hLogger
-        , create_draft_on_db = createDraftOnDb pool tokenLifeTime hLogger
-        , update_draft_in_db = updateDraftInDb pool tokenLifeTime hLogger
-        , public_news_on_db = publicNewsOnDb pool tokenLifeTime hLogger
-        , drafts_logger = hLogger
-        , drafts_parse_request_body = parseRequestBody lbsBackEnd
+        , dhDeleteDraftFromDb = deleteDraftFromDb pool tokenLifeTime hLogger
+        , dhGetDraftByIdFromDb = getDraftByIdFromDb pool tokenLifeTime hLogger
+        , dhCreateDraftOnDb = createDraftOnDb pool tokenLifeTime hLogger
+        , dhUpdateDraftInDb = updateDraftInDb pool tokenLifeTime hLogger
+        , dhPublicNewsOnDb = publicNewsOnDb pool tokenLifeTime hLogger
+        , dhLogger = hLogger
+        , dhParseRequestBody = parseRequestBody lbsBackEnd
         }
 
 data ImagesHandle m =
     ImagesHandle
-        { get_photo      :: Id -> m (Either SomeError ImageB)
-        , get_photo_list :: Maybe Page -> m (Either SomeError ImageArray)
-        , photos_logger  :: LoggerHandle m
+        { ihGetPhoto     :: Id -> m (Either SomeError ImageB)
+        , ihGetPhotoList :: Maybe Page -> m (Either SomeError ImageArray)
+        , ihLogger       :: LoggerHandle m
         }
 
 imagesHandler :: Pool Connection -> LoggerHandle IO -> ImagesHandle IO
 imagesHandler pool hLogger =
     ImagesHandle
-        { get_photo = getPhotoFromDb pool hLogger
-        , get_photo_list = getPhotoListFromDb pool hLogger
-        , photos_logger = hLogger
+        { ihGetPhoto = getPhotoFromDb pool hLogger
+        , ihGetPhotoList = getPhotoListFromDb pool hLogger
+        , ihLogger = hLogger
         }
 
 data NewsAndCommentsHandle m =
     NewsAndCommentsHandle
-        { add_comment_to_db :: CommentWithoutTokenLifeTime -> m (Either SomeError ())
-        , delete_comment_from_db :: Maybe Token -> Maybe Id -> m (Either SomeError ())
-        , get_comments_by_news_id_from_db :: Maybe Id -> Maybe Page -> m (Either SomeError CommentArray)
-        , get_news_by_id_from_db :: Maybe Id -> m (Either SomeError GetNews)
-        , get_news_filter_by_tag_in_from_db :: Maybe TagInFilterParam -> Maybe Page -> m (Either SomeError NewsArray)
-        , get_news_filter_by_category_id_from_db :: Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_title_from_db :: Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_author_name_from_db :: Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_date_from_db :: Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_tag_all_from_db :: Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_content_from_db :: Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_after_date_from_db :: Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_before_date_from_db :: Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_filter_by_tag_id_from_db :: Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , get_news_from_db :: Sort -> Maybe Page -> m (Either SomeError NewsArray)
-        , news_logger :: LoggerHandle m
-        , news_parse_request_body :: Request -> m ( [Param]
-                                                  , [File LBS.ByteString])
+        { nchAddCommentToDb :: CommentWithoutTokenLifeTime -> m (Either SomeError ())
+        , nchDeleteCommentFromDb :: Maybe Token -> Maybe Id -> m (Either SomeError ())
+        , nchGetCommentsByNewsIdFromDb :: Maybe Id -> Maybe Page -> m (Either SomeError CommentArray)
+        , nchGetNewsByIdFromDb :: Maybe Id -> m (Either SomeError GetNews)
+        , nchGetNewsFilterByTagInFromDb :: Maybe TagInFilterParam -> Maybe Page -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByCategoryIdFromDb :: Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByTitleFromDb :: Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetgetNewsFilterByAuthorNameFromDb :: Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByDateFromDb :: Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByTagAllFromDb :: Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByContentFromDb :: Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByAfterDateFromDb :: Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByBeforeDateFromDb :: Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFilterByTagIdFromDb :: Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
+        , nchGetNewsFromDb :: Sort -> Maybe Page -> m (Either SomeError NewsArray)
+        , nchLogger :: LoggerHandle m
+        , nchParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 newsAndCommentsHandler ::
@@ -226,79 +221,75 @@ newsAndCommentsHandler ::
     -> NewsAndCommentsHandle IO
 newsAndCommentsHandler pool hLogger tokenLifeTime =
     NewsAndCommentsHandle
-        { add_comment_to_db = addCommentToDb pool tokenLifeTime hLogger
-        , delete_comment_from_db =
+        { nchAddCommentToDb = addCommentToDb pool tokenLifeTime hLogger
+        , nchDeleteCommentFromDb =
               deleteCommentFromDb pool tokenLifeTime hLogger
-        , get_comments_by_news_id_from_db =
-              getCommentsByNewsIdFromDb pool hLogger
-        , get_news_by_id_from_db = getNewsByIdFromDb pool hLogger
-        , get_news_filter_by_tag_in_from_db =
+        , nchGetCommentsByNewsIdFromDb = getCommentsByNewsIdFromDb pool hLogger
+        , nchGetNewsByIdFromDb = getNewsByIdFromDb pool hLogger
+        , nchGetNewsFilterByTagInFromDb =
               getNewsFilterByTagInFromDb pool hLogger
-        , get_news_filter_by_category_id_from_db =
+        , nchGetNewsFilterByCategoryIdFromDb =
               getNewsFilterByCategoryIdFromDb pool hLogger
-        , get_news_filter_by_title_from_db =
+        , nchGetNewsFilterByTitleFromDb =
               getNewsFilterByTitleFromDb pool hLogger
-        , get_news_filter_by_author_name_from_db =
+        , nchGetgetNewsFilterByAuthorNameFromDb =
               getNewsFilterByAuthorNameFromDb pool hLogger
-        , get_news_filter_by_date_from_db =
-              getNewsFilterByDateFromDb pool hLogger
-        , get_news_filter_by_tag_all_from_db =
+        , nchGetNewsFilterByDateFromDb = getNewsFilterByDateFromDb pool hLogger
+        , nchGetNewsFilterByTagAllFromDb =
               getNewsFilterByTagAllFromDb pool hLogger
-        , get_news_filter_by_content_from_db =
+        , nchGetNewsFilterByContentFromDb =
               getNewsFilterByContentFromDb pool hLogger
-        , get_news_filter_by_after_date_from_db =
+        , nchGetNewsFilterByAfterDateFromDb =
               getNewsFilterByAfterDateFromDb pool hLogger
-        , get_news_filter_by_before_date_from_db =
+        , nchGetNewsFilterByBeforeDateFromDb =
               getNewsFilterByBeforeDateFromDb pool hLogger
-        , get_news_filter_by_tag_id_from_db =
+        , nchGetNewsFilterByTagIdFromDb =
               getNewsFilterByTagIdFromDb pool hLogger
-        , get_news_from_db = getNewsFromDb pool hLogger
-        , news_logger = hLogger
-        , news_parse_request_body = parseRequestBody lbsBackEnd
+        , nchGetNewsFromDb = getNewsFromDb pool hLogger
+        , nchLogger = hLogger
+        , nchParseRequestBody = parseRequestBody lbsBackEnd
         }
 
 data TagsHandle m =
     TagsHandle
-        { create_tag_in_db :: Maybe Token -> Maybe TagName -> m (Either SomeError SendId)
-        , delete_tag_from_db :: Maybe Token -> Maybe TagName -> m (Either SomeError ())
-        , get_tags_list_from_db :: Maybe Page -> m (Either SomeError TagsList)
-        , edit_tag_in_db :: Maybe Token -> EditTag -> m (Either SomeError ())
-        , tags_logger :: LoggerHandle m
-        , tags_parse_request_body :: Request -> m ( [Param]
-                                                  , [File LBS.ByteString])
+        { thCreateTagInDb :: Maybe Token -> Maybe TagName -> m (Either SomeError SendId)
+        , thDeleteTagFromDb :: Maybe Token -> Maybe TagName -> m (Either SomeError ())
+        , thGetTagsListFromDb :: Maybe Page -> m (Either SomeError TagsList)
+        , thEditTagInDb :: Maybe Token -> EditTag -> m (Either SomeError ())
+        , thLogger :: LoggerHandle m
+        , thParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 tagsHandler ::
        Pool Connection -> LoggerHandle IO -> TokenLifeTime -> TagsHandle IO
 tagsHandler pool hLogger tokenLifeTime =
     TagsHandle
-        { create_tag_in_db = createTagInDb pool tokenLifeTime hLogger
-        , delete_tag_from_db = deleteTagFromDb pool tokenLifeTime hLogger
-        , get_tags_list_from_db = getTagsListFromDb pool hLogger
-        , edit_tag_in_db = editTagInDb pool tokenLifeTime hLogger
-        , tags_logger = hLogger
-        , tags_parse_request_body = parseRequestBody lbsBackEnd
+        { thCreateTagInDb = createTagInDb pool tokenLifeTime hLogger
+        , thDeleteTagFromDb = deleteTagFromDb pool tokenLifeTime hLogger
+        , thGetTagsListFromDb = getTagsListFromDb pool hLogger
+        , thEditTagInDb = editTagInDb pool tokenLifeTime hLogger
+        , thLogger = hLogger
+        , thParseRequestBody = parseRequestBody lbsBackEnd
         }
 
 data UsersHandle m =
     UsersHandle
-        { auth :: Maybe Login -> Maybe Password -> m (Either SomeError Token)
-        , create_user_in_db :: CreateUser -> m (Either SomeError Token)
-        , delete_user_from_db :: Maybe Token -> Maybe Login -> m (Either SomeError ())
-        , profile_on_db :: Maybe Token -> m (Either SomeError Profile)
-        , users_logger :: LoggerHandle m
-        , users_parse_request_body :: Request -> m ( [Param]
-                                                   , [File LBS.ByteString])
+        { uhAuth :: Maybe Login -> Maybe Password -> m (Either SomeError Token)
+        , uhCreateUserInDb :: CreateUser -> m (Either SomeError Token)
+        , uhDeleteUserFromDb :: Maybe Token -> Maybe Login -> m (Either SomeError ())
+        , uhProfileOnDb :: Maybe Token -> m (Either SomeError Profile)
+        , uhLogger :: LoggerHandle m
+        , uhParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 usersHandler ::
        Pool Connection -> LoggerHandle IO -> TokenLifeTime -> UsersHandle IO
 usersHandler pool hLogger tokenLifeTime =
     UsersHandle
-        { auth = authentication pool hLogger
-        , create_user_in_db = createUserInDb pool hLogger
-        , delete_user_from_db = deleteUserFromDb pool tokenLifeTime hLogger
-        , profile_on_db = profileOnDb pool tokenLifeTime hLogger
-        , users_logger = hLogger
-        , users_parse_request_body = parseRequestBody lbsBackEnd
+        { uhAuth = authentication pool hLogger
+        , uhCreateUserInDb = createUserInDb pool hLogger
+        , uhDeleteUserFromDb = deleteUserFromDb pool tokenLifeTime hLogger
+        , uhProfileOnDb = profileOnDb pool tokenLifeTime hLogger
+        , uhLogger = hLogger
+        , uhParseRequestBody = parseRequestBody lbsBackEnd
         }

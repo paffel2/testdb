@@ -12,10 +12,10 @@ import           HelpFunction              (myLookup, readByteStringToId)
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import           Network.Wai               (Request (queryString, rawPathInfo, requestMethod))
-import           OperationsHandle          (NewsAndCommentsHandle (add_comment_to_db, delete_comment_from_db, get_comments_by_news_id_from_db, get_news_by_id_from_db, get_news_filter_by_after_date_from_db, get_news_filter_by_author_name_from_db, get_news_filter_by_before_date_from_db, get_news_filter_by_category_id_from_db, get_news_filter_by_content_from_db, get_news_filter_by_date_from_db, get_news_filter_by_tag_all_from_db, get_news_filter_by_tag_id_from_db, get_news_filter_by_tag_in_from_db, get_news_filter_by_title_from_db, get_news_from_db, news_logger, news_parse_request_body))
+import           OperationsHandle          (NewsAndCommentsHandle (nchAddCommentToDb, nchDeleteCommentFromDb, nchGetCommentsByNewsIdFromDb, nchGetNewsByIdFromDb, nchGetNewsFilterByAfterDateFromDb, nchGetNewsFilterByBeforeDateFromDb, nchGetNewsFilterByCategoryIdFromDb, nchGetNewsFilterByContentFromDb, nchGetNewsFilterByDateFromDb, nchGetNewsFilterByTagAllFromDb, nchGetNewsFilterByTagIdFromDb, nchGetNewsFilterByTagInFromDb, nchGetNewsFilterByTitleFromDb, nchGetNewsFromDb, nchGetgetNewsFilterByAuthorNameFromDb, nchLogger, nchParseRequestBody))
 import           Responses                 (toResponseErrorMessage)
 import           Text.Read                 (readMaybe)
-import           Types.NewsAndComments     (CommentWithoutTokenLifeTime (CommentWithoutTokenLifeTime, comment_news_id', comment_text'', comment_token'))
+import           Types.NewsAndComments     (CommentWithoutTokenLifeTime (..))
 import           Types.Other               (Id,
                                             ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage),
@@ -29,15 +29,15 @@ deleteCommentById ::
 deleteCommentById operations req =
     if requestMethod req /= methodDelete
         then do
-            logError (news_logger operations) "Bad request method"
+            logError (nchLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (news_logger operations)
+                (nchLogger operations)
                 "Preparing data for deleting commentary"
-            let token' = takeToken req
-            let comment_id = toCommentId req
-            result <- delete_comment_from_db operations token' comment_id
+            let token = takeToken req
+            let commentId = toCommentId req
+            result <- nchDeleteCommentFromDb operations token commentId
             case result of
                 Left someError ->
                     return $
@@ -46,60 +46,29 @@ deleteCommentById operations req =
                 Right _ -> do
                     return $ Right $ OkMessage "Commentary deleted."
 
-{-addCommentByNewsId ::
-       MonadIO m
-    => LoggerHandle m
-    -> NewsAndCommentsHandle m
-    -> TokenLifeTime
-    -> Request
-    -> Maybe Id
-    -> m Response
-addCommentByNewsId hLogger operations token_lifetime req news'_id =
-    if requestMethod req /= methodPost
-        then do
-            logError hLogger "Bad request method"
-            return $ responseMethodNotAllowed "Bad request method"
-        else do
-            logInfo hLogger "Preparing data for adding commentary"
-            (i, _) <-
-                liftIO $
-                parseRequestBodyEx noLimitParseRequestBodyOptions lbsBackEnd req
-            let comment =
-                    Comment
-                        { comment_token = takeToken req
-                        , comment_token_lifetime = token_lifetime
-                        , comment_text = toCommentText i
-                        , comment_news_id = news'_id
-                        }
-            result <- add_comment_to_db operations hLogger comment
-            case result of
-                Left someError ->
-                    return $ badResponse "Commentary not added." someError
-                Right _ -> do
-                    return $ responseCreated "Commentary added" -}
 postCommentByNewsId ::
        Monad m
     => NewsAndCommentsHandle m
     -> Request
     -> Maybe Id
     -> m (Either ResponseErrorMessage ResponseOkMessage)
-postCommentByNewsId operations req news'_id =
+postCommentByNewsId operations req newsId =
     if requestMethod req /= methodPost
         then do
-            logError (news_logger operations) "Bad request method"
+            logError (nchLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (news_logger operations)
+                (nchLogger operations)
                 "Preparing data for adding commentary"
-            (i, _) <- news_parse_request_body operations req
+            (i, _) <- nchParseRequestBody operations req
             let comment =
                     CommentWithoutTokenLifeTime
-                        { comment_token' = takeToken req
-                        , comment_text'' = toCommentText i
-                        , comment_news_id' = news'_id
+                        { commentWTLToken = takeToken req
+                        , commentWTLText = toCommentText i
+                        , commentWTLNewsId = newsId
                         }
-            result <- add_comment_to_db operations comment
+            result <- nchAddCommentToDb operations comment
             case result of
                 Left someError ->
                     return $
@@ -114,18 +83,17 @@ sendCommentsByNewsId ::
     -> Request
     -> Maybe Id
     -> m (Either ResponseErrorMessage ResponseOkMessage)
-sendCommentsByNewsId operations req news'_id =
+sendCommentsByNewsId operations req newsId =
     if requestMethod req /= methodGet
         then do
-            logError (news_logger operations) "Bad request method"
+            logError (nchLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (news_logger operations)
+                (nchLogger operations)
                 "Preparing data for sending commentary list"
             let pageParam = toPage req
-            result <-
-                get_comments_by_news_id_from_db operations news'_id pageParam
+            result <- nchGetCommentsByNewsIdFromDb operations newsId pageParam
             case result of
                 Left someError ->
                     return $
@@ -143,16 +111,16 @@ getNewsById ::
 getNewsById operations req newsId =
     if requestMethod req /= methodGet
         then do
-            logError (news_logger operations) "Bad request method"
+            logError (nchLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo (news_logger operations) "Preparing data for sending news"
-            result <- get_news_by_id_from_db operations newsId
+            logInfo (nchLogger operations) "Preparing data for sending news"
+            result <- nchGetNewsByIdFromDb operations newsId
             case result of
                 Left someError ->
                     return $
                     Left $ toResponseErrorMessage "News not sended." someError
-                Right gn -> return $ Right $ OkJSON $ encode gn
+                Right someNews -> return $ Right $ OkJSON $ encode someNews
 
 getNews ::
        Monad m
@@ -165,75 +133,75 @@ getNews operations req =
             result <-
                 case filterParamName of
                     Just "tag_in" ->
-                        get_news_filter_by_tag_in_from_db
+                        nchGetNewsFilterByTagInFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                     Just "category" ->
-                        get_news_filter_by_category_id_from_db
+                        nchGetNewsFilterByCategoryIdFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "title" ->
-                        get_news_filter_by_title_from_db
+                        nchGetNewsFilterByTitleFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "author" ->
-                        get_news_filter_by_author_name_from_db
+                        nchGetgetNewsFilterByAuthorNameFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "date" ->
-                        get_news_filter_by_date_from_db
+                        nchGetNewsFilterByDateFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "tag_all" ->
-                        get_news_filter_by_tag_all_from_db
+                        nchGetNewsFilterByTagAllFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "content" ->
-                        get_news_filter_by_content_from_db
+                        nchGetNewsFilterByContentFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "after_date" ->
-                        get_news_filter_by_after_date_from_db
+                        nchGetNewsFilterByAfterDateFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "before_date" ->
-                        get_news_filter_by_before_date_from_db
+                        nchGetNewsFilterByBeforeDateFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just "tag" ->
-                        get_news_filter_by_tag_id_from_db
+                        nchGetNewsFilterByTagIdFromDb
                             operations
                             (toFilterParam req)
                             pageParam
                             sortParam
                     Just _ -> do
-                        logError (news_logger operations) "Bad request"
+                        logError (nchLogger operations) "Bad request"
                         return . Left . OtherError $ "Bad request"
-                    Nothing -> get_news_from_db operations sortParam pageParam
+                    Nothing -> nchGetNewsFromDb operations sortParam pageParam
             case result of
                 Left someError ->
                     return $
                     Left $ toResponseErrorMessage "News not sended." someError
-                Right na -> return $ Right $ OkJSON $ encode na
+                Right newsArray -> return $ Right $ OkJSON $ encode newsArray
         else do
-            logError (news_logger operations) "Bad request method"
+            logError (nchLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
   where
     queryParams = queryString req
@@ -265,26 +233,26 @@ newsAndCommentsRouter operations req
         if last pathElems == "comments"
             then sendCommentsByNewsId operations req newsId
             else do
-                logError (news_logger operations) "Bad url"
+                logError (nchLogger operations) "Bad url"
                 return $ Left $ NotFound "Not Found"
     | pathElemC == 4 =
         case last pathElems of
             "add_comment" -> do
-                let news'_id = readByteStringToId . head . tail $ pathElems
-                postCommentByNewsId operations req news'_id
+                let newsId = readByteStringToId . head . tail $ pathElems
+                postCommentByNewsId operations req newsId
             "delete_comment" -> do
-                let news'_id =
+                let newsId =
                         readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
-                case news'_id of
+                case newsId of
                     Nothing -> do
-                        logError (news_logger operations) "Bad news id"
+                        logError (nchLogger operations) "Bad news id"
                         return $ Left $ BadRequest "Bad news id"
                     Just _ -> deleteCommentById operations req
             _ -> do
-                logError (news_logger operations) "Bad url"
+                logError (nchLogger operations) "Bad url"
                 return $ Left $ NotFound "Not Found"
     | otherwise = do
-        logError (news_logger operations) "Bad url"
+        logError (nchLogger operations) "Bad url"
         return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

@@ -9,38 +9,38 @@ import           Types.Images                       (ImageB)
 
 newtype TokenLifeTime =
     TokenLifeTime
-        { token_life_time :: Int
+        { getTokenLifeTime :: Int
         }
 
 instance Show TokenLifeTime where
     show (TokenLifeTime tk) = show tk
 
 instance ToField TokenLifeTime where
-    toField = toField . token_life_time
+    toField = toField . getTokenLifeTime
 
 newtype Page =
     Page
-        { from_page :: Int
+        { getPage :: Int
         }
     deriving (Show, Eq)
 
 newtype Token =
     Token
-        { from_token :: T.Text
+        { getToken :: T.Text
         }
     deriving (Show, Eq)
 
 instance ToField Token where
-    toField = toField . from_token
+    toField = toField . getToken
 
 newtype Id =
     Id
-        { from_id :: Int
+        { getId :: Int
         }
     deriving (Show, Eq)
 
 instance ToField Id where
-    toField = toField . from_id
+    toField = toField . getId
 
 data SomeError
     = BadToken

@@ -12,7 +12,7 @@ import           Network.HTTP.Types         (Status, badRequest400,
                                              methodNotAllowed405, notFound404,
                                              status200, status201)
 import           Network.Wai                (Response, responseLBS)
-import           Types.Images               (ImageB (con_type, image_b))
+import           Types.Images               (ImageB (conType, imageB))
 import           Types.Other                (ResponseErrorMessage (..),
                                              ResponseOkMessage (..),
                                              SomeError (..))
@@ -72,7 +72,7 @@ toResponse (Right (Created message)) = responseOk message
 toResponse (Right (OkJSON someJson)) = responseOKJSON someJson
 toResponse (Right (OkMessage message)) = responseOk message
 toResponse (Right (OkImage image)) =
-    responseOKImage (con_type image) (fromBinary $ image_b image)
+    responseOKImage (conType image) (fromBinary $ imageB image)
 
 toResponseErrorMessage :: LBS.ByteString -> SomeError -> ResponseErrorMessage
 toResponseErrorMessage prefix BadToken =

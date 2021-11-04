@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Databaseoperations.CheckDatabase where
@@ -18,7 +19,7 @@ import           Logger                     (LoggerHandle, logDebug, logError,
 import           PostgreSqlWithPool         (executeWithPool, execute_WithPool,
                                              query_WithPool)
 import           Types.Other                (SomeError (DatabaseError, OtherError),
-                                             Token (from_token))
+                                             Token (getToken))
 import           Types.Users                (AdminData (..), Login (Login),
                                              Password (Password))
 
@@ -33,15 +34,14 @@ checkFill hLogger pool =
                 then return . Left . OtherError $
                      "Database not exist or unavailable"
                 else do
-                    let num_of_tables = fromOnly $ Prelude.head n
-                    if num_of_tables /= 13
+                    let numOfTables = fromOnly $ Prelude.head n
+                    if numOfTables /= 13
                         then do
                             return $ Left $ OtherError "Database not filled"
                         else return $ Right ()) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $ "Database error " <> T.pack (show errStateInt)
         return $ Left DatabaseError
 
 checkDb :: LoggerHandle IO -> Pool Connection -> IO Bool
@@ -67,30 +67,30 @@ checkDb hLogger pool =
 createDbClear :: LoggerHandle IO -> Pool Connection -> IO Bool
 createDbClear hLogger pool = do
     logInfo hLogger "Input new admin login"
-    new_admin_login <- getMaybeLine
+    newAdminLogin <- getMaybeLine
     logInfo hLogger "Input new admin password"
-    new_admin_password <- getMaybeLine
+    newAdminPassword <- getMaybeLine
     logInfo hLogger "Input new admin first name"
-    new_admin_first_name <- getMaybeLine
+    newAdminFirstName <- getMaybeLine
     logInfo hLogger "Input new admin last name"
-    new_admin_last_name <- getMaybeLine
-    let admin_information =
+    newAdminLastName <- getMaybeLine
+    let adminInformation =
             AdminData
-                { admin_login = Login <$> new_admin_login
-                , admin_password = Password <$> new_admin_password
-                , admin_first_name = new_admin_first_name
-                , admin_last_name = new_admin_last_name
-                , admin_mark' = True
+                { adminLogin = Login <$> newAdminLogin
+                , adminPassword = Password <$> newAdminPassword
+                , adminFirstName = newAdminFirstName
+                , adminLastName = newAdminLastName
+                , adminMark = True
                 }
     result <- fillDb hLogger pool >>= fillConnections hLogger pool
     case result of
         Left _ -> return False
         Right _ -> do
-            add_admin <- addAdminToDB hLogger pool admin_information
-            case add_admin of
+            addAdmin <- addAdminToDB hLogger pool adminInformation
+            case addAdmin of
                 Left _ -> return False
                 Right tk -> do
-                    logInfo hLogger $ T.concat ["admin token ", from_token tk]
+                    logInfo hLogger $ T.concat ["admin token ", getToken tk]
                     return True
 
 addAdminToDB ::
@@ -98,24 +98,24 @@ addAdminToDB ::
     -> Pool Connection
     -> AdminData
     -> IO (Either SomeError Token)
-addAdminToDB hLogger _ (AdminData Nothing _ _ _ _) = do
+addAdminToDB hLogger _ AdminData {adminLogin = Nothing} = do
     logError hLogger "No login"
     return $ Left $ OtherError "No Login"
-addAdminToDB hLogger _ (AdminData _ Nothing _ _ _) = do
+addAdminToDB hLogger _ AdminData {adminPassword = Nothing} = do
     logError hLogger "No password"
     return $ Left $ OtherError "No password"
-addAdminToDB hLogger pool admin_data = do
+addAdminToDB hLogger pool adminData = do
     n <-
         executeWithPool
             pool
             "insert into users (login,user_password,first_name,last_name,admin_mark,creation_date) values (?,crypt(?,gen_salt('md5')),?,?,?,now())"
-            admin_data
+            adminData
     if n > 0
         then firstToken
                  hLogger
                  pool
-                 (admin_login admin_data)
-                 (admin_password admin_data)
+                 (adminLogin adminData)
+                 (adminPassword adminData)
         else do
             return $ Left $ OtherError "Registration failed"
 

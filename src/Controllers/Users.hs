@@ -12,29 +12,29 @@ import           HelpFunction              (foundParametr)
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost)
 import           Network.Wai               (Request (queryString, requestMethod))
-import           OperationsHandle          (UsersHandle (auth, create_user_in_db, delete_user_from_db, profile_on_db, users_logger, users_parse_request_body))
+import           OperationsHandle          (UsersHandle (uhAuth, uhCreateUserInDb, uhDeleteUserFromDb, uhLogger, uhParseRequestBody, uhProfileOnDb))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed),
                                             ResponseOkMessage (Created, OkJSON, OkMessage),
-                                            Token (from_token))
+                                            Token (getToken))
 import           Types.Users               (Login (Login))
 
-login ::
+signIn ::
        Monad m
     => UsersHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
-login operations req =
+signIn operations req =
     if requestMethod req /= methodGet
         then do
-            logError (users_logger operations) "Bad request method"
+            logError (uhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo (users_logger operations) "Preparing data for sign in."
-            (i, _) <- users_parse_request_body operations req
-            let login' = toLogin i
+            logInfo (uhLogger operations) "Preparing data for sign in."
+            (i, _) <- uhParseRequestBody operations req
+            let login = toLogin i
             let pass = toPassword i
-            check <- auth operations login' pass
+            check <- uhAuth operations login pass
             case check of
                 Left someError ->
                     return $
@@ -42,8 +42,7 @@ login operations req =
                 Right tk -> do
                     return $
                         Right $
-                        OkMessage $
-                        LBS.fromStrict $ E.encodeUtf8 $ from_token tk
+                        OkMessage $ LBS.fromStrict $ E.encodeUtf8 $ getToken tk
 
 registration ::
        Monad m
@@ -53,16 +52,16 @@ registration ::
 registration operations req =
     if requestMethod req /= methodPost
         then do
-            logError (users_logger operations) "Bad request method"
+            logError (uhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (users_logger operations)
+                (uhLogger operations)
                 "Preparing data for registration new user."
-            (i, f) <- users_parse_request_body operations req
+            (i, f) <- uhParseRequestBody operations req
             let avatar = foundParametr "avatar" f
-            let user_params = toCreateUser i avatar
-            result <- create_user_in_db operations user_params
+            let userParams = toCreateUser i avatar
+            result <- uhCreateUserInDb operations userParams
             case result of
                 Left someError ->
                     return $
@@ -71,7 +70,7 @@ registration operations req =
                 Right tk -> do
                     return $
                         Right $
-                        Created $ LBS.fromStrict $ E.encodeUtf8 $ from_token tk
+                        Created $ LBS.fromStrict $ E.encodeUtf8 $ getToken tk
 
 deleteUser ::
        Monad m
@@ -81,17 +80,15 @@ deleteUser ::
 deleteUser operations req =
     if requestMethod req /= methodDelete
         then do
-            logError (users_logger operations) "Bad request method"
+            logError (uhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (users_logger operations)
-                "Preparing data for deleting user."
-            let login' =
+            logInfo (uhLogger operations) "Preparing data for deleting user."
+            let login =
                     Login . E.decodeUtf8 <$>
                     fromMaybe Nothing (lookup "login" $ queryString req)
-            let token' = takeToken req
-            result <- delete_user_from_db operations token' login'
+            let token = takeToken req
+            result <- uhDeleteUserFromDb operations token login
             case result of
                 Left someError ->
                     return $
@@ -107,14 +104,14 @@ profile ::
 profile operations req =
     if requestMethod req /= methodGet
         then do
-            logError (users_logger operations) "Bad request method"
+            logError (uhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (users_logger operations)
+                (uhLogger operations)
                 "Preparing data for sending user information."
-            let token' = takeToken req
-            result <- profile_on_db operations token'
+            let token = takeToken req
+            result <- uhProfileOnDb operations token
             case result of
                 Left someError ->
                     return $

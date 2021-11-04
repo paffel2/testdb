@@ -66,9 +66,9 @@ toPage req =
 toEditAuthor :: [Param] -> EditAuthor
 toEditAuthor params =
     EditAuthor
-        { edit_author_description =
+        { editAuthorDescription =
               E.decodeUtf8 <$> lookup "new_description" params
-        , edit_author_id = lookup "author_id" params >>= readByteStringToInt
+        , editAuthorId = lookup "author_id" params >>= readByteStringToInt
         }
 
 toAuthorLogin :: [Param] -> Maybe AuthorLogin
@@ -78,9 +78,8 @@ toAuthorLogin params =
 toCreateAuthor :: [Param] -> CreateAuthor
 toCreateAuthor params =
     CreateAuthor
-        { create_author_login = E.decodeUtf8 <$> lookup "author_login" params
-        , create_author_description =
-              E.decodeUtf8 <$> lookup "description" params
+        { createAuthorLogin = E.decodeUtf8 <$> lookup "author_login" params
+        , createAuthorDescription = E.decodeUtf8 <$> lookup "description" params
         }
 
 toTagName :: Request -> Maybe TagName
@@ -91,10 +90,10 @@ toTagName req =
 toEditTag :: [Param] -> EditTag
 toEditTag params =
     EditTag
-        { edit_tag_new_name =
+        { editTagNewName =
               TagName . T.toLower . E.decodeUtf8 <$>
               lookup "new_tag_name" params
-        , edit_tag_old_name =
+        , editTagOldName =
               TagName . T.toLower . E.decodeUtf8 <$>
               lookup "old_tag_name" params
         }
@@ -106,10 +105,10 @@ toCategoryName params =
 toCreateCategory :: [Param] -> CreateCategory
 toCreateCategory params =
     CreateCategory
-        { create_categrory_name =
+        { createCategroryName =
               CategoryName . T.toLower . E.decodeUtf8 <$>
               lookup "category_name" params
-        , create_categrory_maternal_category =
+        , createCategroryMaternalCategory =
               CategoryName . T.toLower . E.decodeUtf8 <$>
               lookup "maternal_category_name" params
         }
@@ -117,13 +116,13 @@ toCreateCategory params =
 toEditCategory :: [Param] -> EditCategory
 toEditCategory params =
     EditCategory
-        { edit_category_name =
+        { editCategoryName =
               CategoryName . T.toLower . E.decodeUtf8 <$>
               lookup "category_name" params
-        , edit_category_new_name =
+        , editCategoryNewName =
               CategoryName . T.toLower . E.decodeUtf8 <$>
               lookup "new_name" params
-        , edit_category_new_maternal =
+        , editCategoryNewMaternal =
               CategoryName . T.toLower . E.decodeUtf8 <$>
               lookup "new_maternal" params
         }
@@ -135,37 +134,33 @@ toLogin :: [Param] -> Maybe Login
 toLogin params = Login . E.decodeUtf8 <$> lookup "login" params
 
 toCreateUser ::
-    [(BC.ByteString, BC.ByteString)]
+       [(BC.ByteString, BC.ByteString)]
     -> [FileInfo LBS.ByteString]
-    ->  CreateUser
-toCreateUser params file = 
+    -> CreateUser
+toCreateUser params file =
     if null file
-        then 
-                CreateUser
-                    { avatar_file_name = Nothing
-                    , avatar_content = Nothing
-                    , avatar_content_type = Nothing
-                    , first_name = E.decodeUtf8 <$> lookup "f_name" params
-                    , last_name = E.decodeUtf8 <$> lookup "l_name" params
-                    , user_login = toLogin params
-                    , user_password =
-                          Password . E.decodeUtf8 <$> lookup "password" params
-                    , admin_mark = False
-                    }
-        else 
-                 CreateUser
-                     { avatar_file_name = Just . fileName . head $ file
-                     , avatar_content =
-                           Just . Binary . fileContent . head $ file
-                     , avatar_content_type =
-                           Just . fileContentType . head $ file
-                     , first_name = E.decodeUtf8 <$> lookup "f_name" params
-                     , last_name = E.decodeUtf8 <$> lookup "l_name" params
-                     , user_login = toLogin params
-                     , user_password =
-                           Password . E.decodeUtf8 <$> lookup "password" params
-                     , admin_mark = False
-                     }
+        then CreateUser
+                 { cuAvatarFileName = Nothing
+                 , cuAvatarContent = Nothing
+                 , cuAvatarContentType = Nothing
+                 , cuFirstName = E.decodeUtf8 <$> lookup "f_name" params
+                 , cuLastName = E.decodeUtf8 <$> lookup "l_name" params
+                 , cuUserLogin = toLogin params
+                 , cuUserPassword =
+                       Password . E.decodeUtf8 <$> lookup "password" params
+                 , cuAdminMark = False
+                 }
+        else CreateUser
+                 { cuAvatarFileName = Just . fileName . head $ file
+                 , cuAvatarContent = Just . Binary . fileContent . head $ file
+                 , cuAvatarContentType = Just . fileContentType . head $ file
+                 , cuFirstName = E.decodeUtf8 <$> lookup "f_name" params
+                 , cuLastName = E.decodeUtf8 <$> lookup "l_name" params
+                 , cuUserLogin = toLogin params
+                 , cuUserPassword =
+                       Password . E.decodeUtf8 <$> lookup "password" params
+                 , cuAdminMark = False
+                 }
 
 toCommentId :: Request -> Maybe Id
 toCommentId req =
@@ -251,10 +246,10 @@ instance FilterParam AuthorFilterParam where
 toDraftInf :: Request -> [Param] -> DraftInf
 toDraftInf req params =
     DraftInf
-        { draft_inf_token = takeToken req
-        , draft_inf_category = E.decodeUtf8 <$> lookup "category" params
-        , draft_inf_title = E.decodeUtf8 <$> lookup "short_title" params
-        , draft_inf_text = E.decodeUtf8 <$> lookup "news_text" params
+        { draftInfToken = takeToken req
+        , draftInfCategory = E.decodeUtf8 <$> lookup "category" params
+        , draftInfTitle = E.decodeUtf8 <$> lookup "short_title" params
+        , draftInfText = E.decodeUtf8 <$> lookup "news_text" params
         }
 
 toDraftTags :: [Param] -> Maybe DraftTags
@@ -262,18 +257,18 @@ toDraftTags params = DraftTags <$> lookup "tags" params
 
 checkNotImage :: Image -> Bool
 checkNotImage image
-    | image_file_name image == "" = True
-    | image_content_type image == "" = True
-    | fromBinary (image_content image) == "" = True
-    | BC.take 5 (image_content_type image) /= "image" = True
+    | imageFileName image == "" = True
+    | imageContentType image == "" = True
+    | fromBinary (imageContent image) == "" = True
+    | BC.take 5 (imageContentType image) /= "image" = True
     | otherwise = False
 
 checkNotImageMaybe :: Maybe Image -> Bool
 checkNotImageMaybe (Just image)
-    | image_file_name image == "" = True
-    | image_content_type image == "" = True
-    | fromBinary (image_content image) == "" = True
-    | BC.take 5 (image_content_type image) /= "image" = True
+    | imageFileName image == "" = True
+    | imageContentType image == "" = True
+    | fromBinary (imageContent image) == "" = True
+    | BC.take 5 (imageContentType image) /= "image" = True
     | otherwise = False
 checkNotImageMaybe _ = False
 

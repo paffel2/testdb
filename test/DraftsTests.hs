@@ -31,26 +31,26 @@ hLogger =
 draftsHandler :: DraftsHandle Identity
 draftsHandler =
     DraftsHandle
-        { get_drafts_by_author_token =
+        { dhGetDraftsByAuthorToken =
               \token -> return $ Left $ OtherError "ErrorMessage"
-        , delete_draft_from_db =
+        , dhDeleteDraftFromDb =
               \token id -> return $ Left $ OtherError "ErrorMessage"
-        , get_draft_by_id_from_db =
+        , dhGetDraftByIdFromDb =
               \token id -> return $ Left $ OtherError "ErrorMessage"
-        , create_draft_on_db =
+        , dhCreateDraftOnDb =
               \draft_information draft_tags draft_main_image draft_other_images ->
                   return $ Left $ OtherError "ErrorMessage"
-        , update_draft_in_db =
+        , dhUpdateDraftInDb =
               \draft_information draft_tags draft_main_image draft_other_images draft_id ->
                   return $ Left $ OtherError "ErrorMessage"
-        , public_news_on_db =
+        , dhPublicNewsOnDb =
               \token draft_id -> return $ Left $ OtherError "ErrorMessage"
-        , drafts_logger = hLogger
-        , drafts_parse_request_body = \_ -> return ([], [])
+        , dhLogger = hLogger
+        , dhParseRequestBody = \_ -> return ([], [])
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler = OperationsHandle {drafts_handle = draftsHandler}
+operationsHandler = OperationsHandle {draftsHandle = draftsHandler}
 
 tstGetDraftsListReq :: Request
 tstGetDraftsListReq =
@@ -82,13 +82,13 @@ tstPostNewsReq =
 draftTest :: Draft
 draftTest =
     Draft
-        { draft_short_title = "Title"
-        , date_of_changes = read "2021-11-19 18:28:52.607875 UTC" :: UTCTime
-        , draft_category_id = Just 1
-        , draft_text = Just "text"
-        , draft_main_image_id = Just 1
-        , draft_images = Just (PGArray [1])
-        , draft_tags = Just (PGArray ["tag"])
+        { draftShortTitle = "Title"
+        , dateOfChanges = read "2021-11-19 18:28:52.607875 UTC" :: UTCTime
+        , draftCategoryId = Just 1
+        , draftText = Just "text"
+        , draftMainImageId = Just 1
+        , draftImages = Just (PGArray [1])
+        , draftTags = Just (PGArray ["tag"])
         }
 
 tstFile =
@@ -98,7 +98,7 @@ draftsTests :: IO ()
 draftsTests =
     hspec $ do
         describe "testing drafts functions" $ do
-            describe "testing get_drafts_by_author_token" $ do
+            describe "testing dhGetDraftsByAuthorToken" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetDraftsListReq `shouldBe`
                     return
@@ -118,9 +118,9 @@ draftsTests =
                 it "server should return list of drafts, because all is good" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { get_drafts_by_author_token =
+                                       { dhGetDraftsByAuthorToken =
                                              \_ ->
                                                  return $ Right (DraftArray [])
                                        }
@@ -131,9 +131,9 @@ draftsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { get_drafts_by_author_token =
+                                       { dhGetDraftsByAuthorToken =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })
@@ -145,9 +145,9 @@ draftsTests =
                 it "server should return error, because using bad token" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { get_drafts_by_author_token =
+                                       { dhGetDraftsByAuthorToken =
                                              \_ -> return $ Left BadToken
                                        }
                              })
@@ -158,7 +158,7 @@ draftsTests =
 {-
                         GET DRAFT TESTS
 -}
-            describe "testing get_draft_by_id_from_db" $ do
+            describe "testing dhGetDraftByIdFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not sended. ErrorMessage")
@@ -176,9 +176,9 @@ draftsTests =
                 it "server should return list of drafts, because all is good" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { get_draft_by_id_from_db =
+                                       { dhGetDraftByIdFromDb =
                                              \_ _ -> return $ Right draftTest
                                        }
                              })
@@ -191,9 +191,9 @@ draftsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { get_draft_by_id_from_db =
+                                       { dhGetDraftByIdFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -205,9 +205,9 @@ draftsTests =
                 it "server should return error, because using bad token" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { get_draft_by_id_from_db =
+                                       { dhGetDraftByIdFromDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -216,7 +216,7 @@ draftsTests =
 {-
                                 CREATE DRAFT TESTS
 -}
-            describe "testing create_draft_on_db" $ do
+            describe "testing dhCreateDraftOnDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstPostDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not created. ErrorMessage")
@@ -234,9 +234,9 @@ draftsTests =
                 it "server should return draft id, because all is good" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { create_draft_on_db =
+                                       { dhCreateDraftOnDb =
                                              \_ _ _ _ -> return $ Right 1
                                        }
                              })
@@ -245,9 +245,9 @@ draftsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { create_draft_on_db =
+                                       { dhCreateDraftOnDb =
                                              \_ _ _ _ -> return $ Left BadToken
                                        }
                              })
@@ -257,9 +257,9 @@ draftsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { create_draft_on_db =
+                                       { dhCreateDraftOnDb =
                                              \_ _ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -272,9 +272,9 @@ draftsTests =
                 it "server should return error, because using bad image file" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { drafts_parse_request_body =
+                                       { dhParseRequestBody =
                                              \_ ->
                                                  return
                                                      ( []
@@ -286,7 +286,7 @@ draftsTests =
 {-
                                 UPDATE DRAFT TESTS
 -}
-            describe "testing update_draft_in_db" $ do
+            describe "testing dhUpdateDraftInDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstUpdateDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not updated. ErrorMessage")
@@ -306,9 +306,9 @@ draftsTests =
                     "server should return message about successful updating, because all is good" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { update_draft_in_db =
+                                       { dhUpdateDraftInDb =
                                              \_ _ _ _ _ -> return $ Right ()
                                        }
                              })
@@ -317,9 +317,9 @@ draftsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { update_draft_in_db =
+                                       { dhUpdateDraftInDb =
                                              \_ _ _ _ _ ->
                                                  return $ Left BadToken
                                        }
@@ -330,9 +330,9 @@ draftsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { update_draft_in_db =
+                                       { dhUpdateDraftInDb =
                                              \_ _ _ _ _ ->
                                                  return $ Left DatabaseError
                                        }
@@ -345,9 +345,9 @@ draftsTests =
                 it "server should return error, because using bad image file" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { drafts_parse_request_body =
+                                       { dhParseRequestBody =
                                              \_ ->
                                                  return
                                                      ( []
@@ -366,7 +366,7 @@ draftsTests =
 {-
                                 DELETE TAG TESTS
 -}
-            describe "testing delete_draft_from_db" $ do
+            describe "testing dhDeleteDraftFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstDeleteDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not deleted. ErrorMessage")
@@ -385,9 +385,9 @@ draftsTests =
                 it "server should return message about successful deleting" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { delete_draft_from_db =
+                                       { dhDeleteDraftFromDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -396,9 +396,9 @@ draftsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { delete_draft_from_db =
+                                       { dhDeleteDraftFromDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -408,9 +408,9 @@ draftsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { delete_draft_from_db =
+                                       { dhDeleteDraftFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -422,7 +422,7 @@ draftsTests =
 {-
                                 PUBLIC NEWS TESTS
 -}
-            describe "testing public_news_on_db" $ do
+            describe "testing dhPublicNewsOnDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstPostNewsReq `shouldBe`
                     return (Left $ BadRequest "News not created. ErrorMessage")
@@ -440,9 +440,9 @@ draftsTests =
                 it "server should return message about successful posting" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { public_news_on_db =
+                                       { dhPublicNewsOnDb =
                                              \_ _ -> return $ Right 1
                                        }
                              })
@@ -451,9 +451,9 @@ draftsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { public_news_on_db =
+                                       { dhPublicNewsOnDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -463,9 +463,9 @@ draftsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { drafts_handle =
+                             { draftsHandle =
                                    draftsHandler
-                                       { public_news_on_db =
+                                       { dhPublicNewsOnDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })

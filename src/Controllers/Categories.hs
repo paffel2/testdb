@@ -12,7 +12,7 @@ import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           OperationsHandle          (CategoriesHandle (cat_parse_request_body, categories_logger, create_category_on_db, delete_category_from_db, edit_category_on_db, get_categories_list_from_db))
+import           OperationsHandle          (CategoriesHandle (chCreateCategoryOnDb, chDeleteCategoryFromDb, chEditCategoryOnDb, chGetCategoriesListFromDb, chLogger, chParseRequestBody))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage))
@@ -26,9 +26,9 @@ getCategoriesList operations req =
     if requestMethod req == methodGet
         then do
             logInfo
-                (categories_logger operations)
+                (chLogger operations)
                 "Preparing data for sending categories list"
-            result <- get_categories_list_from_db operations pageParam
+            result <- chGetCategoriesListFromDb operations pageParam
             case result of
                 Left someError ->
                     return $
@@ -39,7 +39,7 @@ getCategoriesList operations req =
                 Right loc -> do
                     return $ Right $ OkJSON $ encode loc
         else do
-            logError (categories_logger operations) "Bad request method"
+            logError (chLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
   where
     pageParam = toPage req
@@ -52,27 +52,24 @@ postCategory ::
 postCategory operations req =
     if requestMethod req /= methodPost
         then do
-            logError (categories_logger operations) "Bad request method"
+            logError (chLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (categories_logger operations)
-                "Preparing data for creating category"
-            (i, _) <- cat_parse_request_body operations req
-            let token' = takeToken req
-            let create_category_params = toCreateCategory i
-            result <-
-                create_category_on_db operations token' create_category_params
+            logInfo (chLogger operations) "Preparing data for creating category"
+            (i, _) <- chParseRequestBody operations req
+            let token = takeToken req
+            let createCategoryParams = toCreateCategory i
+            result <- chCreateCategoryOnDb operations token createCategoryParams
             case result of
                 Left someError ->
                     return $
                     Left $
                     toResponseErrorMessage "Category not created." someError
-                Right category_id -> do
-                    logInfo (categories_logger operations) "Category created."
+                Right categoryId -> do
+                    logInfo (chLogger operations) "Category created."
                     return $
                         Right $
-                        Created $ LBS.fromStrict $ BC.pack $ show category_id
+                        Created $ LBS.fromStrict $ BC.pack $ show categoryId
 
 deleteCategory ::
        Monad m
@@ -82,16 +79,14 @@ deleteCategory ::
 deleteCategory operations req =
     if requestMethod req /= methodDelete
         then do
-            logError (categories_logger operations) "Bad request method"
+            logError (chLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (categories_logger operations)
-                "Preparing data for deleting category"
-            let token' = takeToken req
-            (i, _) <- cat_parse_request_body operations req
-            let category_name = toCategoryName i
-            result <- delete_category_from_db operations token' category_name
+            logInfo (chLogger operations) "Preparing data for deleting category"
+            let token = takeToken req
+            (i, _) <- chParseRequestBody operations req
+            let categoryName = toCategoryName i
+            result <- chDeleteCategoryFromDb operations token categoryName
             case result of
                 Left someError ->
                     return $
@@ -108,17 +103,14 @@ updateCategory ::
 updateCategory operations req = do
     if requestMethod req /= methodPut
         then do
-            logError (categories_logger operations) "Bad request method"
+            logError (chLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (categories_logger operations)
-                "Preparing data for editing category"
-            let token' = takeToken req
-            (i, _) <- cat_parse_request_body operations req
-            let edit_category_parameters = toEditCategory i
-            result <-
-                edit_category_on_db operations token' edit_category_parameters
+            logInfo (chLogger operations) "Preparing data for editing category"
+            let token = takeToken req
+            (i, _) <- chParseRequestBody operations req
+            let editCategoryParameters = toEditCategory i
+            result <- chEditCategoryOnDb operations token editCategoryParameters
             case result of
                 Left someError ->
                     return $

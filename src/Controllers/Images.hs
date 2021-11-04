@@ -9,7 +9,7 @@ import           HelpFunction              (readByteStringToId)
 import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodGet)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           OperationsHandle          (ImagesHandle (get_photo, get_photo_list, photos_logger))
+import           OperationsHandle          (ImagesHandle (ihGetPhoto, ihGetPhotoList, ihLogger))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (Id,
                                             ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
@@ -24,9 +24,9 @@ getImagesList operations req = do
     if requestMethod req == methodGet
         then do
             logInfo
-                (photos_logger operations)
+                (ihLogger operations)
                 "Preparing data for sending images list"
-            result <- get_photo_list operations pageParam
+            result <- ihGetPhotoList operations pageParam
             case result of
                 Left someError ->
                     return $
@@ -34,10 +34,10 @@ getImagesList operations req = do
                     toResponseErrorMessage
                         "List of images not sended."
                         someError
-                Right ia -> do
-                    return $ Right $ OkJSON $ encode ia
+                Right imagesArray -> do
+                    return $ Right $ OkJSON $ encode imagesArray
         else do
-            logError (photos_logger operations) "Bad method request"
+            logError (ihLogger operations) "Bad method request"
             return $ Left $ MethodNotAllowed "Bad request method"
   where
     pageParam = toPage req
@@ -51,18 +51,16 @@ getImage ::
 getImage operations imageId req = do
     if requestMethod req == methodGet
         then do
-            logInfo
-                (photos_logger operations)
-                "Preparing data for sending image"
-            result <- get_photo operations imageId
+            logInfo (ihLogger operations) "Preparing data for sending image"
+            result <- ihGetPhoto operations imageId
             case result of
                 Left someError ->
                     return $
                     Left $ toResponseErrorMessage "Image not sended." someError
-                Right ib -> do
-                    return $ Right $ OkImage ib
+                Right image -> do
+                    return $ Right $ OkImage image
         else do
-            logError (photos_logger operations) "Bad method request"
+            logError (ihLogger operations) "Bad method request"
             return $ Left $ MethodNotAllowed "Bad request method"
 
 imagesRouter ::

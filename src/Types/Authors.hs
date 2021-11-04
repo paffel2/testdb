@@ -1,19 +1,21 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Types.Authors where
 
-import Data.Aeson (ToJSON(toJSON), defaultOptions, genericToJSON)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple (FromRow, ToRow)
-import Database.PostgreSQL.Simple.ToField (ToField(..))
-import GHC.Generics (Generic)
+import           Data.Aeson                         (ToJSON (toJSON),
+                                                     defaultOptions,
+                                                     genericToJSON)
+import qualified Data.Text                          as T
+import           Database.PostgreSQL.Simple         (FromRow, ToRow)
+import           Database.PostgreSQL.Simple.ToField (ToField (..))
+import           GHC.Generics                       (Generic)
 
 data ElemAuthorsList =
     ElemAuthorsList
-        { author_id :: Int
-        , author_name' :: T.Text
-        , authors_description :: Maybe T.Text
+        { ealAuthorId           :: Int
+        , ealAuthorName         :: T.Text
+        , ealAuthorsDescription :: Maybe T.Text
         }
     deriving (Show, Generic, ToRow, FromRow, Eq)
 
@@ -31,23 +33,23 @@ instance ToJSON AuthorsList where
 
 data EditAuthor =
     EditAuthor
-        { edit_author_description :: Maybe T.Text
-        , edit_author_id :: Maybe Int
+        { editAuthorDescription :: Maybe T.Text
+        , editAuthorId          :: Maybe Int
         }
     deriving (Show, Generic, ToRow, Eq)
 
 newtype AuthorLogin =
     AuthorLogin
-        { author_login :: T.Text
+        { getAuthorLogin :: T.Text
         }
     deriving (Show, Eq)
 
 instance ToField AuthorLogin where
-    toField = toField . author_login
+    toField = toField . getAuthorLogin
 
 data CreateAuthor =
     CreateAuthor
-        { create_author_login :: Maybe T.Text
-        , create_author_description :: Maybe T.Text
+        { createAuthorLogin       :: Maybe T.Text
+        , createAuthorDescription :: Maybe T.Text
         }
     deriving (Show, Generic, ToRow, Eq)

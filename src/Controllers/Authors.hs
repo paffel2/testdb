@@ -12,7 +12,7 @@ import           Logger                    (logDebug, logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           OperationsHandle          (AuthorsHandle (authors_logger, authors_parse_request_body, create_author_in_db, delete_author_in_db, edit_author_in_db, get_authors_list))
+import           OperationsHandle          (AuthorsHandle (ahCreateAuthorInDb, ahDeleteAuthorInDb, ahEditAuthorInDb, ahGetAuthorsList, ahLogger, ahParseRequestBody))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage))
@@ -25,18 +25,18 @@ postAuthor ::
 postAuthor methods req =
     if requestMethod req /= methodPost
         then do
-            logError (authors_logger methods) "Bad request method"
+            logError (ahLogger methods) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (authors_logger methods)
+                (ahLogger methods)
                 "Preparing parameters for creating new author."
-            let token' = takeToken req
-            (i, _) <- authors_parse_request_body methods req
+            let token = takeToken req
+            (i, _) <- ahParseRequestBody methods req
             --let b = i
-            let create_author_params = toCreateAuthor i
-            logDebug (authors_logger methods) "Creating Author on database"
-            result <- create_author_in_db methods token' create_author_params
+            let createAuthorParams = toCreateAuthor i
+            logDebug (ahLogger methods) "Creating Author on database"
+            result <- ahCreateAuthorInDb methods token createAuthorParams
             case result of
                 Left someError ->
                     return $
@@ -53,16 +53,16 @@ deleteAuthor ::
 deleteAuthor methods req =
     if requestMethod req /= methodDelete
         then do
-            logError (authors_logger methods) "Bad request method"
+            logError (ahLogger methods) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (authors_logger methods)
+                (ahLogger methods)
                 "Preparing parameters for deleting author."
-            let token' = takeToken req
-            (i, _) <- authors_parse_request_body methods req
-            let author_login' = toAuthorLogin i
-            result <- delete_author_in_db methods token' author_login'
+            let token = takeToken req
+            (i, _) <- ahParseRequestBody methods req
+            let authorLogin = toAuthorLogin i
+            result <- ahDeleteAuthorInDb methods token authorLogin
             case result of
                 Left someError ->
                     return $
@@ -79,13 +79,11 @@ getAuthorsList ::
 getAuthorsList methods req = do
     if requestMethod req /= methodGet
         then do
-            logError (authors_logger methods) "Bad request method"
+            logError (ahLogger methods) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (authors_logger methods)
-                "Preparing data for sending authors list"
-            result <- get_authors_list methods pageParam
+            logInfo (ahLogger methods) "Preparing data for sending authors list"
+            result <- ahGetAuthorsList methods pageParam
             case result of
                 Left someError ->
                     return $
@@ -106,17 +104,17 @@ updateAuthor ::
 updateAuthor methods req = do
     if requestMethod req /= methodPut
         then do
-            logError (authors_logger methods) "Bad request method"
+            logError (ahLogger methods) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (authors_logger methods)
+                (ahLogger methods)
                 "Preparing data for editing author's description."
-            let token' = takeToken req
-            (i, _) <- authors_parse_request_body methods req
+            let token = takeToken req
+            (i, _) <- ahParseRequestBody methods req
             let b = i
-            let edit_params = toEditAuthor b
-            result <- edit_author_in_db methods token' edit_params
+            let editParams = toEditAuthor b
+            result <- ahEditAuthorInDb methods token editParams
             case result of
                 Left someError ->
                     return $

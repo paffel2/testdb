@@ -3,18 +3,18 @@
 module Config where
 
 import qualified Data.ByteString.Char8 as BC
-import qualified Data.Configurator as C
-import Data.Time (NominalDiffTime)
-import Logger (Priority(..))
-import Types.Other (TokenLifeTime(TokenLifeTime))
+import qualified Data.Configurator     as C
+import           Data.Time             (NominalDiffTime)
+import           Logger                (Priority (..))
+import           Types.Other           (TokenLifeTime (TokenLifeTime))
 
 data ConfigModules =
     ConfigModules
-        { lifeTime :: TokenLifeTime
-        , db_conf :: DatabaseConf
+        { lifeTime     :: TokenLifeTime
+        , db_conf      :: DatabaseConf
         , log_priority :: Priority
-        , server_conf :: ServerConf
-        , pool_params :: PoolParams
+        , server_conf  :: ServerConf
+        , pool_params  :: PoolParams
         }
     deriving (Show)
 
@@ -45,11 +45,11 @@ getConfig = do
                       }
             , log_priority =
                   case log' of
-                      "Debug" -> Debug
-                      "Info" -> Info
+                      "Debug"   -> Debug
+                      "Info"    -> Info
                       "Warning" -> Warning
-                      "Error" -> Logger.Error
-                      _ -> Info
+                      "Error"   -> Logger.Error
+                      _         -> Info
             , server_conf =
                   ServerConf
                       { server_port = serv_port
@@ -67,25 +67,25 @@ getConfig = do
 
 data ServerConf =
     ServerConf
-        { server_port :: Int
+        { server_port               :: Int
         , server_maximum_body_flush :: Maybe Int
         }
     deriving (Show)
 
 data DatabaseConf =
     DatabaseConf
-        { db_host :: BC.ByteString
-        , db_port :: BC.ByteString
-        , db_login :: BC.ByteString
+        { db_host     :: BC.ByteString
+        , db_port     :: BC.ByteString
+        , db_login    :: BC.ByteString
         , db_password :: BC.ByteString
-        , db_name :: BC.ByteString
+        , db_name     :: BC.ByteString
         }
     deriving (Show)
 
 data PoolParams =
     PoolParams
-        { num_stripes :: Int
-        , idle_time :: NominalDiffTime
+        { num_stripes   :: Int
+        , idle_time     :: NominalDiffTime
         , max_resources :: Int
         }
     deriving (Show)

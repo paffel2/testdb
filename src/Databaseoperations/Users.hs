@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Databaseoperations.Users where
@@ -18,16 +19,16 @@ import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool)
 import           Types.Other                   (SomeError (BadToken, DatabaseError, OtherError),
                                                 Token (Token), TokenLifeTime)
-import           Types.Users                   (CreateUser (CreateUser, first_name, last_name, user_login, user_password),
-                                                Login (from_login), Password,
+import           Types.Users                   (CreateUser (..),
+                                                Login (getLogin), Password,
                                                 Profile,
                                                 TokenProfile (TokenProfile))
 
 generateToken :: Login -> IO (Token, UTCTime)
 generateToken login = do
     now <- getCurrentTime
-    let token' = Prelude.filter (`Prelude.notElem` filt) (show now)
-    return (Token $ T.concat [from_login login, T.pack token'], now)
+    let token = Prelude.filter (`Prelude.notElem` filt) (show now)
+    return (Token $ T.concat [getLogin login, T.pack token], now)
   where
     filt = " :.-UTC" :: String
 
@@ -45,62 +46,58 @@ authentication _ hLogger Nothing _ = do
     return . Left . OtherError $ "No password parameter."
 authentication pool hLogger (Just login) (Just password) =
     catch
-        (do (token', now) <- generateToken login
-            n <- executeWithPool pool q (login, password, token', now)
+        (do (token, now) <- generateToken login
+            n <- executeWithPool pool q (login, password, token, now)
             if n > 0
                 then do
                     logInfo hLogger "User logged"
-                    return $ Right token'
+                    return $ Right token
                 else do
                     logError hLogger "Bad authorization"
                     return . Left . OtherError $ "Wrong login or password") $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            T.concat ["Database error ", T.pack $ show errStateInt]
+        logError hLogger $ "Database error " <> T.pack (show errStateInt)
         return $ Left DatabaseError
   where
     q =
-        toQuery $
-        BC.concat
-            [ "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) "
-            , "update tokens set token = ?, creation_date = ? where user_id in (select user_id from loging_user)"
-            ]
+        "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
+         \update tokens set token = ?, creation_date = ? where user_id in (select user_id from loging_user)"
 
 createUserInDb ::
        Pool Connection
     -> LoggerHandle IO
     -> CreateUser
     -> IO (Either SomeError Token)
-createUserInDb _ hLogger (CreateUser _ _ _ Nothing _ _ _ _) = do
+createUserInDb _ hLogger CreateUser {cuFirstName = Nothing} = do
     logError hLogger "User not created. No first_name parameter"
     return . Left . OtherError $ "User not created. No first_name parameter"
-createUserInDb _ hLogger (CreateUser _ _ _ _ Nothing _ _ _) = do
+createUserInDb _ hLogger CreateUser {cuLastName = Nothing} = do
     logError hLogger "User not created. No last_name parameter"
     return . Left . OtherError $ "No last_name parameter"
-createUserInDb _ hLogger (CreateUser _ _ _ _ _ Nothing _ _) = do
+createUserInDb _ hLogger CreateUser {cuUserLogin = Nothing} = do
     logError hLogger "User not created. No login parameter"
     return . Left . OtherError $ "No login parameter"
-createUserInDb _ hLogger (CreateUser _ _ _ _ _ _ Nothing _) = do
+createUserInDb _ hLogger CreateUser {cuUserPassword = Nothing} = do
     logError hLogger "User not created. No password parameter"
     return . Left . OtherError $ "No password parameter"
-createUserInDb pool hLogger c_user@(CreateUser (Just av_file_name) (Just av_con) (Just av_con_type) (Just _) (Just _) (Just _) (Just _) _) = do
-    if av_file_name == "" ||
-       av_con_type == "" ||
-       fromBinary av_con == "" || BC.take 5 av_con_type /= "image"
+createUserInDb pool hLogger createUser@(CreateUser (Just avFileName) (Just avContent) (Just avContentType) (Just _) (Just _) (Just _) (Just _) _) = do
+    if avFileName == "" ||
+       avContentType == "" ||
+       fromBinary avContent == "" || BC.take 5 avContentType /= "image"
         then do
             logError hLogger "User not created. Bad image file"
             return . Left . OtherError $ "Bad image file"
         else catch
-                 (do n <- executeWithPool pool q c_user
+                 (do n <- executeWithPool pool q createUser
                      if n > 0
                          then do
                              logInfo hLogger "New user registered."
                              firstToken
                                  hLogger
                                  pool
-                                 (user_login c_user)
-                                 (user_password c_user)
+                                 (cuUserLogin createUser)
+                                 (cuUserPassword createUser)
                          else do
                              logError hLogger "Registration failed"
                              return . Left . OtherError $ "Registration failed") $ \e -> do
@@ -118,31 +115,20 @@ createUserInDb pool hLogger c_user@(CreateUser (Just av_file_name) (Just av_con)
                      _ -> return $ Left DatabaseError
   where
     q =
-        toQuery $
-        BC.concat
-            [ "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) "
-            , "insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) "
-            , "values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),now(),?)"
-            ]
-createUserInDb pool hLogger c_user@(CreateUser Nothing Nothing Nothing (Just _) (Just _) (Just _) (Just _) _) =
+        "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) \
+         \insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) \
+         \values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),now(),?)"
+createUserInDb pool hLogger (CreateUser Nothing Nothing Nothing (Just firstName) (Just lastName) (Just login) (Just password) _) =
     catch
         (do logInfo hLogger "Registartion without avatar"
             n <-
                 executeWithPool
                     pool
                     q
-                    ( first_name c_user
-                    , last_name c_user
-                    , user_login c_user
-                    , user_password c_user
-                    , False)
+                    (firstName, lastName, login, password, False)
             if n > 0
                 then do
-                    firstToken
-                        hLogger
-                        pool
-                        (user_login c_user)
-                        (user_password c_user)
+                    firstToken hLogger pool (Just login) (Just password)
                 else do
                     logError hLogger "Registration failed"
                     return . Left . OtherError $ "Registration failed") $ \e -> do
@@ -159,11 +145,8 @@ createUserInDb pool hLogger c_user@(CreateUser Nothing Nothing Nothing (Just _) 
             _ -> return $ Left DatabaseError
   where
     q =
-        toQuery $
-        BC.concat
-            [ "insert into users (first_name, last_name, login, user_password, creation_date, admin_mark) "
-            , "values (?,?,?,crypt(?,gen_salt('md5')),now(),?)"
-            ]
+        "insert into users (first_name, last_name, login, user_password, creation_date, admin_mark) \
+             \values (?,?,?,crypt(?,gen_salt('md5')),now(),?)"
 createUserInDb _ hLogger _ = do
     logError hLogger "Unexpected error"
     return . Left . OtherError $ "Unexpected error"
@@ -178,9 +161,9 @@ deleteUserFromDb ::
 deleteUserFromDb _ _ hLogger _ Nothing = do
     logError hLogger "User not deleted. No login parameter"
     return . Left . OtherError $ "No login parameter"
-deleteUserFromDb pool token_lifetime hLogger token (Just login) =
+deleteUserFromDb pool tokenLifeTime hLogger token (Just login) =
     catch
-        (do ch <- checkAdmin hLogger pool token_lifetime token
+        (do ch <- checkAdmin hLogger pool tokenLifeTime token
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
@@ -203,36 +186,30 @@ firstToken ::
     -> Maybe Login
     -> Maybe Password
     -> IO (Either SomeError Token)
-firstToken hLogger pool (Just login') (Just password') =
+firstToken hLogger pool (Just login) (Just password) =
     catch
         (do logInfo hLogger $
-                T.concat ["Generate first token for user ", from_login login']
-            (token', now) <- generateToken login'
-            n <- executeWithPool pool q (login', password', token', now)
+                T.concat ["Generate first token for user ", getLogin login]
+            (token, now) <- generateToken login
+            n <- executeWithPool pool q (login, password, token, now)
             if n > 0
                 then do
                     logInfo hLogger $
-                        T.concat
-                            ["User with login ", from_login login', " logged"]
-                    return $ Right token'
+                        T.concat ["User with login ", getLogin login, " logged"]
+                    return $ Right token
                 else do
                     logError hLogger $
                         T.concat
-                            [ "User with login "
-                            , from_login login'
-                            , " cant logged"
-                            ]
+                            ["User with login ", getLogin login, " cant logged"]
                     return . Left . OtherError $ "Wrong login or password") $ \e -> do
         let err = E.decodeUtf8 $ sqlErrorMsg e
         logError hLogger err
         return $ Left DatabaseError
   where
     q =
-        toQuery $
-        BC.concat
-            [ "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) "
-            , "insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"
-            ]
+        toQuery
+            "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
+            \insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"
 firstToken hLogger _ _ _ = do
     logError hLogger "Bad login or password parameters"
     return . Left . OtherError $ "Bad login or password parameters"
@@ -246,9 +223,9 @@ profileOnDb ::
 profileOnDb _ _ hLogger Nothing = do
     logError hLogger "User's information not sended. No token parameter"
     return . Left . OtherError $ "No token parameter"
-profileOnDb pool token_lifetime hLogger (Just token') =
+profileOnDb pool tokenLifeTime hLogger (Just token) =
     catch
-        (do rows <- queryWithPool pool q (TokenProfile token' token_lifetime)
+        (do rows <- queryWithPool pool q (TokenProfile token tokenLifeTime)
             if Prelude.null rows
                 then do
                     logError hLogger "User's information not sended. Bad token."

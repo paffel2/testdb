@@ -28,12 +28,12 @@ data Comment =
 
 data ElemOfNewsArray =
     ElemOfNewsArray
-        { news_id'       :: Int
-        , short_title'   :: T.Text
-        , date_creation' :: Day
-        , author_name    :: T.Text
-        , category_name' :: T.Text
-        , news_text'     :: T.Text
+        { eofnaNewsId       :: Int
+        , eofnaShortTitle   :: T.Text
+        , eofnaDateCreation :: Day
+        , eofnaAuthorName   :: T.Text
+        , eofnaCategoryName :: T.Text
+        , eofnaNewsText     :: T.Text
         }
     deriving (Show, Generic, ToRow, FromRow)
 
@@ -50,10 +50,10 @@ instance ToJSON NewsArray where
 
 data ElemOfCommentArray =
     ElemOfCommentArray
-        { comment_author_name :: T.Text
-        , comment_text'       :: T.Text
-        , comment_time'       :: UTCTime
-        , comment_id'         :: Int
+        { eofcaCommentAuthorName :: T.Text
+        , eofcaCommentText       :: T.Text
+        , eofcaCommentTime       :: UTCTime
+        , eofcaCommentId         :: Int
         }
     deriving (Show, Generic, ToRow, FromRow)
 
@@ -70,15 +70,15 @@ instance ToJSON CommentArray where
 
 data GetNews =
     GetNews
-        { gn_news_id           :: Int
-        , gn_short_title       :: T.Text
-        , gn_date_creation     :: Day
-        , gn_author_name       :: T.Text
-        , gn_category_name     :: T.Text
-        , gn_news_text         :: T.Text
-        , gn_news_main_image   :: Maybe Int
-        , gn_news_other_images :: Maybe (PGArray Int)
-        , gn_news_tags         :: Maybe (PGArray T.Text)
+        { gnNewsId          :: Int
+        , gnShortTitle      :: T.Text
+        , gnDateCreation    :: Day
+        , gnAuthorName      :: T.Text
+        , gnCategoryName    :: T.Text
+        , gnNewsText        :: T.Text
+        , gnNewsMainImage   :: Maybe Int
+        , gnNewsOtherImages :: Maybe (PGArray Int)
+        , gnNewsTags        :: Maybe (PGArray T.Text)
         }
     deriving (Show, Generic, ToRow, FromRow)
 
@@ -98,104 +98,104 @@ instance ToJSON GetNews where
 
 newtype CommentText =
     CommentText
-        { from_comment_text :: T.Text
+        { getCommentText :: T.Text
         }
     deriving (Show, Eq)
 
 instance ToField CommentText where
-    toField = toField . from_comment_text
+    toField = toField . getCommentText
 
 newtype Sort =
     Sort
-        { from_sort :: BC.ByteString
+        { getSort :: BC.ByteString
         }
     deriving (Show, Eq)
 
 newtype TagInFilterParam =
     TagInFilterParam
-        { from_tag_in_fp :: [Int]
+        { getTagInFp :: [Int]
         }
     deriving (Show, Eq)
 
 newtype CategoryFilterParam =
     CategoryFilterParam
-        { from_category_fp :: Id
+        { getCategoryFp :: Id
         }
     deriving (Show, Eq)
 
 newtype TagFilterParam =
     TagFilterParam
-        { from_tag_fp :: Id
+        { getTagFp :: Id
         }
     deriving (Show, Eq)
 
 instance ToField TagFilterParam where
-    toField = toField . from_tag_fp
+    toField = toField . getTagFp
 
 newtype TagAllFilterParam =
     TagAllFilterParam
-        { from_tag_all_fp :: [Int]
+        { getTagAllFp :: [Int]
         }
     deriving (Show, Eq)
 
 newtype TitleFilterParam =
     TitleFilterParam
-        { from_title_fp :: T.Text
+        { getTitleFp :: T.Text
         }
     deriving (Show, Eq)
 
 newtype ContentFilterParam =
     ContentFilterParam
-        { from_content_fp :: T.Text
+        { getContentFp :: T.Text
         }
     deriving (Show, Eq)
 
 newtype DateFilterParam =
     DateFilterParam
-        { from_date_fp :: Day
+        { getDateFp :: Day
         }
     deriving (Show, Eq)
 
 instance ToField DateFilterParam where
-    toField = toField . from_date_fp
+    toField = toField . getDateFp
 
 newtype BeforeDateFilterParam =
     BeforeDateFilterParam
-        { from_before_date_fp :: Day
+        { getBeforeDateFp :: Day
         }
     deriving (Show, Eq)
 
 instance ToField BeforeDateFilterParam where
-    toField = toField . from_before_date_fp
+    toField = toField . getBeforeDateFp
 
 newtype AfterDateFilterParam =
     AfterDateFilterParam
-        { from_after_date_fp :: Day
+        { getAfterDateFp :: Day
         }
     deriving (Show, Eq)
 
 instance ToField AfterDateFilterParam where
-    toField = toField . from_after_date_fp
+    toField = toField . getAfterDateFp
 
 newtype AuthorFilterParam =
     AuthorFilterParam
-        { from_author_fp :: T.Text
+        { getAuthorFp :: T.Text
         }
     deriving (Show, Eq)
 
 data CommentWithoutTokenLifeTime =
     CommentWithoutTokenLifeTime
-        { comment_token'   :: Maybe Token
-        , comment_text''   :: Maybe CommentText
-        , comment_news_id' :: Maybe Id
+        { commentWTLToken  :: Maybe Token
+        , commentWTLText   :: Maybe CommentText
+        , commentWTLNewsId :: Maybe Id
         }
     deriving (Generic, ToRow)
 
 toComment :: TokenLifeTime -> CommentWithoutTokenLifeTime -> Comment
 toComment tokenLifeTime comm =
     Comment
-        { comment_token = comment_token' comm
+        { comment_token = commentWTLToken comm
         , comment_token_lifetime = tokenLifeTime
-        , comment_text = comment_text'' comm
-        , comment_news_id = comment_news_id' comm
+        , comment_text = commentWTLText comm
+        , comment_news_id = commentWTLNewsId comm
         }

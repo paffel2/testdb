@@ -27,21 +27,21 @@ hLogger =
 categoriesHandler :: CategoriesHandle Identity
 categoriesHandler =
     CategoriesHandle
-        { get_categories_list_from_db =
+        { chGetCategoriesListFromDb =
               \page -> return $ Left $ OtherError "ErrorMessage"
-        , create_category_on_db =
+        , chCreateCategoryOnDb =
               \token create_category ->
                   return $ Left $ OtherError "ErrorMessage"
-        , delete_category_from_db =
+        , chDeleteCategoryFromDb =
               \token category_name -> return $ Left $ OtherError "ErrorMessage"
-        , edit_category_on_db =
+        , chEditCategoryOnDb =
               \token edit_category -> return $ Left $ OtherError "ErrorMessage"
-        , categories_logger = hLogger
-        , cat_parse_request_body = \_ -> return ([], [])
+        , chLogger = hLogger
+        , chParseRequestBody = \_ -> return ([], [])
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler = OperationsHandle {categories_handle = categoriesHandler}
+operationsHandler = OperationsHandle {categoriesHandle = categoriesHandler}
 
 tstGetCategoriesListReq :: Request
 tstGetCategoriesListReq =
@@ -70,7 +70,7 @@ categoriesTests :: IO ()
 categoriesTests =
     hspec $ do
         describe "testing categories functions" $ do
-            describe "testing get_categories_list" $ do
+            describe "testing chGetCategoriesListFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetCategoriesListReq `shouldBe`
                     return
@@ -91,9 +91,9 @@ categoriesTests =
                 it "server should return list of authors, because all is good" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { get_categories_list_from_db =
+                                       { chGetCategoriesListFromDb =
                                              \_ ->
                                                  return $
                                                  Right (ListOfCategories [])
@@ -105,9 +105,9 @@ categoriesTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { get_categories_list_from_db =
+                                       { chGetCategoriesListFromDb =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })
@@ -119,7 +119,7 @@ categoriesTests =
 {-
                                 CREATE CATEGORIES TESTS
 -}
-            describe "testing create_category_in_db" $ do
+            describe "testing chCreateCategoryOnDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstPostCategoryReq `shouldBe`
                     return
@@ -141,9 +141,9 @@ categoriesTests =
                 it "server should return category id, because all is good" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { create_category_on_db =
+                                       { chCreateCategoryOnDb =
                                              \_ _ -> return $ Right 1
                                        }
                              })
@@ -152,9 +152,9 @@ categoriesTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { create_category_on_db =
+                                       { chCreateCategoryOnDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -163,9 +163,9 @@ categoriesTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { create_category_on_db =
+                                       { chCreateCategoryOnDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -175,9 +175,9 @@ categoriesTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { create_category_on_db =
+                                       { chCreateCategoryOnDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -189,7 +189,7 @@ categoriesTests =
 {-
                                 DELETE CATEGORY TESTS
 -}
-            describe "testing delete_category_from_db" $ do
+            describe "testing chDeleteCategoryFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstDeleteCategoryReq `shouldBe`
                     return
@@ -209,9 +209,9 @@ categoriesTests =
                 it "server should return message about successful deleting" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { delete_category_from_db =
+                                       { chDeleteCategoryFromDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -220,9 +220,9 @@ categoriesTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { delete_category_from_db =
+                                       { chDeleteCategoryFromDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -231,9 +231,9 @@ categoriesTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { delete_category_from_db =
+                                       { chDeleteCategoryFromDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -243,9 +243,9 @@ categoriesTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { delete_category_from_db =
+                                       { chDeleteCategoryFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -255,9 +255,9 @@ categoriesTests =
                              (InternalServerError
                                   "Category not deleted. Database Error."))
 {-
-                                EDIT AUTHOR TESTS
+                                EDIT CATEGORY TESTS
 -}
-            describe "testing edit_category_on_db" $ do
+            describe "testing chEditCategoryOnDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstUpdateCategoryReq `shouldBe`
                     return
@@ -277,9 +277,9 @@ categoriesTests =
                 it "server should return message about successful delting" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { edit_category_on_db =
+                                       { chEditCategoryOnDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -288,9 +288,9 @@ categoriesTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { edit_category_on_db =
+                                       { chEditCategoryOnDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -299,9 +299,9 @@ categoriesTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { edit_category_on_db =
+                                       { chEditCategoryOnDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -311,9 +311,9 @@ categoriesTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { categories_handle =
+                             { categoriesHandle =
                                    categoriesHandler
-                                       { edit_category_on_db =
+                                       { chEditCategoryOnDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })

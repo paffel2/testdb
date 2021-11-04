@@ -19,12 +19,12 @@ import           Types.Other                        (Token)
 
 data ElemOfDraftArray =
     DraftGet
-        { draft_get_short_title     :: T.Text
-        , draft_get_date_of_changes :: UTCTime
-        , draft_get_category_id     :: Maybe Int
-        , draft_get_text            :: Maybe T.Text
-        , draft_get_main_image_id   :: Maybe Int
-        , draft_get_images          :: Maybe (PGArray Int)
+        { draftGetShortTitle    :: T.Text
+        , draftGetDateOfChanges :: UTCTime
+        , draftGetCategoryId    :: Maybe Int
+        , draftGetText          :: Maybe T.Text
+        , draftGetMainImageId   :: Maybe Int
+        , draftGetImages        :: Maybe (PGArray Int)
         }
     deriving (Show, Generic, FromRow)
 
@@ -50,13 +50,13 @@ instance ToJSON DraftArray where
 
 data Draft =
     Draft
-        { draft_short_title   :: T.Text
-        , date_of_changes     :: UTCTime
-        , draft_category_id   :: Maybe Int
-        , draft_text          :: Maybe T.Text
-        , draft_main_image_id :: Maybe Int
-        , draft_images        :: Maybe (PGArray Int)
-        , draft_tags          :: Maybe (PGArray T.Text)
+        { draftShortTitle  :: T.Text
+        , dateOfChanges    :: UTCTime
+        , draftCategoryId  :: Maybe Int
+        , draftText        :: Maybe T.Text
+        , draftMainImageId :: Maybe Int
+        , draftImages      :: Maybe (PGArray Int)
+        , draftTags        :: Maybe (PGArray T.Text)
         }
     deriving (Show, Generic, FromRow)
 
@@ -74,18 +74,18 @@ instance ToJSON Draft where
 
 data DraftInf =
     DraftInf
-        { draft_inf_token    :: Maybe Token
-        , draft_inf_category :: Maybe T.Text
-        , draft_inf_title    :: Maybe T.Text
-        , draft_inf_text     :: Maybe T.Text
+        { draftInfToken    :: Maybe Token
+        , draftInfCategory :: Maybe T.Text
+        , draftInfTitle    :: Maybe T.Text
+        , draftInfText     :: Maybe T.Text
         }
     deriving (Generic, ToRow, Show, Eq)
 
 newtype DraftTags =
     DraftTags
-        { from_draft_tags :: BC.ByteString
+        { getDraftTags :: BC.ByteString
         }
     deriving (Show, Eq)
 
 instance ToField DraftTags where
-    toField = toField . from_draft_tags
+    toField = toField . getDraftTags

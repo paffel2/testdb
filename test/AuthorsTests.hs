@@ -27,19 +27,19 @@ hLogger =
 authorsHandler :: AuthorsHandle Identity
 authorsHandler =
     AuthorsHandle
-        { create_author_in_db =
+        { ahCreateAuthorInDb =
               \token create_author -> return $ Left $ OtherError "ErrorMessage"
-        , delete_author_in_db =
+        , ahDeleteAuthorInDb =
               \token author_login -> return $ Left $ OtherError "ErrorMessage"
-        , get_authors_list = \page -> return $ Left $ OtherError "ErrorMessage"
-        , edit_author_in_db =
+        , ahGetAuthorsList = \page -> return $ Left $ OtherError "ErrorMessage"
+        , ahEditAuthorInDb =
               \token edit_author -> return $ Left $ OtherError "ErrorMessage"
-        , authors_logger = hLogger
-        , authors_parse_request_body = \request -> return ([], [])
+        , ahLogger = hLogger
+        , ahParseRequestBody = \request -> return ([], [])
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler = OperationsHandle {authors_handle = authorsHandler}
+operationsHandler = OperationsHandle {authorsHandle = authorsHandler}
 
 tstGetAuthorsListReq :: Request
 tstGetAuthorsListReq =
@@ -64,7 +64,7 @@ authorsTests :: IO ()
 authorsTests =
     hspec $ do
         describe "testing authors functions" $ do
-            describe "testing get_authors_list" $ do
+            describe "testing ahGetAuthorsList" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetAuthorsListReq `shouldBe`
                     return
@@ -84,9 +84,9 @@ authorsTests =
                 it "server should return list of authors, because all is good" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { get_authors_list =
+                                       { ahGetAuthorsList =
                                              \_ ->
                                                  return $ Right (AuthorsList [])
                                        }
@@ -97,9 +97,9 @@ authorsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { get_authors_list =
+                                       { ahGetAuthorsList =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })
@@ -111,7 +111,7 @@ authorsTests =
 {-
                                 CREATE AUTHOR TESTS
 -}
-            describe "testing create_author_in_db" $ do
+            describe "testing ahCreateAuthorInDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstPostAuthorReq `shouldBe`
                     return
@@ -130,9 +130,9 @@ authorsTests =
                 it "server should return authors id, because all is good" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { create_author_in_db =
+                                       { ahCreateAuthorInDb =
                                              \_ _ -> return $ Right 1
                                        }
                              })
@@ -141,9 +141,9 @@ authorsTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { create_author_in_db =
+                                       { ahCreateAuthorInDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -152,9 +152,9 @@ authorsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { create_author_in_db =
+                                       { ahCreateAuthorInDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -164,9 +164,9 @@ authorsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { create_author_in_db =
+                                       { ahCreateAuthorInDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -178,7 +178,7 @@ authorsTests =
 {-
                                 DELETE AUTHOR TESTS
 -}
-            describe "testing delete_author_in_db" $ do
+            describe "testing ahDeleteAuthorInDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstDeleteAuthorReq `shouldBe`
                     return
@@ -198,9 +198,9 @@ authorsTests =
                 it "server should return message about successful delting" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { delete_author_in_db =
+                                       { ahDeleteAuthorInDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -209,9 +209,9 @@ authorsTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { delete_author_in_db =
+                                       { ahDeleteAuthorInDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -220,9 +220,9 @@ authorsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { delete_author_in_db =
+                                       { ahDeleteAuthorInDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -232,9 +232,9 @@ authorsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { delete_author_in_db =
+                                       { ahDeleteAuthorInDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -246,7 +246,7 @@ authorsTests =
 {-
                                 EDIT AUTHOR TESTS
 -}
-            describe "testing edit_author_in_db" $ do
+            describe "testing ahEditAuthorInDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstUpdateAuthorReq `shouldBe`
                     return (Left $ BadRequest "Author not edited. ErrorMessage")
@@ -265,9 +265,9 @@ authorsTests =
                 it "server should return message about successful editing" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { edit_author_in_db =
+                                       { ahEditAuthorInDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -276,9 +276,9 @@ authorsTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { edit_author_in_db =
+                                       { ahEditAuthorInDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -287,9 +287,9 @@ authorsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { edit_author_in_db =
+                                       { ahEditAuthorInDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -299,9 +299,9 @@ authorsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { authors_handle =
+                             { authorsHandle =
                                    authorsHandler
-                                       { edit_author_in_db =
+                                       { ahEditAuthorInDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })

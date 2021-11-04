@@ -1,17 +1,19 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Types.Tags where
 
-import Data.Aeson (ToJSON(toJSON), defaultOptions, genericToJSON)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple (FromRow, ToRow)
-import Database.PostgreSQL.Simple.ToField (ToField(..))
-import GHC.Generics (Generic)
+import           Data.Aeson                         (ToJSON (toJSON),
+                                                     defaultOptions,
+                                                     genericToJSON)
+import qualified Data.Text                          as T
+import           Database.PostgreSQL.Simple         (FromRow, ToRow)
+import           Database.PostgreSQL.Simple.ToField (ToField (..))
+import           GHC.Generics                       (Generic)
 
 newtype Tag =
     Tag
-        { tag_name :: T.Text
+        { getTag :: T.Text
         }
     deriving (Show, Generic, ToRow, FromRow)
 
@@ -29,16 +31,16 @@ instance ToJSON TagsList where
 
 newtype TagName =
     TagName
-        { from_tag_name :: T.Text
+        { getTagName :: T.Text
         }
     deriving (Show, Eq)
 
 instance ToField TagName where
-    toField = toField . from_tag_name
+    toField = toField . getTagName
 
 data EditTag =
     EditTag
-        { edit_tag_new_name :: Maybe TagName
-        , edit_tag_old_name :: Maybe TagName
+        { editTagNewName :: Maybe TagName
+        , editTagOldName :: Maybe TagName
         }
     deriving (Show, Generic, ToRow, Eq)

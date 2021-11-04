@@ -1,13 +1,15 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Types.Categories where
 
-import Data.Aeson (ToJSON(toJSON), defaultOptions, genericToJSON)
-import qualified Data.Text as T
-import Database.PostgreSQL.Simple (FromRow, ToRow)
-import Database.PostgreSQL.Simple.ToField (ToField(..))
-import GHC.Generics (Generic)
+import           Data.Aeson                         (ToJSON (toJSON),
+                                                     defaultOptions,
+                                                     genericToJSON)
+import qualified Data.Text                          as T
+import           Database.PostgreSQL.Simple         (FromRow, ToRow)
+import           Database.PostgreSQL.Simple.ToField (ToField (..))
+import           GHC.Generics                       (Generic)
 
 newtype ElemOfCategoryList =
     ElemOfCategoryList
@@ -29,24 +31,24 @@ instance ToJSON ListOfCategories where
 
 newtype CategoryName =
     CategoryName
-        { from_category_name :: T.Text
+        { getCategoryName :: T.Text
         }
     deriving (Show, Eq)
 
 instance ToField CategoryName where
-    toField = toField . from_category_name
+    toField = toField . getCategoryName
 
 data CreateCategory =
     CreateCategory
-        { create_categrory_name :: Maybe CategoryName
-        , create_categrory_maternal_category :: Maybe CategoryName
+        { createCategroryName             :: Maybe CategoryName
+        , createCategroryMaternalCategory :: Maybe CategoryName
         }
     deriving (Show, Generic, ToRow, Eq)
 
 data EditCategory =
     EditCategory
-        { edit_category_name :: Maybe CategoryName
-        , edit_category_new_name :: Maybe CategoryName
-        , edit_category_new_maternal :: Maybe CategoryName
+        { editCategoryName        :: Maybe CategoryName
+        , editCategoryNewName     :: Maybe CategoryName
+        , editCategoryNewMaternal :: Maybe CategoryName
         }
     deriving (Show, Generic, ToRow, Eq)

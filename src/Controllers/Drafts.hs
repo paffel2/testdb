@@ -16,7 +16,7 @@ import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
 import           Network.Wai.Parse         (FileInfo (fileContent))
-import           OperationsHandle          (DraftsHandle (create_draft_on_db, delete_draft_from_db, drafts_logger, drafts_parse_request_body, get_draft_by_id_from_db, get_drafts_by_author_token, public_news_on_db, update_draft_in_db))
+import           OperationsHandle          (DraftsHandle (dhCreateDraftOnDb, dhDeleteDraftFromDb, dhGetDraftByIdFromDb, dhGetDraftsByAuthorToken, dhLogger, dhParseRequestBody, dhPublicNewsOnDb, dhUpdateDraftInDb))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (Id,
                                             ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
@@ -30,14 +30,12 @@ getDrafts ::
 getDrafts operations req =
     if requestMethod req /= methodGet
         then do
-            logError (drafts_logger operations) "Bad request method"
+            logError (dhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (drafts_logger operations)
-                "Preparing data for sending drafts"
+            logInfo (dhLogger operations) "Preparing data for sending drafts"
             let token' = takeToken req
-            drafts' <- get_drafts_by_author_token operations token'
+            drafts' <- dhGetDraftsByAuthorToken operations token'
             case drafts' of
                 Left someError ->
                     return $
@@ -46,7 +44,7 @@ getDrafts operations req =
                         "List of drafts not sended."
                         someError
                 Right draftsA -> do
-                    logInfo (drafts_logger operations) "Sending drafts to user"
+                    logInfo (dhLogger operations) "Sending drafts to user"
                     return $ Right $ OkJSON (encode draftsA)
 
 postDraft ::
@@ -57,13 +55,11 @@ postDraft ::
 postDraft operations req =
     if requestMethod req /= methodPost
         then do
-            logError (drafts_logger operations) "Bad request method"
+            logError (dhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (drafts_logger operations)
-                "Preparing data for creating draft"
-            (i, f) <- drafts_parse_request_body operations req
+            logInfo (dhLogger operations) "Preparing data for creating draft"
+            (i, f) <- dhParseRequestBody operations req
             let draft_inf = toDraftInf req i
             let list_of_tags = toDraftTags i
             let main'_image = foundParametr "main_image" f
@@ -79,11 +75,11 @@ postDraft operations req =
             if checkNotImageMaybe main_image_triple ||
                checkNotImages images_list
                 then do
-                    logError (drafts_logger operations) "Bad image file"
+                    logError (dhLogger operations) "Bad image file"
                     return $ Left $ BadRequest "Bad image file"
                 else do
                     result <-
-                        create_draft_on_db
+                        dhCreateDraftOnDb
                             operations
                             draft_inf
                             list_of_tags
@@ -97,7 +93,7 @@ postDraft operations req =
                                 "Draft not created."
                                 someError
                         Right n -> do
-                            logInfo (drafts_logger operations) "Draft created."
+                            logInfo (dhLogger operations) "Draft created."
                             return $
                                 Right $
                                 Created $ LBS.fromStrict $ BC.pack $ show n
@@ -110,15 +106,13 @@ deleteDraft ::
 deleteDraft operations req =
     if requestMethod req /= methodDelete
         then do
-            logError (drafts_logger operations) "Bad request method"
+            logError (dhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (drafts_logger operations)
-                "Preparing data for deleting draft"
+            logInfo (dhLogger operations) "Preparing data for deleting draft"
             let token' = takeToken req
             let draft_id = toDraftId req
-            result <- delete_draft_from_db operations token' draft_id
+            result <- dhDeleteDraftFromDb operations token' draft_id
             case result of
                 Left someError ->
                     return $
@@ -135,14 +129,12 @@ getDraftById ::
 getDraftById operations draft_id req =
     if requestMethod req /= methodGet
         then do
-            logError (drafts_logger operations) "Bad request method"
+            logError (dhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (drafts_logger operations)
-                "Preparing data for sending draft"
+            logInfo (dhLogger operations) "Preparing data for sending draft"
             let token' = takeToken req
-            result <- get_draft_by_id_from_db operations token' draft_id
+            result <- dhGetDraftByIdFromDb operations token' draft_id
             case result of
                 Left someError ->
                     return $
@@ -156,42 +148,39 @@ updateDraft ::
     -> Id
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
-updateDraft operations draft_id req =
+updateDraft operations draftId req =
     if requestMethod req /= methodPut
         then do
-            logError (drafts_logger operations) "Bad request method"
+            logError (dhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo
-                (drafts_logger operations)
-                "Preparing data for updating draft"
-            (i, f) <- drafts_parse_request_body operations req
-            let dr_inf_update = toDraftInf req i
-            let list_of_tags = toDraftTags i
-            let main'_image = foundParametr "main_image" f
+            logInfo (dhLogger operations) "Preparing data for updating draft"
+            (i, f) <- dhParseRequestBody operations req
+            let draftInfUpdate = toDraftInf req i
+            let listOfTags = toDraftTags i
+            let mainImage = foundParametr "main_image" f
             let images = foundParametr "images" f
-            let main_image_triple =
-                    if isNothing $ fileContent <$> saveHead main'_image
+            let mainImageTriple =
+                    if isNothing $ fileContent <$> saveHead mainImage
                         then Nothing
-                        else Just $ toImage $ Prelude.head main'_image
-            let images_list =
+                        else Just $ toImage $ Prelude.head mainImage
+            let imagesList =
                     if isNothing $ fileContent <$> saveHead images
                         then Nothing
                         else Just $ toImage <$> images
-            if checkNotImageMaybe main_image_triple ||
-               checkNotImages images_list
+            if checkNotImageMaybe mainImageTriple || checkNotImages imagesList
                 then do
-                    logError (drafts_logger operations) "Bad image file"
+                    logError (dhLogger operations) "Bad image file"
                     return $ Left $ BadRequest "Bad image file"
                 else do
                     result <-
-                        update_draft_in_db
+                        dhUpdateDraftInDb
                             operations
-                            dr_inf_update
-                            list_of_tags
-                            main_image_triple
-                            images_list
-                            draft_id
+                            draftInfUpdate
+                            listOfTags
+                            mainImageTriple
+                            imagesList
+                            draftId
                     case result of
                         Left someError ->
                             return $
@@ -208,15 +197,15 @@ postNews ::
     -> Id
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
-postNews operations draft_id req =
+postNews operations draftId req =
     if requestMethod req /= methodPut
         then do
-            logError (drafts_logger operations) "Bad request method"
+            logError (dhLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo (drafts_logger operations) "Preparing data for public news"
-            let token' = takeToken req
-            result <- public_news_on_db operations token' draft_id
+            logInfo (dhLogger operations) "Preparing data for public news"
+            let token = takeToken req
+            result <- dhPublicNewsOnDb operations token draftId
             case result of
                 Left someError ->
                     return $

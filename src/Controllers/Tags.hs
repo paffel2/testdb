@@ -11,7 +11,7 @@ import           Logger                    (logError, logInfo)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           OperationsHandle          (TagsHandle (create_tag_in_db, delete_tag_from_db, edit_tag_in_db, get_tags_list_from_db, tags_logger, tags_parse_request_body))
+import           OperationsHandle          (TagsHandle (thCreateTagInDb, thDeleteTagFromDb, thEditTagInDb, thGetTagsListFromDb, thLogger, thParseRequestBody))
 import           Responses                 (toResponseErrorMessage)
 import           Types.Other               (ResponseErrorMessage (MethodNotAllowed, NotFound),
                                             ResponseOkMessage (Created, OkJSON, OkMessage))
@@ -24,20 +24,20 @@ getTagsList ::
 getTagsList operations req =
     if requestMethod req /= methodGet
         then do
-            logError (tags_logger operations) "Bad request method"
+            logError (thLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo
-                (tags_logger operations)
+                (thLogger operations)
                 "Preparing parameters for sending tags list."
-            tags_list <- get_tags_list_from_db operations page
-            case tags_list of
+            tagsList <- thGetTagsListFromDb operations page
+            case tagsList of
                 Left someError ->
                     return $
                     Left $
                     toResponseErrorMessage "List of tags not sended." someError
-                Right tl -> do
-                    return $ Right $ OkJSON $ encode tl
+                Right someList -> do
+                    return $ Right $ OkJSON $ encode someList
   where
     page = toPage req
 
@@ -49,13 +49,13 @@ postTag ::
 postTag operations req =
     if requestMethod req /= methodPost
         then do
-            logError (tags_logger operations) "Bad request method"
+            logError (thLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo (tags_logger operations) "Preparing data for creating tag."
-            let token' = takeToken req
-            let tag_name_param = toTagName req
-            result <- create_tag_in_db operations token' tag_name_param
+            logInfo (thLogger operations) "Preparing data for creating tag."
+            let token = takeToken req
+            let tagNameParam = toTagName req
+            result <- thCreateTagInDb operations token tagNameParam
             case result of
                 Left someError ->
                     return $
@@ -71,13 +71,13 @@ deleteTag ::
 deleteTag operations req =
     if requestMethod req /= methodDelete
         then do
-            logError (tags_logger operations) "Bad request method"
+            logError (thLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo (tags_logger operations) "Preparing data for deleting tag."
-            let token' = takeToken req
-            let tag_name_param = toTagName req
-            result <- delete_tag_from_db operations token' tag_name_param
+            logInfo (thLogger operations) "Preparing data for deleting tag."
+            let token = takeToken req
+            let tagNameParam = toTagName req
+            result <- thDeleteTagFromDb operations token tagNameParam
             case result of
                 Left someError ->
                     return $
@@ -93,14 +93,14 @@ updateTag ::
 updateTag operations req =
     if requestMethod req /= methodPut
         then do
-            logError (tags_logger operations) "Bad request method"
+            logError (thLogger operations) "Bad request method"
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
-            logInfo (tags_logger operations) "Preparing data for editing tag."
-            let token' = takeToken req
-            (i, _) <- tags_parse_request_body operations req
-            let tag_edit_params = toEditTag i
-            result <- edit_tag_in_db operations token' tag_edit_params
+            logInfo (thLogger operations) "Preparing data for editing tag."
+            let token = takeToken req
+            (i, _) <- thParseRequestBody operations req
+            let tagEditParams = toEditTag i
+            result <- thEditTagInDb operations token tagEditParams
             case result of
                 Left someError ->
                     return $

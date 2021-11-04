@@ -26,20 +26,20 @@ hLogger =
 tagsHandler :: TagsHandle Identity
 tagsHandler =
     TagsHandle
-        { create_tag_in_db =
+        { thCreateTagInDb =
               \token tag_name -> return $ Left $ OtherError "ErrorMessage"
-        , delete_tag_from_db =
+        , thDeleteTagFromDb =
               \token tag_name -> return $ Left $ OtherError "ErrorMessage"
-        , get_tags_list_from_db =
+        , thGetTagsListFromDb =
               \page -> return $ Left $ OtherError "ErrorMessage"
-        , edit_tag_in_db =
+        , thEditTagInDb =
               \token edit_tag -> return $ Left $ OtherError "ErrorMessage"
-        , tags_logger = hLogger
-        , tags_parse_request_body = \_ -> return ([], [])
+        , thLogger = hLogger
+        , thParseRequestBody = \_ -> return ([], [])
         }
 
 operationsHandler :: OperationsHandle Identity
-operationsHandler = OperationsHandle {tags_handle = tagsHandler}
+operationsHandler = OperationsHandle {tagsHandle = tagsHandler}
 
 tstGetTagsListReq :: Request
 tstGetTagsListReq =
@@ -63,7 +63,7 @@ tagsTests :: IO ()
 tagsTests =
     hspec $ do
         describe "testing tags functions" $ do
-            describe "testing get_tags_list_from_db" $ do
+            describe "testing thGetTagsListFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstGetTagsListReq `shouldBe`
                     return
@@ -83,9 +83,9 @@ tagsTests =
                 it "server should return list of tags, because all is good" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { get_tags_list_from_db =
+                                       { thGetTagsListFromDb =
                                              \_ -> return $ Right (TagsList [])
                                        }
                              })
@@ -95,9 +95,9 @@ tagsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { get_tags_list_from_db =
+                                       { thGetTagsListFromDb =
                                              \_ -> return $ Left DatabaseError
                                        }
                              })
@@ -109,7 +109,7 @@ tagsTests =
 {-
                                 CREATE TAG TESTS
 -}
-            describe "testing create_tag_in_db" $ do
+            describe "testing thCreateTagInDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstPostTagReq `shouldBe`
                     return (Left $ BadRequest "Tag not created. ErrorMessage")
@@ -127,9 +127,9 @@ tagsTests =
                 it "server should return tag id, because all is good" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { create_tag_in_db =
+                                       { thCreateTagInDb =
                                              \_ _ -> return $ Right 1
                                        }
                              })
@@ -138,9 +138,9 @@ tagsTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { create_tag_in_db =
+                                       { thCreateTagInDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -149,9 +149,9 @@ tagsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { create_tag_in_db =
+                                       { thCreateTagInDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -161,9 +161,9 @@ tagsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { create_tag_in_db =
+                                       { thCreateTagInDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -175,7 +175,7 @@ tagsTests =
 {-
                                 DELETE TAG TESTS
 -}
-            describe "testing delete_tag_from_db" $ do
+            describe "testing thDeleteTagFromDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstDeleteTagReq `shouldBe`
                     return (Left $ BadRequest "Tag not deleted. ErrorMessage")
@@ -193,9 +193,9 @@ tagsTests =
                 it "server should return message about successful deleting" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { delete_tag_from_db =
+                                       { thDeleteTagFromDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -204,9 +204,9 @@ tagsTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { delete_tag_from_db =
+                                       { thDeleteTagFromDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -215,9 +215,9 @@ tagsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { delete_tag_from_db =
+                                       { thDeleteTagFromDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -227,9 +227,9 @@ tagsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { delete_tag_from_db =
+                                       { thDeleteTagFromDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
@@ -241,7 +241,7 @@ tagsTests =
 {-
                                 EDIT AUTHOR TESTS
 -}
-            describe "testing edit_tag_in_db" $ do
+            describe "testing thEditTagInDb" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler tstUpdateTagReq `shouldBe`
                     return (Left $ BadRequest "Tag not edited. ErrorMessage")
@@ -259,9 +259,9 @@ tagsTests =
                 it "server should return message about successful editing" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { edit_tag_in_db =
+                                       { thEditTagInDb =
                                              \_ _ -> return $ Right ()
                                        }
                              })
@@ -270,9 +270,9 @@ tagsTests =
                 it "server should return error, because token is not admin" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { edit_tag_in_db =
+                                       { thEditTagInDb =
                                              \_ _ -> return $ Left NotAdmin
                                        }
                              })
@@ -281,9 +281,9 @@ tagsTests =
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { edit_tag_in_db =
+                                       { thEditTagInDb =
                                              \_ _ -> return $ Left BadToken
                                        }
                              })
@@ -293,9 +293,9 @@ tagsTests =
                     "server should return error, because something wrong with database" $
                     routes
                         (operationsHandler
-                             { tags_handle =
+                             { tagsHandle =
                                    tagsHandler
-                                       { edit_tag_in_db =
+                                       { thEditTagInDb =
                                              \_ _ -> return $ Left DatabaseError
                                        }
                              })
