@@ -4,14 +4,14 @@
 module Databaseoperations.Categories where
 
 import           Control.Exception             (catch)
-import qualified Data.ByteString.Char8         as BC
-import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, Only (..),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (readByteStringToInt, toQuery)
+import           HelpFunction                  (pageToBS, readByteStringToInt,
+                                                toQuery)
 import           Logger                        (LoggerHandle, logDebug,
                                                 logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
@@ -21,7 +21,7 @@ import           Types.Categories              (CategoryName (..),
                                                 CreateCategory (..),
                                                 EditCategory (..),
                                                 ListOfCategories (ListOfCategories))
-import           Types.Other                   (Page (getPage), SendId,
+import           Types.Other                   (Page, SendId,
                                                 SomeError (DatabaseError, OtherError),
                                                 Token, TokenLifeTime)
 
@@ -40,14 +40,10 @@ getCategoriesListFromDb pool hLogger pageParam =
         logError hLogger $ "Database error " <> T.pack (show errStateInt)
         return $ Left DatabaseError
   where
-    pg =
-        if isNothing pageParam
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage pageParam - 1) * 10)
     q =
         toQuery $
-        "select category_name from categories order by category_name" <> pg
+        "select category_name from categories order by category_name" <>
+        pageToBS pageParam
 
 createCategoryOnDb ::
        Pool Connection

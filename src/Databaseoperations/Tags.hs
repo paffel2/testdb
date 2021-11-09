@@ -4,18 +4,18 @@
 module Databaseoperations.Tags where
 
 import           Control.Exception             (catch)
-import qualified Data.ByteString.Char8         as BC
-import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (readByteStringToInt, toQuery)
+import           HelpFunction                  (pageToBS, readByteStringToInt,
+                                                toQuery)
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
-import           Types.Other                   (Page (getPage),
+import           Types.Other                   (Page,
                                                 SomeError (DatabaseError, OtherError),
                                                 Token, TokenLifeTime)
 import           Types.Tags                    (EditTag (..),
@@ -110,12 +110,7 @@ getTagsListFromDb pool hLogger page =
         logError hLogger "Database error"
         return $ Left DatabaseError
   where
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
-    q = toQuery $ "select tag_name from tags order by tag_name" <> pg
+    q = toQuery $ "select tag_name from tags order by tag_name" <> pageToBS page
 
 editTagInDb ::
        Pool Connection

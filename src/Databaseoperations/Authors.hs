@@ -4,14 +4,14 @@
 module Databaseoperations.Authors where
 
 import           Control.Exception             (catch)
-import qualified Data.ByteString.Char8         as BC
-import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (readByteStringToInt, toQuery)
+import           HelpFunction                  (pageToBS, readByteStringToInt,
+                                                toQuery)
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
@@ -19,7 +19,7 @@ import           Types.Authors                 (AuthorLogin,
                                                 AuthorsList (AuthorsList),
                                                 CreateAuthor (..),
                                                 EditAuthor (..))
-import           Types.Other                   (Page (getPage), SendId,
+import           Types.Other                   (Page, SendId,
                                                 SomeError (DatabaseError, OtherError),
                                                 Token, TokenLifeTime)
 
@@ -130,12 +130,7 @@ getAuthorsList pool hLogger page =
     q =
         toQuery $
         "select author_id, (concat(first_name, ' ', last_name)) as author_name, description from authors join users using (user_id) order by 2" <>
-        pageBC
-    pageBC =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
+        pageToBS page
 
 editAuthorInDb ::
        Pool Connection

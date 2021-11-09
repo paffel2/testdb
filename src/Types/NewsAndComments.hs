@@ -1,11 +1,13 @@
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DerivingVia       #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Types.NewsAndComments where
 
 import           Data.Aeson                         (KeyValue ((.=)),
-                                                     ToJSON (toJSON),
+                                                     Options (fieldLabelModifier),
+                                                     ToJSON (toJSON), camelTo2,
                                                      defaultOptions,
                                                      genericToJSON, object)
 import qualified Data.ByteString.Char8              as BC
@@ -37,7 +39,10 @@ data ElemOfNewsArray =
         }
     deriving (Show, Generic, ToRow, FromRow)
 
-instance ToJSON ElemOfNewsArray
+instance ToJSON ElemOfNewsArray where
+    toJSON =
+        genericToJSON
+            defaultOptions {fieldLabelModifier = camelTo2 '_' . drop 5}
 
 newtype NewsArray =
     NewsArray
@@ -63,7 +68,10 @@ newtype CommentArray =
         }
     deriving (Show, Generic)
 
-instance ToJSON ElemOfCommentArray
+instance ToJSON ElemOfCommentArray where
+    toJSON =
+        genericToJSON
+            defaultOptions {fieldLabelModifier = camelTo2 '_' . drop 5}
 
 instance ToJSON CommentArray where
     toJSON = genericToJSON defaultOptions
@@ -101,10 +109,10 @@ newtype CommentText =
         { getCommentText :: T.Text
         }
     deriving (Show, Eq)
+    deriving ToField via T.Text
 
-instance ToField CommentText where
-    toField = toField . getCommentText
-
+{-instance ToField CommentText where
+    toField = toField . getCommentText-}
 newtype Sort =
     Sort
         { getSort :: BC.ByteString
@@ -128,10 +136,10 @@ newtype TagFilterParam =
         { getTagFp :: Id
         }
     deriving (Show, Eq)
+    deriving ToField via Id
 
-instance ToField TagFilterParam where
-    toField = toField . getTagFp
-
+{-instance ToField TagFilterParam where
+    toField = toField . getTagFp -}
 newtype TagAllFilterParam =
     TagAllFilterParam
         { getTagAllFp :: [Int]
@@ -155,28 +163,28 @@ newtype DateFilterParam =
         { getDateFp :: Day
         }
     deriving (Show, Eq)
+    deriving ToField via Day
 
-instance ToField DateFilterParam where
-    toField = toField . getDateFp
-
+{-instance ToField DateFilterParam where
+    toField = toField . getDateFp -}
 newtype BeforeDateFilterParam =
     BeforeDateFilterParam
         { getBeforeDateFp :: Day
         }
     deriving (Show, Eq)
+    deriving ToField via Day
 
-instance ToField BeforeDateFilterParam where
-    toField = toField . getBeforeDateFp
-
+{-instance ToField BeforeDateFilterParam where
+    toField = toField . getBeforeDateFp -}
 newtype AfterDateFilterParam =
     AfterDateFilterParam
         { getAfterDateFp :: Day
         }
     deriving (Show, Eq)
+    deriving ToField via Day
 
-instance ToField AfterDateFilterParam where
-    toField = toField . getAfterDateFp
-
+{-instance ToField AfterDateFilterParam where
+    toField = toField . getAfterDateFp -}
 newtype AuthorFilterParam =
     AuthorFilterParam
         { getAuthorFp :: T.Text

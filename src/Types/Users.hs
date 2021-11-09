@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DerivingVia       #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Types.Users where
@@ -42,18 +43,19 @@ newtype Password =
         { getPassword :: T.Text
         }
     deriving (Show, Eq)
+    deriving ToField via T.Text
 
-instance ToField Password where
-    toField = toField . getPassword
+{-instance ToField Password where
+    toField = toField . getPassword -}
 
 newtype Login =
     Login
         { getLogin :: T.Text
         }
     deriving (Show, Eq)
-
-instance ToField Login where
-    toField = toField . getLogin
+    deriving ToField via T.Text
+{-instance ToField Login where
+    toField = toField . getLogin-}
 
 data CreateUser =
     CreateUser

@@ -12,7 +12,6 @@ import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 import           Database.PostgreSQL.Simple (Connection, In (In), Only (..),
                                              SqlError (sqlErrorMsg, sqlState))
-
 import           HelpFunction               (readByteStringToInt, toQuery)
 import           Logger                     (LoggerHandle, logDebug, logError,
                                              logInfo)
@@ -187,112 +186,138 @@ createDraftOnDb _ _ hLogger DraftInf {draftInfText = Nothing} _ _ _ = do
     return . Left . OtherError $ "No text field"
 createDraftOnDb pool tokenLifeTime hLogger draftUpd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tagsList) mainImage imagesList = do
     logInfo hLogger "Someone try add new draft"
-    draftId <- newDraft
-    c <- createTagConnections draftId
-    l <- loadMainImage c mainImage
-    loadImages l imagesList
-  where
-    newDraft =
-        catch
-            (do let q =
-                        toQuery $
-                        "with get_a as (select author_id from authors join tokens using (user_id) where token = ?" <>
-                        " and (now() - tokens.creation_date) < make_interval(secs => " <>
-                        BC.pack (show tokenLifeTime) <>
-                        ")), get_c as (select category_id from categories where category_name = ?) " <>
-                        "insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a)," <>
-                        " ? ,now(),(select category_id from get_c)," <>
-                        " ?) returning draft_id"
-                logDebug hLogger "Insert draft info"
-                rows <- queryWithPool pool q draftUpd :: IO [Only Int]
-                if Prelude.null rows
-                    then do
-                        logError hLogger "Draft not created"
-                        return . Left . OtherError $ "Draft not created"
-                    else do
-                        logDebug hLogger "Draft info added"
-                        return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
-            let errState = sqlState e
-            let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            case errStateInt of
-                23502 -> do
-                    logError hLogger "Bad token"
-                    return $ Left BadToken
-                _ -> do
-                    let err = E.decodeUtf8 $ sqlErrorMsg e
-                    logError hLogger err
-                    return $ Left DatabaseError
-    createTagConnections (Left someError) = return $ Left someError
-    createTagConnections (Right draftId) =
-        catch
-            (do tagIds <- getTagsIds hLogger pool (getDraftTags tagsList)
-                case tagIds of
-                    Left bs -> return $ Left bs
-                    Right ns -> do
-                        let q =
-                                toQuery
-                                    "insert into draft_tags (draft_id,tag_id) values (?,?)"
-                        let a = Prelude.map (draftId, ) ns
-                        let nt = Prelude.length ns
-                        logDebug hLogger "Add tag connections"
-                        n <- executeManyWithPool pool q a
-                        if fromIntegral n < nt
-                            then do
-                                logError hLogger "Some tags not added"
-                                return . Left . OtherError $
-                                    "Some tags not added"
-                            else do
-                                logDebug hLogger "Connections added"
-                                return $ Right draftId) $ \e -> do
-            let errState = sqlState e
-            let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            logError hLogger $ "Database error " <> T.pack (show errStateInt)
-            return $ Left DatabaseError
-    loadMainImage (Left someError) _ = return $ Left someError
-    loadMainImage (Right draftId) Nothing = return $ Right draftId
-    loadMainImage (Right draftId) (Just image) =
-        catch
-            (do let q =
-                        toQuery $
-                        "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) " <>
-                        "update drafts set main_image = (select * from m_id) where draft_id = " <>
-                        BC.pack (show draftId)
-                logDebug hLogger "Load main image"
-                n <- executeWithPool pool q image
-                if n < 1
-                    then do
-                        logError hLogger "Image not loaded"
-                        return . Left . OtherError $ "Image not loaded"
-                    else do
-                        logDebug hLogger "Main image loaded"
-                        return $ Right draftId) $ \e -> do
-            let errState = sqlState e
-            let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            logError hLogger $ "Database error " <> T.pack (show errStateInt)
-            return $ Left DatabaseError
-    loadImages (Left someError) _ = return $ Left someError
-    loadImages (Right draftId) Nothing = return $ Right draftId
-    loadImages (Right draftId) (Just images) =
-        catch
-            (do let q =
-                        toQuery $
-                        "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id), " <>
-                        "d_i as (select " <>
-                        BC.pack (show draftId) <>
-                        " as draft_id, image_id from m_id) " <>
-                        "insert into drafts_images (draft_id,image_id) select * from d_i"
-                logDebug hLogger "Load other images"
-                n <- executeManyWithPool pool q images
-                if fromIntegral n < Prelude.length images
-                    then do
-                        logError hLogger "Images not loaded"
-                        return . Left . OtherError $ "Images not loaded"
-                    else do
-                        return $ Right draftId) $ \e -> do
-            let errState = sqlState e
-            let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            logError hLogger $ "Database error " <> T.pack (show errStateInt)
-            return $ Left DatabaseError
+    draftId <- newDraft hLogger tokenLifeTime pool draftUpd
+    c <- createTagConnections draftId hLogger pool tagsList
+    l <- loadMainImage c mainImage hLogger pool
+    loadImages l imagesList hLogger pool
+
+newDraft ::
+       LoggerHandle IO
+    -> TokenLifeTime
+    -> Pool Connection
+    -> DraftInf
+    -> IO (Either SomeError Int)
+newDraft hLogger tokenLifeTime pool draftUpd =
+    catch
+        (do let q =
+                    toQuery $
+                    "with get_a as (select author_id from authors join tokens using (user_id) where token = ?" <>
+                    " and (now() - tokens.creation_date) < make_interval(secs => " <>
+                    BC.pack (show tokenLifeTime) <>
+                    ")), get_c as (select category_id from categories where category_name = ?) " <>
+                    "insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a)," <>
+                    " ? ,now(),(select category_id from get_c)," <>
+                    " ?) returning draft_id"
+            logDebug hLogger "Insert draft info"
+            rows <- queryWithPool pool q draftUpd :: IO [Only Int]
+            if Prelude.null rows
+                then do
+                    logError hLogger "Draft not created"
+                    return . Left . OtherError $ "Draft not created"
+                else do
+                    logDebug hLogger "Draft info added"
+                    return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        case errStateInt of
+            23502 -> do
+                logError hLogger "Bad token"
+                return $ Left BadToken
+            _ -> do
+                let err = E.decodeUtf8 $ sqlErrorMsg e
+                logError hLogger err
+                return $ Left DatabaseError
+
+createTagConnections ::
+       Either SomeError Int
+    -> LoggerHandle IO
+    -> Pool Connection
+    -> DraftTags
+    -> IO (Either SomeError Int)
+createTagConnections (Left someError) _ _ _ = return $ Left someError
+createTagConnections (Right draftId) hLogger pool tagsList =
+    catch
+        (do tagIds <- getTagsIds hLogger pool (getDraftTags tagsList)
+            case tagIds of
+                Left bs -> return $ Left bs
+                Right ns -> do
+                    let q =
+                            toQuery
+                                "insert into draft_tags (draft_id,tag_id) values (?,?)"
+                    let a = Prelude.map (draftId, ) ns
+                    let nt = Prelude.length ns
+                    logDebug hLogger "Add tag connections"
+                    n <- executeManyWithPool pool q a
+                    if fromIntegral n < nt
+                        then do
+                            logError hLogger "Some tags not added"
+                            return . Left . OtherError $ "Some tags not added"
+                        else do
+                            logDebug hLogger "Connections added"
+                            return $ Right draftId) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ "Database error " <> T.pack (show errStateInt)
+        return $ Left DatabaseError
+
+loadMainImage ::
+       Either SomeError Int
+    -> Maybe Image
+    -> LoggerHandle IO
+    -> Pool Connection
+    -> IO (Either SomeError Int)
+loadMainImage (Left someError) _ _ _ = return $ Left someError
+loadMainImage (Right draftId) Nothing _ _ = return $ Right draftId
+loadMainImage (Right draftId) (Just image) hLogger pool =
+    catch
+        (do let q =
+                    toQuery $
+                    "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) " <>
+                    "update drafts set main_image = (select * from m_id) where draft_id = " <>
+                    BC.pack (show draftId)
+            logDebug hLogger "Load main image"
+            n <- executeWithPool pool q image
+            if n < 1
+                then do
+                    logError hLogger "Image not loaded"
+                    return . Left . OtherError $ "Image not loaded"
+                else do
+                    logDebug hLogger "Main image loaded"
+                    return $ Right draftId) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ "Database error " <> T.pack (show errStateInt)
+        return $ Left DatabaseError
+
+loadImages ::
+       Either SomeError Int
+    -> Maybe [Image]
+    -> LoggerHandle IO
+    -> Pool Connection
+    -> IO (Either SomeError SendId)
+loadImages (Left someError) _ _ _ = return $ Left someError
+loadImages (Right draftId) Nothing _ _ = return $ Right draftId
+loadImages (Right draftId) (Just images) hLogger pool =
+    catch
+        (do let q =
+                    toQuery $
+                    "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id), " <>
+                    "d_i as (select " <>
+                    BC.pack (show draftId) <>
+                    " as draft_id, image_id from m_id) " <>
+                    "insert into drafts_images (draft_id,image_id) select * from d_i"
+            logDebug hLogger "Load other images"
+            n <- executeManyWithPool pool q images
+            if fromIntegral n < Prelude.length images
+                then do
+                    logError hLogger "Images not loaded"
+                    return . Left . OtherError $ "Images not loaded"
+                else do
+                    return $ Right draftId) $ \e -> do
+        let errState = sqlState e
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        logError hLogger $ "Database error " <> T.pack (show errStateInt)
+        return $ Left DatabaseError
 
 updateDraftInDb ::
        Pool Connection
@@ -323,11 +348,14 @@ updateDraftInDb pool tokenLifeTime hLogger draftUpd@(DraftInf (Just _) (Just _) 
     logInfo hLogger "Someone try update draft"
     u <- updateDraft
     dt <- deleteTagConnections u
-    ct <- createTagConnections dt
+    ct <- createTagConnections dt hLogger pool tagsList
     dmi <- deleteMainImage ct mainImage
-    l <- loadMainImage dmi mainImage
+    l <- loadMainImage dmi mainImage hLogger pool
     di <- deleteOldImages l imagesList
-    loadImages di imagesList
+    result <- loadImages di imagesList hLogger pool
+    case result of
+        Left se -> return $ Left se
+        Right _ -> return $ Right ()
   where
     updateDraft =
         catch
@@ -347,7 +375,7 @@ updateDraftInDb pool tokenLifeTime hLogger draftUpd@(DraftInf (Just _) (Just _) 
                         return . Left . OtherError $ "Draft not updated"
                     else do
                         logDebug hLogger "Update drafts complete"
-                        return $ Right ()) $ \e -> do
+                        return $ Right (getId draftId)) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $ "Database error " <> T.pack (show errStateInt)
@@ -372,32 +400,6 @@ updateDraftInDb pool tokenLifeTime hLogger draftUpd@(DraftInf (Just _) (Just _) 
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $ "Database error " <> T.pack (show errStateInt)
             return $ Left DatabaseError
-    createTagConnections (Left someError) = return $ Left someError
-    createTagConnections (Right mess) =
-        catch
-            (do tagIds <- getTagsIds hLogger pool (getDraftTags tagsList)
-                case tagIds of
-                    Left bs -> return $ Left bs
-                    Right ns -> do
-                        logDebug hLogger "Add new tags"
-                        let q =
-                                toQuery
-                                    "insert into draft_tags (draft_id,tag_id) values (?,?)"
-                        let a = Prelude.map (draftId, ) ns
-                        let nt = Prelude.length ns
-                        n <- executeManyWithPool pool q a
-                        if fromIntegral n < nt
-                            then do
-                                logError hLogger "Some tags not added"
-                                return . Left . OtherError $
-                                    "Some tags not added"
-                            else do
-                                logDebug hLogger "Add new tags complete"
-                                return $ Right mess) $ \e -> do
-            let errState = sqlState e
-            let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            logError hLogger $ "Database error " <> T.pack (show errStateInt)
-            return $ Left DatabaseError
     deleteMainImage (Left someError) _ = return $ Left someError
     deleteMainImage (Right mess) Nothing = return $ Right mess
     deleteMainImage (Right mess) (Just _) =
@@ -416,28 +418,6 @@ updateDraftInDb pool tokenLifeTime hLogger draftUpd@(DraftInf (Just _) (Just _) 
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $ "Database error " <> T.pack (show errStateInt)
             return $ Left DatabaseError
-    loadMainImage (Left someError) _ = return $ Left someError
-    loadMainImage (Right mess) Nothing = return $ Right mess
-    loadMainImage (Right mess) (Just image) =
-        catch
-            (do logDebug hLogger "Add new main image"
-                let q =
-                        toQuery $
-                        "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) \
-                             \update drafts set main_image = (select * from m_id) where draft_id = " <>
-                        BC.pack (show $ getId draftId)
-                n <- executeWithPool pool q image
-                if n < 1
-                    then do
-                        logError hLogger "Image not loaded"
-                        return . Left . OtherError $ "Image not loaded"
-                    else do
-                        logDebug hLogger "Add new main image"
-                        return $ Right mess) $ \e -> do
-            let errState = sqlState e
-            let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            logError hLogger $ "Database error " <> T.pack (show errStateInt)
-            return $ Left DatabaseError
     deleteOldImages (Left someError) _ = return $ Left someError
     deleteOldImages (Right mess) Nothing = return $ Right mess
     deleteOldImages (Right mess) (Just _) =
@@ -450,30 +430,6 @@ updateDraftInDb pool tokenLifeTime hLogger draftUpd@(DraftInf (Just _) (Just _) 
                 _ <- execute_WithPool pool q
                 logDebug hLogger "Deleting old images complete"
                 return $ Right mess) $ \e -> do
-            let errState = sqlState e
-            let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-            logError hLogger $ "Database error " <> T.pack (show errStateInt)
-            return $ Left DatabaseError
-    loadImages (Left someError) _ = return $ Left someError
-    loadImages (Right mess) Nothing = return $ Right mess
-    loadImages (Right mess) (Just images) =
-        catch
-            (do logDebug hLogger "Add new images"
-                let q =
-                        toQuery $
-                        "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id), \
-                                    \d_i as (select " <>
-                        BC.pack (show $ getId draftId) <>
-                        " as draft_id, image_id from m_id) \
-                         \insert into drafts_images (draft_id,image_id) select * from d_i"
-                n <- executeManyWithPool pool q images
-                if fromIntegral n < Prelude.length images
-                    then do
-                        logError hLogger "Images not loaded"
-                        return . Left . OtherError $ "Images not loaded"
-                    else do
-                        logDebug hLogger "Add new images complete"
-                        return $ Right mess) $ \e -> do
             let errState = sqlState e
             let errStateInt = fromMaybe 0 (readByteStringToInt errState)
             logError hLogger $ "Database error " <> T.pack (show errStateInt)

@@ -5,6 +5,7 @@ module HelpFunction where
 import           Config                           (DatabaseConf (db_host, db_login, db_name, db_password, db_port))
 import qualified Data.ByteString.Char8            as BC
 import           Data.List                        (sort)
+import           Data.Maybe                       (isNothing)
 import           Data.String                      (IsString (fromString))
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
@@ -13,7 +14,8 @@ import           Database.PostgreSQL.Simple.Types (Query)
 import           Network.Wai.Parse                (FileInfo)
 import           System.Directory                 (getDirectoryContents)
 import           Text.Read                        (readMaybe)
-import           Types.Other                      (Id (Id))
+import           Types.NewsAndComments            (Sort (getSort))
+import           Types.Other                      (Id (Id), Page (..))
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -92,3 +94,16 @@ getMaybeLine = do
 saveHead :: [a] -> Maybe a
 saveHead []    = Nothing
 saveHead (x:_) = Just x
+
+sortToBS :: Sort -> BC.ByteString
+sortToBS sortParam =
+    if getSort sortParam == ""
+        then ""
+        else BC.concat [" order by ", getSort sortParam, " DESC"]
+
+pageToBS :: Maybe Page -> BC.ByteString
+pageToBS pageParam =
+    if isNothing pageParam
+        then " limit 10 offset 0"
+        else " limit 10 offset " <>
+             BC.pack (show $ (maybe 1 getPage pageParam - 1) * 10)

@@ -4,9 +4,9 @@
 
 module Types.Images where
 
-import           Data.Aeson                 (KeyValue ((.=)), ToJSON (toJSON),
-                                             defaultOptions, genericToJSON,
-                                             object)
+import           Data.Aeson                 (Options (fieldLabelModifier),
+                                             ToJSON (toJSON), camelTo2,
+                                             defaultOptions, genericToJSON)
 import qualified Data.ByteString.Char8      as BC
 import qualified Data.ByteString.Internal   as BI
 import qualified Data.ByteString.Lazy       as LBS
@@ -37,8 +37,7 @@ data ElemImageArray =
     deriving (Show, Generic, ToRow, FromRow, Eq)
 
 instance ToJSON ElemImageArray where
-    toJSON (ElemImageArray imid imn) =
-        object ["image_id" .= imid, "image_name" .= imn]
+    toJSON = genericToJSON defaultOptions {fieldLabelModifier = camelTo2 '_'}
 
 newtype ImageArray =
     ImageArray

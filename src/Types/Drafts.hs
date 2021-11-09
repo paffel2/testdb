@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DerivingVia       #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Types.Drafts where
@@ -86,6 +87,4 @@ newtype DraftTags =
         { getDraftTags :: BC.ByteString
         }
     deriving (Show, Eq)
-
-instance ToField DraftTags where
-    toField = toField . getDraftTags
+    deriving ToField via BC.ByteString

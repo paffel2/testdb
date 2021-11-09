@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE DerivingVia    #-}
 
 module Types.Categories where
 
-import           Data.Aeson                         (ToJSON (toJSON),
+import           Data.Aeson                         (Options (fieldLabelModifier),
+                                                     ToJSON (toJSON), camelTo2,
                                                      defaultOptions,
                                                      genericToJSON)
 import qualified Data.Text                          as T
@@ -13,30 +15,32 @@ import           GHC.Generics                       (Generic)
 
 newtype ElemOfCategoryList =
     ElemOfCategoryList
-        { category_get_name :: T.Text
+        { eloclCategoryName :: T.Text
         }
     deriving (Show, Generic, ToRow, FromRow)
 
 instance ToJSON ElemOfCategoryList where
-    toJSON = genericToJSON defaultOptions
+    toJSON =
+        genericToJSON
+            defaultOptions {fieldLabelModifier = camelTo2 '_' . drop 5}
 
 newtype ListOfCategories =
     ListOfCategories
-        { list_of_categories :: [ElemOfCategoryList]
+        { getListOfCategories :: [ElemOfCategoryList]
         }
     deriving (Show, Generic)
 
 instance ToJSON ListOfCategories where
-    toJSON = genericToJSON defaultOptions
+    toJSON =
+        genericToJSON
+            defaultOptions {fieldLabelModifier = camelTo2 '_' . drop 3}
 
 newtype CategoryName =
     CategoryName
         { getCategoryName :: T.Text
         }
     deriving (Show, Eq)
-
-instance ToField CategoryName where
-    toField = toField . getCategoryName
+    deriving ToField via T.Text
 
 data CreateCategory =
     CreateCategory

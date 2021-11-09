@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE DerivingVia    #-}
 
 module Types.Tags where
 
-import           Data.Aeson                         (ToJSON (toJSON),
+import           Data.Aeson                         (Options (fieldLabelModifier),
+                                                     ToJSON (toJSON), camelTo2,
                                                      defaultOptions,
                                                      genericToJSON)
 import qualified Data.Text                          as T
@@ -18,7 +20,9 @@ newtype Tag =
     deriving (Show, Generic, ToRow, FromRow)
 
 instance ToJSON Tag where
-    toJSON = genericToJSON defaultOptions
+    toJSON =
+        genericToJSON
+            defaultOptions {fieldLabelModifier = camelTo2 '_' . drop 3}
 
 newtype TagsList =
     TagsList
@@ -34,10 +38,10 @@ newtype TagName =
         { getTagName :: T.Text
         }
     deriving (Show, Eq)
+    deriving ToField via T.Text
 
-instance ToField TagName where
-    toField = toField . getTagName
-
+{-instance ToField TagName where
+    toField = toField . getTagName -}
 data EditTag =
     EditTag
         { editTagNewName :: Maybe TagName

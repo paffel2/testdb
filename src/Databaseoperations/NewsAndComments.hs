@@ -5,7 +5,7 @@ module Databaseoperations.NewsAndComments where
 
 import           Control.Exception             (catch)
 import qualified Data.ByteString.Char8         as BC
-import           Data.Maybe                    (fromMaybe, isNothing)
+import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as E
@@ -13,7 +13,8 @@ import           Database.PostgreSQL.Simple    (Connection, In (In),
                                                 Only (Only),
                                                 SqlError (sqlErrorMsg, sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (readByteStringToInt, toQuery)
+import           HelpFunction                  (pageToBS, readByteStringToInt,
+                                                sortToBS, toQuery)
 
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
@@ -26,14 +27,13 @@ import           Types.NewsAndComments         (AfterDateFilterParam,
                                                 CommentWithoutTokenLifeTime (..),
                                                 ContentFilterParam (getContentFp),
                                                 DateFilterParam, GetNews,
-                                                NewsArray (NewsArray),
-                                                Sort (getSort),
+                                                NewsArray (NewsArray), Sort,
                                                 TagAllFilterParam (getTagAllFp),
                                                 TagFilterParam,
                                                 TagInFilterParam (getTagInFp),
                                                 TitleFilterParam (getTitleFp),
                                                 toComment)
-import           Types.Other                   (Id (getId), Page (getPage),
+import           Types.Other                   (Id (getId), Page,
                                                 SomeError (BadToken, DatabaseError, OtherError),
                                                 Token, TokenLifeTime)
 
@@ -130,16 +130,11 @@ getCommentsByNewsIdFromDb pool hLogger (Just newsId) page =
             23502 -> return $ Left BadToken
             _     -> return $ Left DatabaseError
   where
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select (concat(first_name, ' ', last_name)) as author_name, comment_text, comment_time, comment_id \
         \from users_comments join users using (user_id) where news_id = ? order by comment_time" <>
-        pg
+        pageToBS page
 
 getNewsByIdFromDb ::
        Pool Connection
@@ -196,18 +191,13 @@ getNewsFilterByTagInFromDb pool hLogger (Just tagList) page = do
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) \
             \join users using (user_id) join news_tags using (news_id) where tag_id in ? \
             \group by news_id,author_name order by 2 DESC" <>
-        pg
+        pageToBS page
 
 getNewsFilterByCategoryIdFromDb ::
        Pool Connection
@@ -231,21 +221,12 @@ getNewsFilterByCategoryIdFromDb pool hLogger (Just categoruId) page sortParam = 
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else BC.concat [" order by ", getSort sortParam, " DESC"]
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text  from news  join authors using (author_id) join users using (user_id) \
             \where category_id = ? " <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFilterByTitleFromDb ::
        Pool Connection
@@ -269,21 +250,12 @@ getNewsFilterByTitleFromDb pool hLogger (Just titleName) page sortParam =
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) \
             \where short_title = ? " <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFilterByAuthorNameFromDb ::
        Pool Connection
@@ -307,21 +279,12 @@ getNewsFilterByAuthorNameFromDb pool hLogger (Just authorName) page sortParam =
         logError hLogger err
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select * from (select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id)) as temp_t \
             \where author_name = ? " <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFilterByDateFromDb ::
        Pool Connection
@@ -345,21 +308,12 @@ getNewsFilterByDateFromDb pool hLogger (Just date) page sortParam = do
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) \
             \where date_creation = ? " <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFilterByTagAllFromDb ::
        Pool Connection
@@ -382,7 +336,7 @@ getNewsFilterByTagAllFromDb pool hLogger (Just tagList) page sortParam = do
                         \take_categories_list(category_id) as category_name, news_text  from news join authors using (author_id) \
                         \join users using (user_id) join news_tags using (news_id) where tag_id in ? \
                         \group by news_id,author_name having count(*) > " <>
-                    countNum <> " " <> sort <> pg
+                    countNum <> " " <> sortToBS sortParam <> pageToBS page
             rows <- queryWithPool pool q (Only (In tagIdsList))
             logInfo hLogger "News sended"
             return (Right $ NewsArray rows)) $ \e -> do
@@ -391,16 +345,6 @@ getNewsFilterByTagAllFromDb pool hLogger (Just tagList) page sortParam = do
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
-  where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
 
 getNewsFilterByContentFromDb ::
        Pool Connection
@@ -428,21 +372,12 @@ getNewsFilterByContentFromDb pool hLogger (Just contentFilter) page sortParam =
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) \
             \where news_text like ? " <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFilterByAfterDateFromDb ::
        Pool Connection
@@ -466,21 +401,12 @@ getNewsFilterByAfterDateFromDb pool hLogger (Just date) page sortParam = do
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) \
             \where date_creation > ? " <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFilterByBeforeDateFromDb ::
        Pool Connection
@@ -506,21 +432,12 @@ getNewsFilterByBeforeDateFromDb pool hLogger (Just date) page sortParam = do
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) \
             \where date_creation < ? " <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFilterByTagIdFromDb ::
        Pool Connection
@@ -544,21 +461,12 @@ getNewsFilterByTagIdFromDb pool hLogger (Just tagId) page sortParam = do
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing page
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage page - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text from news join authors using (author_id) join users using (user_id) \
             \join news_tags using (news_id) where tag_id = ?" <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS page
 
 getNewsFromDb ::
        Pool Connection
@@ -578,17 +486,8 @@ getNewsFromDb pool hLogger sortParam pageParam =
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    sort =
-        if getSort sortParam == ""
-            then ""
-            else " order by " <> getSort sortParam <> " DESC"
-    pg =
-        if isNothing pageParam
-            then " limit 10 offset 0"
-            else " limit 10 offset " <>
-                 BC.pack (show $ (maybe 1 getPage pageParam - 1) * 10)
     q =
         toQuery $
         "select news_id, short_title, date_creation, (concat(first_name, ' ', last_name)) as author_name, \
             \take_categories_list(category_id) as category_name, news_text  from news join authors using (author_id) join users using (user_id)" <>
-        sort <> pg
+        sortToBS sortParam <> pageToBS pageParam

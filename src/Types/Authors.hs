@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE DerivingVia    #-}
 
 module Types.Authors where
 
-import           Data.Aeson                         (ToJSON (toJSON),
+import           Data.Aeson                         (Options (fieldLabelModifier),
+                                                     ToJSON (toJSON), camelTo2,
                                                      defaultOptions,
                                                      genericToJSON)
 import qualified Data.Text                          as T
@@ -20,7 +22,9 @@ data ElemAuthorsList =
     deriving (Show, Generic, ToRow, FromRow, Eq)
 
 instance ToJSON ElemAuthorsList where
-    toJSON = genericToJSON defaultOptions
+    toJSON =
+        genericToJSON
+            defaultOptions {fieldLabelModifier = camelTo2 '_' . drop 3}
 
 newtype AuthorsList =
     AuthorsList
@@ -43,9 +47,7 @@ newtype AuthorLogin =
         { getAuthorLogin :: T.Text
         }
     deriving (Show, Eq)
-
-instance ToField AuthorLogin where
-    toField = toField . getAuthorLogin
+    deriving ToField via T.Text
 
 data CreateAuthor =
     CreateAuthor

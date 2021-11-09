@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia   #-}
 
 module Types.Other where
 
@@ -10,13 +11,15 @@ import           Types.Images                       (ImageB)
 newtype TokenLifeTime =
     TokenLifeTime
         { getTokenLifeTime :: Int
-        }
+        } 
+        deriving Show via Int
+        deriving ToField via Int
 
-instance Show TokenLifeTime where
+{-instance Show TokenLifeTime where
     show (TokenLifeTime tk) = show tk
 
 instance ToField TokenLifeTime where
-    toField = toField . getTokenLifeTime
+    toField = toField . getTokenLifeTime -}
 
 newtype Page =
     Page
@@ -29,18 +32,20 @@ newtype Token =
         { getToken :: T.Text
         }
     deriving (Show, Eq)
+    deriving ToField via T.Text
 
-instance ToField Token where
-    toField = toField . getToken
+{-instance ToField Token where
+    toField = toField . getToken -}
 
 newtype Id =
     Id
         { getId :: Int
         }
     deriving (Show, Eq)
+    deriving ToField via Int
 
-instance ToField Id where
-    toField = toField . getId
+{-instance ToField Id where
+    toField = toField . getId -}
 
 data SomeError
     = BadToken

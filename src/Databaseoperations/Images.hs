@@ -4,16 +4,17 @@ module Databaseoperations.Images where
 
 import           Control.Exception          (catch)
 import qualified Data.ByteString.Char8      as BC
-import           Data.Maybe                 (fromMaybe, isNothing)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Pool                  (Pool)
 import qualified Data.Text                  as T
 import           Database.PostgreSQL.Simple (Connection, SqlError (sqlState))
-import           HelpFunction               (readByteStringToInt, toQuery)
+import           HelpFunction               (pageToBS, readByteStringToInt,
+                                             toQuery)
 import           Logger                     (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool         (queryWithPool, query_WithPool)
 import           Types.Images               (ElemImageArray,
                                              ImageArray (ImageArray), ImageB)
-import           Types.Other                (Id, Page (getPage),
+import           Types.Other                (Id, Page,
                                              SomeError (DatabaseError, OtherError))
 
 getPhotoFromDb ::
@@ -55,13 +56,7 @@ getPhotoListFromDb pool hLogger pageParam =
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
   where
-    pg =
-        if isNothing pageParam
-            then " limit 10 offset 0"
-            else BC.concat
-                     [ " limit 10 offset "
-                     , BC.pack $ show $ (maybe 1 getPage pageParam - 1) * 10
-                     ]
     q =
         toQuery $
-        "select image_id, image_name from images order by image_id" <> pg
+        "select image_id, image_name from images order by image_id" <>
+        pageToBS pageParam
