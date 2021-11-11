@@ -110,7 +110,4 @@ To the run server use
     * `deleteUser` - deleting user.
     * `profile` - sending user information.
 
-* `Initialization endpoint`
-    * `initDb` - initialization filling test data to database.
-
 
