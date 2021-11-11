@@ -16,6 +16,6 @@ answer ::
     => Request
     -> AnswerHandle m a b
     -> m (Either ResponseErrorMessage ResponseOkMessage)
-answer request handler = do
-    result <- parseInformation handler request >>= databaseOperation handler
-    sendResult handler result
+answer request handler =
+    parseInformation handler request >>= databaseOperation handler >>=
+    sendResult handler

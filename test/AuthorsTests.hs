@@ -75,7 +75,10 @@ authorsTests =
                     routes
                         operationsHandler
                         (tstGetAuthorsListReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "List of authors not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -261,7 +264,10 @@ authorsTests =
                     routes
                         operationsHandler
                         (tstUpdateAuthorReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Author not edited. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler

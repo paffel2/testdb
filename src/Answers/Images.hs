@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Answwers.Images where
+module Answers.Images where
 
 import           Answer                    (AnswerHandle (..))
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import           FromRequest               (toPage)
 import           HelpFunction              (readByteStringToId)
-import           Logger                    (LoggerHandle, logError)
+import           Logger                    (logError)
 import           Network.HTTP.Types.Method (methodGet)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
 import           OperationsHandle          (ImagesHandle (ihGetPhoto, ihGetPhotoList, ihLogger))
@@ -17,8 +17,6 @@ import           Types.Other               (Id, Page, ResponseErrorMessage,
                                             ResponseOkMessage (OkImage, OkJSON),
                                             SomeError (BadMethod, OtherError))
 
-{-imagesListParseInformation ::
-       Monad m => LoggerHandle m -> Request -> m (Either SomeError (Maybe Page)) -}
 imagesListParseInformation ::
        Monad m => ImagesHandle m -> Request -> m (Either SomeError (Maybe Page))
 imagesListParseInformation handler request =
@@ -61,8 +59,6 @@ getImagesListHandle imagesHandle =
         , sendResult = imagesListSendResult
         }
 
-{-getImageParseInformation ::
-       Monad m => LoggerHandle m -> Request -> m (Either SomeError Id) -}
 getImageParseInformation ::
        Monad m => ImagesHandle m -> Request -> m (Either SomeError Id)
 getImageParseInformation handler request = do

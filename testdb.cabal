@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1815a8e3d38125007a33b59afda2bac82634c3b4cc6e30afde74d3fdcf99a015
+-- hash: d7d8532fcd684911fc8a7418a06c22ad8a56d7fd8761c63effa1806a6fa33391
 
 name:           testdb
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Answer
       Answers.Authors
+      Answers.Categories
       Answers.Images
       Config
       Controllers.Authors

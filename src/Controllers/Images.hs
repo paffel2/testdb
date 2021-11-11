@@ -5,7 +5,7 @@ module Controllers.Images where
 import qualified Data.ByteString.Char8 as BC
 
 import           Answer                (answer)
-import           Answwers.Images       (getImageHandle, getImagesListHandle)
+import           Answers.Images        (getImageHandle, getImagesListHandle)
 import           Network.Wai           (Request (rawPathInfo))
 import           OperationsHandle      (ImagesHandle)
 import           Types.Other           (ResponseErrorMessage (NotFound),

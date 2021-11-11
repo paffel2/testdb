@@ -82,7 +82,10 @@ categoriesTests =
                     routes
                         operationsHandler
                         (tstGetCategoriesListReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "List of categories not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -129,7 +132,10 @@ categoriesTests =
                     routes
                         operationsHandler
                         (tstPostCategoryReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Category not created. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -199,7 +205,10 @@ categoriesTests =
                     routes
                         operationsHandler
                         (tstDeleteCategoryReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Category not deleted. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -267,7 +276,10 @@ categoriesTests =
                     routes
                         operationsHandler
                         (tstUpdateCategoryReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Category not edited. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
