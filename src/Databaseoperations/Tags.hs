@@ -142,13 +142,10 @@ editTagInDb pool tokenLifetime hLogger token editTagParams@(EditTag (Just newTag
                     if n > 0
                         then do
                             logInfo hLogger $
-                                T.concat
-                                    [ "Tag '"
-                                    , getTagName oldTagName
-                                    , "' renaimed to '"
-                                    , getTagName newTagName
-                                    , "'"
-                                    ]
+                                "Tag '" <>
+                                getTagName oldTagName <>
+                                "' renaimed to '" <>
+                                getTagName newTagName <> "'"
                             return $ Right ()
                         else do
                             logError hLogger "Tag not exist"

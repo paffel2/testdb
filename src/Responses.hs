@@ -68,7 +68,7 @@ toResponse (Left (InternalServerError message)) =
     responseInternalServerError message
 toResponse (Left (BadRequest message)) = responseBadRequest message
 toResponse (Left (NotFound message)) = responseNotFound message
-toResponse (Right (Created message)) = responseOk message
+toResponse (Right (Created message)) = responseCreated message
 toResponse (Right (OkJSON someJson)) = responseOKJSON someJson
 toResponse (Right (OkMessage message)) = responseOk message
 toResponse (Right (OkImage image)) =

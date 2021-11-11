@@ -10,8 +10,8 @@ import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, Only (..),
                                                 SqlError (sqlState))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (pageToBS, readByteStringToInt,
-                                                toQuery)
+import           HelpFunction                  (numOnlyHead, pageToBS,
+                                                readByteStringToInt, toQuery)
 import           Logger                        (LoggerHandle, logDebug,
                                                 logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
@@ -156,10 +156,8 @@ editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
                     logInfo hLogger $
-                        T.concat
-                            [ "Update category_name parameter on category "
-                            , getCategoryName oldName
-                            ]
+                        "Update category_name parameter on category " <>
+                        getCategoryName oldName
                     n <-
                         executeWithPool
                             pool
@@ -195,7 +193,7 @@ editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (
                         executeWithPool
                             pool
                             "update categories set maternal_category = ? where category_name = ?"
-                            (fromOnly $ myHead maternalId, oldName)
+                            (fromOnly $ numOnlyHead maternalId, oldName)
                     if n > 0
                         then do
                             return $ Right ()
@@ -210,9 +208,6 @@ editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (
         case errStateInt of
             23503 -> return $ Left $ OtherError "Maternal category not exist"
             _     -> return $ Left DatabaseError
-  where
-    myHead []    = Only (-1)
-    myHead (x:_) = x
 editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (Just newName) (Just newMaternal)) =
     catch
         (do ch <- checkAdmin hLogger pool tokenLifeTime token
@@ -227,13 +222,13 @@ editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (
                             pool
                             "select category_id from categories where category_name = ?"
                             [newMaternal] :: IO [Only Int]
-                    let q =
-                            "update categories set category_name = ?, maternal_category = ? where category_name = ?"
                     n <-
                         executeWithPool
                             pool
-                            q
-                            (newName, fromOnly $ myHead maternalId, oldName)
+                            "update categories set category_name = ?, maternal_category = ? where category_name = ?"
+                            ( newName
+                            , fromOnly $ numOnlyHead maternalId
+                            , oldName)
                     if n > 0
                         then do
                             return $ Right ()
@@ -249,9 +244,6 @@ editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (
             23505 -> return . Left . OtherError $ "Category already exist"
             23503 -> return . Left . OtherError $ "Maternal category not exist"
             _     -> return $ Left DatabaseError
-  where
-    myHead []    = Only (-1)
-    myHead (x:_) = x
 editCategoryOnDb _ _ hLogger _ _ = do
     logError hLogger "No update parameters"
     return $ Left $ OtherError "No update parameters"

@@ -14,7 +14,7 @@ import           Database.PostgreSQL.Simple    (Binary (fromBinary), Connection,
                                                 SqlError (sqlErrorMsg, sqlState))
 
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (readByteStringToInt, toQuery)
+import           HelpFunction                  (readByteStringToInt)
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool)
 import           Types.Other                   (SomeError (BadToken, DatabaseError, OtherError),
@@ -27,8 +27,8 @@ import           Types.Users                   (CreateUser (..),
 generateToken :: Login -> IO (Token, UTCTime)
 generateToken login = do
     now <- getCurrentTime
-    let token = Prelude.filter (`Prelude.notElem` filt) (show now)
-    return (Token $ T.concat [getLogin login, T.pack token], now)
+    let token = T.pack $ Prelude.filter (`Prelude.notElem` filt) (show now)
+    return (Token (getLogin login <> token), now)
   where
     filt = " :.-UTC" :: String
 
@@ -167,8 +167,11 @@ deleteUserFromDb pool tokenLifeTime hLogger token (Just login) =
             case ch of
                 (False, bs) -> return $ Left bs
                 (True, _) -> do
-                    let q = "delete from users where login = ?"
-                    n <- executeWithPool pool q [login]
+                    n <-
+                        executeWithPool
+                            pool
+                            "delete from users where login = ?"
+                            [login]
                     if n > 0
                         then do
                             logInfo hLogger "User deleted"
@@ -207,8 +210,7 @@ firstToken hLogger pool (Just login) (Just password) =
         return $ Left DatabaseError
   where
     q =
-        toQuery
-            "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
+        "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
             \insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"
 firstToken hLogger _ _ _ = do
     logError hLogger "Bad login or password parameters"
@@ -225,7 +227,11 @@ profileOnDb _ _ hLogger Nothing = do
     return . Left . OtherError $ "No token parameter"
 profileOnDb pool tokenLifeTime hLogger (Just token) =
     catch
-        (do rows <- queryWithPool pool q (TokenProfile token tokenLifeTime)
+        (do rows <-
+                queryWithPool
+                    pool
+                    "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
+                    (TokenProfile token tokenLifeTime)
             if Prelude.null rows
                 then do
                     logError hLogger "User's information not sended. Bad token."
@@ -238,6 +244,3 @@ profileOnDb pool tokenLifeTime hLogger (Just token) =
         logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
         return $ Left DatabaseError
-  where
-    q =
-        "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"

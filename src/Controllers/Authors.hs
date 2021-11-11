@@ -33,7 +33,6 @@ postAuthor methods req =
                 "Preparing parameters for creating new author."
             let token = takeToken req
             (i, _) <- ahParseRequestBody methods req
-            --let b = i
             let createAuthorParams = toCreateAuthor i
             logDebug (ahLogger methods) "Creating Author on database"
             result <- ahCreateAuthorInDb methods token createAuthorParams
@@ -112,8 +111,7 @@ updateAuthor methods req = do
                 "Preparing data for editing author's description."
             let token = takeToken req
             (i, _) <- ahParseRequestBody methods req
-            let b = i
-            let editParams = toEditAuthor b
+            let editParams = toEditAuthor i
             result <- ahEditAuthorInDb methods token editParams
             case result of
                 Left someError ->

@@ -70,8 +70,7 @@ createAuthorInDb pool tokenLifetime hLogger token createAuthorParams =
                 return $ Left DatabaseError
   where
     q =
-        toQuery
-            "insert into authors(user_id,description) values ((select user_id from users where login = ?),?) returning author_id"
+        "insert into authors(user_id,description) values ((select user_id from users where login = ?),?) returning author_id"
 
 deleteAuthorInDb ::
        Pool Connection
@@ -108,8 +107,7 @@ deleteAuthorInDb pool token_lifetime hLogger token (Just authorLogin) =
                 return $ Left DatabaseError
   where
     q =
-        toQuery
-            "with u_id as (select user_id from users where login = ?) \
+        "with u_id as (select user_id from users where login = ?) \
              \delete from authors where user_id = (select * from u_id)"
 
 getAuthorsList ::
@@ -167,4 +165,4 @@ editAuthorInDb pool tokenLifeTime hLogger token editParams =
         logError hLogger $ "Database error " <> T.pack (show errStateInt)
         return $ Left DatabaseError
   where
-    q = toQuery "update authors set description = ? where author_id = ?"
+    q = "update authors set description = ? where author_id = ?"

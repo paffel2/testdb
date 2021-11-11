@@ -34,9 +34,9 @@ getDrafts operations req =
             return $ Left $ MethodNotAllowed "Bad request method"
         else do
             logInfo (dhLogger operations) "Preparing data for sending drafts"
-            let token' = takeToken req
-            drafts' <- dhGetDraftsByAuthorToken operations token'
-            case drafts' of
+            let token = takeToken req
+            listOfDrafts <- dhGetDraftsByAuthorToken operations token
+            case listOfDrafts of
                 Left someError ->
                     return $
                     Left $
@@ -60,20 +60,19 @@ postDraft operations req =
         else do
             logInfo (dhLogger operations) "Preparing data for creating draft"
             (i, f) <- dhParseRequestBody operations req
-            let draft_inf = toDraftInf req i
-            let list_of_tags = toDraftTags i
-            let main'_image = foundParametr "main_image" f
-            let images = foundParametr "images" f
-            let main_image_triple =
-                    if isNothing $ fileContent <$> saveHead main'_image
+            let draftInf = toDraftInf req i
+            let listOfTags = toDraftTags i
+            let mainImageInfo = foundParametr "main_image" f
+            let imagesInfo = foundParametr "images" f
+            let mainImage =
+                    if isNothing $ fileContent <$> saveHead mainImageInfo
                         then Nothing
-                        else Just $ toImage $ Prelude.head main'_image
-            let images_list =
-                    if isNothing $ fileContent <$> saveHead images
+                        else Just $ toImage $ Prelude.head mainImageInfo
+            let imagesList =
+                    if isNothing $ fileContent <$> saveHead imagesInfo
                         then Nothing
-                        else Just $ toImage <$> images
-            if checkNotImageMaybe main_image_triple ||
-               checkNotImages images_list
+                        else Just $ toImage <$> imagesInfo
+            if checkNotImageMaybe mainImage || checkNotImages imagesList
                 then do
                     logError (dhLogger operations) "Bad image file"
                     return $ Left $ BadRequest "Bad image file"
@@ -81,10 +80,10 @@ postDraft operations req =
                     result <-
                         dhCreateDraftOnDb
                             operations
-                            draft_inf
-                            list_of_tags
-                            main_image_triple
-                            images_list
+                            draftInf
+                            listOfTags
+                            mainImage
+                            imagesList
                     case result of
                         Left someError ->
                             return $
@@ -111,8 +110,8 @@ deleteDraft operations req =
         else do
             logInfo (dhLogger operations) "Preparing data for deleting draft"
             let token' = takeToken req
-            let draft_id = toDraftId req
-            result <- dhDeleteDraftFromDb operations token' draft_id
+            let draftId = toDraftId req
+            result <- dhDeleteDraftFromDb operations token' draftId
             case result of
                 Left someError ->
                     return $
@@ -158,17 +157,17 @@ updateDraft operations draftId req =
             (i, f) <- dhParseRequestBody operations req
             let draftInfUpdate = toDraftInf req i
             let listOfTags = toDraftTags i
-            let mainImage = foundParametr "main_image" f
-            let images = foundParametr "images" f
-            let mainImageTriple =
-                    if isNothing $ fileContent <$> saveHead mainImage
+            let mainImageInfo = foundParametr "main_image" f
+            let imagesInfo = foundParametr "images" f
+            let mainImage =
+                    if isNothing $ fileContent <$> saveHead mainImageInfo
                         then Nothing
-                        else Just $ toImage $ Prelude.head mainImage
+                        else Just $ toImage $ Prelude.head mainImageInfo
             let imagesList =
-                    if isNothing $ fileContent <$> saveHead images
+                    if isNothing $ fileContent <$> saveHead imagesInfo
                         then Nothing
-                        else Just $ toImage <$> images
-            if checkNotImageMaybe mainImageTriple || checkNotImages imagesList
+                        else Just $ toImage <$> imagesInfo
+            if checkNotImageMaybe mainImage || checkNotImages imagesList
                 then do
                     logError (dhLogger operations) "Bad image file"
                     return $ Left $ BadRequest "Bad image file"
@@ -178,7 +177,7 @@ updateDraft operations draftId req =
                             operations
                             draftInfUpdate
                             listOfTags
-                            mainImageTriple
+                            mainImage
                             imagesList
                             draftId
                     case result of

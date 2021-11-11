@@ -12,7 +12,7 @@ import           HelpFunction               (readByteStringToInt)
 import           Logger                     (LoggerHandle, logError)
 import           PostgreSqlWithPool         (queryWithPool)
 import           Types.Other                (SomeError (..), Token,
-                                             TokenLifeTime (getTokenLifeTime))
+                                             TokenLifeTime)
 
 checkAdmin ::
        LoggerHandle IO
@@ -29,7 +29,7 @@ checkAdmin hLogger pool tokenLifetime (Just token) =
                 queryWithPool
                     pool
                     "select admin_mark from users join tokens using (user_id) where token = ? and ((current_timestamp - tokens.creation_date) < make_interval(secs => ?))"
-                    (token, getTokenLifeTime tokenLifetime)
+                    (token, tokenLifetime)
             if Prelude.null rows
                 then do
                     return (False, BadToken)

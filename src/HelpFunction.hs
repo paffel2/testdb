@@ -10,7 +10,7 @@ import           Data.String                      (IsString (fromString))
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
 import           Data.Time.Calendar               (Day)
-import           Database.PostgreSQL.Simple.Types (Query)
+import           Database.PostgreSQL.Simple.Types (Only (..), Query)
 import           Network.Wai.Parse                (FileInfo)
 import           System.Directory                 (getDirectoryContents)
 import           Text.Read                        (readMaybe)
@@ -107,3 +107,7 @@ pageToBS pageParam =
         then " limit 10 offset 0"
         else " limit 10 offset " <>
              BC.pack (show $ (maybe 1 getPage pageParam - 1) * 10)
+
+numOnlyHead :: Num a => [Only a] -> Only a
+numOnlyHead []    = Only (-1)
+numOnlyHead (x:_) = x
