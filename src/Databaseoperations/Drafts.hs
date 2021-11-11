@@ -71,7 +71,9 @@ getDraftsByAuthorToken pool tokenLifeTime hLogger (Just token) =
                     logError hLogger "User use bad token or haven't drafts"
                     return . Left . OtherError $
                         "You are not author or don't have drafts "
-                else return $ Right $ DraftArray rows) $ \e -> do
+                else do
+                    logInfo hLogger "Sending drafts to user"
+                    return $ Right $ DraftArray rows) $ \e -> do
         let errState = sqlState e
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         logError hLogger $ "Database error " <> T.pack (show errStateInt)

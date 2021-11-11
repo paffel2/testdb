@@ -109,7 +109,10 @@ draftsTests =
                     routes
                         operationsHandler
                         (tstGetDraftsListReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "List of drafts not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -167,7 +170,10 @@ draftsTests =
                     routes
                         operationsHandler
                         (tstGetDraftReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Draft not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -225,7 +231,10 @@ draftsTests =
                     routes
                         operationsHandler
                         (tstPostDraftReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Draft not created. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -282,7 +291,8 @@ draftsTests =
                                        }
                              })
                         tstPostDraftReq `shouldBe`
-                    return (Left (BadRequest "Bad image file"))
+                    return
+                        (Left (BadRequest "Draft not created. Bad image file"))
 {-
                                 UPDATE DRAFT TESTS
 -}
@@ -295,7 +305,10 @@ draftsTests =
                     routes
                         operationsHandler
                         (tstUpdateDraftReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Draft not updated. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -355,7 +368,8 @@ draftsTests =
                                        }
                              })
                         tstUpdateDraftReq `shouldBe`
-                    return (Left (BadRequest "Bad image file"))
+                    return
+                        (Left (BadRequest "Draft not updated. Bad image file"))
                 it
                     "server should return error, because something draft id is bad" $
                     routes
@@ -364,7 +378,7 @@ draftsTests =
                              {rawPathInfo = "/drafts/oh/update_draft"}) `shouldBe`
                     return (Left (BadRequest "Bad draft id"))
 {-
-                                DELETE TAG TESTS
+                                DELETE DRAFT TESTS
 -}
             describe "testing dhDeleteDraftFromDb" $ do
                 it "server should return error because something happend" $
@@ -375,7 +389,10 @@ draftsTests =
                     routes
                         operationsHandler
                         (tstDeleteDraftReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Draft not deleted. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -431,7 +448,10 @@ draftsTests =
                     routes
                         operationsHandler
                         (tstPostNewsReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "News not created. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler

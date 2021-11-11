@@ -2,9 +2,11 @@
 
 module Router where
 
+import           Answer
+import           Answers.Drafts
 import           Controllers.Authors         (authorsRouter)
 import           Controllers.Categories      (categoriesRouter)
-import           Controllers.Drafts          (draftsRouter, postDraft)
+import           Controllers.Drafts          (draftsRouter)
 import           Controllers.Images          (imagesRouter)
 import           Controllers.NewsAndComments (newsAndCommentsRouter)
 import           Controllers.Tags            (tagsRouter)
@@ -31,7 +33,7 @@ routes operations req =
         "categories" -> categoriesRouter (categoriesHandle operations) req
         "profile" -> profile (usersHandle operations) req
         "drafts" -> draftsRouter (draftsHandle operations) req
-        "new_draft" -> postDraft (draftsHandle operations) req
+        "new_draft" -> answer req (createDraftHandle $ draftsHandle operations)
         "tags" -> tagsRouter (tagsHandle operations) req
         "image" -> imagesRouter (imagesHandle operations) req
         "authors" -> authorsRouter (authorsHandle operations) req

@@ -17,8 +17,7 @@ import           OperationsHandle          (CategoriesHandle (chCreateCategoryOn
 import           Responses                 (toResponseErrorMessage)
 import           Types.Categories          (CategoryName, CreateCategory,
                                             EditCategory, ListOfCategories)
-import           Types.Other               (Page,
-                                            ResponseErrorMessage (MethodNotAllowed),
+import           Types.Other               (Page, ResponseErrorMessage,
                                             ResponseOkMessage (Created, OkJSON, OkMessage),
                                             SendId, SomeError (BadMethod),
                                             Token)
