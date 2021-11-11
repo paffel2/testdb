@@ -2,6 +2,8 @@
 
 module Controllers.Authors where
 
+import           Answer
+import           Answers.Authors
 import           Data.Aeson                (encode)
 import qualified Data.ByteString.Char8     as BC
 import qualified Data.ByteString.Lazy      as LBS
@@ -129,8 +131,8 @@ authorsRouter methods req
     | pathElemsC == 1 = getAuthorsList methods req
     | pathElemsC == 2 =
         case last pathElems of
-            "delete_author" -> deleteAuthor methods req
-            "create_author" -> postAuthor methods req
+            "delete_author" -> answer req (deleteAuthorHandle methods) --deleteAuthor methods req
+            "create_author" -> answer req (createAuthorHandle methods)
             "edit_author"   -> updateAuthor methods req
             _               -> return $ Left $ NotFound "Not Found"
     | otherwise = return $ Left $ NotFound "Not Found"

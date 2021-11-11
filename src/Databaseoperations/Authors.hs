@@ -61,8 +61,7 @@ createAuthorInDb pool tokenLifetime hLogger token createAuthorParams =
         case errStateInt of
             23505 -> do
                 logError hLogger "Author not created.Author already exist"
-                return . Left . OtherError $
-                    "Author not created.Author already exist"
+                return . Left . OtherError $ "Author already exist."
             _ -> do
                 logError hLogger $
                     "Author not created. Database error " <>

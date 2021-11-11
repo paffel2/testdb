@@ -121,7 +121,10 @@ authorsTests =
                     routes
                         operationsHandler
                         (tstPostAuthorReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Author not created. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -188,7 +191,10 @@ authorsTests =
                     routes
                         operationsHandler
                         (tstDeleteAuthorReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Author not deleted. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
