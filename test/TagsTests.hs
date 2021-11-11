@@ -74,7 +74,10 @@ tagsTests =
                     routes
                         operationsHandler
                         (tstGetTagsListReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "List of tags not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -118,7 +121,9 @@ tagsTests =
                     routes
                         operationsHandler
                         (tstPostTagReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "Tag not created. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -184,7 +189,9 @@ tagsTests =
                     routes
                         operationsHandler
                         (tstDeleteTagReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "Tag not deleted. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -250,7 +257,9 @@ tagsTests =
                     routes
                         operationsHandler
                         (tstUpdateTagReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "Tag not edited. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
