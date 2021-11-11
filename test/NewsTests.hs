@@ -186,7 +186,9 @@ newsTests =
                     routes
                         operationsHandler
                         (tstGetNewsListReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -231,7 +233,9 @@ newsTests =
                     routes
                         operationsHandler
                         (tstGetNewsFilterdByTagIdReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -277,7 +281,9 @@ newsTests =
                     routes
                         operationsHandler
                         (tstGetNewsFilterdByTagInReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -322,7 +328,9 @@ newsTests =
                     routes
                         operationsHandler
                         (tstGetNewsFilterdByCatIdReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -368,7 +376,9 @@ newsTests =
                     routes
                         operationsHandler
                         (tstGetNewsFilterdByTitleReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -415,7 +425,9 @@ newsTests =
                         operationsHandler
                         (tstGetNewsFilterdByAuthorReq
                              {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -461,7 +473,9 @@ newsTests =
                     routes
                         operationsHandler
                         (tstGetNewsFilterdByDateReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -508,7 +522,9 @@ newsTests =
                         operationsHandler
                         (tstGetNewsFilterdByTagAllReq
                              {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -555,7 +571,9 @@ newsTests =
                         operationsHandler
                         (tstGetNewsFilterdByContentReq
                              {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -602,7 +620,9 @@ newsTests =
                         operationsHandler
                         (tstGetNewsFilterdByAfterDateReq
                              {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -650,7 +670,9 @@ newsTests =
                         operationsHandler
                         (tstGetNewsFilterdByBeforeDateReq
                              {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -697,7 +719,9 @@ newsTests =
                     routes
                         operationsHandler
                         (tstGetNewsByIdReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed "News not sended. Bad method request.")
                 it "server should return list of news, because all is good" $
                     routes
                         (operationsHandler

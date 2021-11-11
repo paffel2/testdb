@@ -73,7 +73,10 @@ commentsTests =
                     routes
                         operationsHandler
                         (tstGetCommentsListReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Commentaries not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -121,7 +124,10 @@ commentsTests =
                     routes
                         operationsHandler
                         (tstPostCommentReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Commentary not added. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -180,7 +186,10 @@ commentsTests =
                     routes
                         operationsHandler
                         (tstDeleteCommentReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Commentary not deleted. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
