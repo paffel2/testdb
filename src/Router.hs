@@ -4,14 +4,13 @@ module Router where
 
 import           Answer
 import           Answers.Drafts
+import           Answers.Users
 import           Controllers.Authors         (authorsRouter)
 import           Controllers.Categories      (categoriesRouter)
 import           Controllers.Drafts          (draftsRouter)
 import           Controllers.Images          (imagesRouter)
 import           Controllers.NewsAndComments (newsAndCommentsRouter)
 import           Controllers.Tags            (tagsRouter)
-import           Controllers.Users           (deleteUser, profile, registration,
-                                              signIn)
 import qualified Data.ByteString.Char8       as BC
 import           Network.Wai                 (Request (rawPathInfo), Response)
 import           OperationsHandle            (OperationsHandle (authorsHandle, categoriesHandle, draftsHandle, imagesHandle, newsAndCommentsHandle, tagsHandle, usersHandle))
@@ -27,11 +26,12 @@ routes ::
 routes operations req =
     case pathHead of
         "news" -> newsAndCommentsRouter (newsAndCommentsHandle operations) req
-        "login" -> signIn (usersHandle operations) req
-        "registration" -> registration (usersHandle operations) req
-        "deleteUser" -> deleteUser (usersHandle operations) req
+        "login" -> answer req (signInHandle $ usersHandle operations)
+        "registration" ->
+            answer req (registrationHandle $ usersHandle operations)
+        "deleteUser" -> answer req (deleteUserHandle $ usersHandle operations)
         "categories" -> categoriesRouter (categoriesHandle operations) req
-        "profile" -> profile (usersHandle operations) req
+        "profile" -> answer req (profileUserHandle $ usersHandle operations)
         "drafts" -> draftsRouter (draftsHandle operations) req
         "new_draft" -> answer req (createDraftHandle $ draftsHandle operations)
         "tags" -> tagsRouter (tagsHandle operations) req
