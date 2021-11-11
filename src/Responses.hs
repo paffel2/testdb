@@ -56,6 +56,8 @@ badResponse prefix NotAdmin =
     responseForbidden $ LBS.concat [prefix, " Not admin."]
 badResponse prefix DatabaseError =
     responseInternalServerError $ LBS.concat [prefix, " Database Error."]
+badResponse prefix BadMethod =
+    responseMethodNotAllowed $ LBS.concat [prefix, " Bad method request."]
 badResponse prefix (OtherError message) =
     responseBadRequest $ LBS.concat [prefix, lbsMessage]
   where
@@ -79,6 +81,8 @@ toResponseErrorMessage prefix BadToken =
     Forbidden $ LBS.concat [prefix, " Bad Token."]
 toResponseErrorMessage prefix NotAdmin =
     Forbidden $ LBS.concat [prefix, " Not Admin."]
+toResponseErrorMessage prefix BadMethod =
+    MethodNotAllowed $ LBS.concat [prefix, " Bad method request."]
 toResponseErrorMessage prefix DatabaseError =
     InternalServerError $ LBS.concat [prefix, " Database Error."]
 toResponseErrorMessage prefix (OtherError message) =

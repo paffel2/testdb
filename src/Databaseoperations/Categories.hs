@@ -196,6 +196,7 @@ editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (
                             (fromOnly $ numOnlyHead maternalId, oldName)
                     if n > 0
                         then do
+                            logInfo hLogger "Category edited."
                             return $ Right ()
                         else do
                             logError hLogger $
@@ -231,6 +232,7 @@ editCategoryOnDb pool tokenLifeTime hLogger token (EditCategory (Just oldName) (
                             , oldName)
                     if n > 0
                         then do
+                            logInfo hLogger "Category edited."
                             return $ Right ()
                         else do
                             logError hLogger $

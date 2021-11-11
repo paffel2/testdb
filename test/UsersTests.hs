@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module UsersTests where
+
 import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
@@ -65,7 +66,10 @@ usersTests =
                     routes
                         operationsHandler
                         (tstLoginReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Bad authorization. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -111,7 +115,10 @@ usersTests =
                     routes
                         operationsHandler
                         (tstRegistrationReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "User not registered. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -157,7 +164,10 @@ usersTests =
                     routes
                         operationsHandler
                         (tstDeleteUserReq {requestMethod = methodGet}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "User not deleted. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -226,7 +236,10 @@ usersTests =
                     routes
                         operationsHandler
                         (tstProfileReq {requestMethod = methodPost}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Profile inforamtion not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler

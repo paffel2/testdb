@@ -51,6 +51,7 @@ data SomeError
     = BadToken
     | NotAdmin
     | DatabaseError
+    | BadMethod
     | OtherError String
 
 data ResponseErrorMessage

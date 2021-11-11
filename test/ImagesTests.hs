@@ -58,7 +58,10 @@ imagesTests =
                     routes
                         operationsHandler
                         (tstGetPhotoListReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "List of images not sended. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -85,12 +88,15 @@ imagesTests =
                     routes
                         operationsHandler
                         (tstGetPhotoReq {requestMethod = methodPut}) `shouldBe`
-                    return (Left $ MethodNotAllowed "Bad request method")
+                    return
+                        (Left $
+                         MethodNotAllowed
+                             "Image not sended. Bad method request.")
                 it "server should return error, because image id is wrong" $
                     routes
                         operationsHandler
                         (tstGetPhotoReq {rawPathInfo = "/image/wertyuio"}) `shouldBe`
-                    return (Left $ BadRequest "Bad image id")
+                    return (Left $ BadRequest "Image not sended. Bad image id")
                 it "server should return image, because all is good" $
                     routes
                         (operationsHandler
