@@ -20,7 +20,7 @@ import           PostgreSqlWithPool                   (executeWithPool,
                                                        initMigration,
                                                        query_WithPool,
                                                        runMigrationWithPool)
-import           Types.Other                          (SomeError (DatabaseError, OtherError),
+import           Types.Other                          (SomeError (DatabaseError),
                                                        Token (getToken))
 import           Types.Users                          (AdminData (AdminData, adminFirstName, adminLastName, adminLogin, adminMark, adminPassword),
                                                        Login (Login),
@@ -63,7 +63,8 @@ createAdmin hLogger pool = do
                     logInfo hLogger $ T.concat ["admin token ", getToken to]
                     return $ Right ()
         else do
-            return $ Left $ OtherError "Registration failed"
+            logError hLogger "Registration failed"
+            return $ Left DatabaseError
 
 ------------------------------------------------------
 checkDbExist :: LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
@@ -73,8 +74,7 @@ checkDbExist hLogger pool =
             if null n
                 then do
                     logError hLogger "Database not exist or unavailable"
-                    return . Left . OtherError $
-                        "Database not exist or unavailable"
+                    return $ Left DatabaseError
                 else do
                     return $ Right ()) $ \e -> do
         let errState = sqlState e
@@ -106,14 +106,14 @@ initMigrations hLogger pool =
     catch
         (do initDb <- initMigration pool
             case initDb of
-                MigrationError _ -> return $ Left $ OtherError ""
+                MigrationError _ -> return $ Left DatabaseError
                 MigrationSuccess -> do
                     let dir = "sql/fill_Db"
                     result <- runMigrationWithPool pool dir
                     case result of
                         MigrationError _ -> do
                             logError hLogger "Database not filled"
-                            return $ Left $ OtherError "Database not filled"
+                            return $ Left DatabaseError
                         MigrationSuccess -> do
                             logInfo hLogger "Database filled"
                             return $ Right ()) $ \e -> do
@@ -132,7 +132,7 @@ anotherMigration hLogger pool =
             case result of
                 MigrationError _ -> do
                     logError hLogger "Database not filled"
-                    return $ Left $ OtherError "Database not filled"
+                    return $ Left DatabaseError
                 MigrationSuccess -> do
                     logInfo hLogger "Database filled"
                     return $ Right ()) $ \e -> do
