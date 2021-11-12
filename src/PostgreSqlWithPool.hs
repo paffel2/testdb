@@ -37,14 +37,14 @@ runMigrationWithPool ::
 runMigrationWithPool pool dir =
     withResource pool $ \conn ->
         withTransaction conn $
-        runMigration $ MigrationContext (MigrationDirectory dir) True conn
+        runMigration $ MigrationContext (MigrationDirectory dir) False conn
 
 existSchemaMigrationWithPool :: Pool Connection -> IO Bool
 existSchemaMigrationWithPool pool =
-    withResource pool $ \conn -> existsTable conn "schema_migration"
+    withResource pool $ \conn -> existsTable conn "schema_migrations"
 
 initMigration :: Pool Connection -> IO (MigrationResult String)
 initMigration pool =
     withResource pool $ \conn ->
         withTransaction conn $
-        runMigration $ MigrationContext MigrationInitialization True conn
+        runMigration $ MigrationContext MigrationInitialization False conn
