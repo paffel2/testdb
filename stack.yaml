@@ -31,6 +31,8 @@ resolver:
 #   - wai
 packages:
 - .
+extra-deps:
+  - postgresql-simple-migration-0.1.15.0@sha256:123d8f62b0e300aede37e2d6dacc81b9468cb68dc5c3f52fe807085992280aa8,3969
 # Dependency packages to be pulled from upstream that are not in the resolver.
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:

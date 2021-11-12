@@ -35,6 +35,8 @@ dependencies:
 - directory
 - resource-pool
 - hspec
+- postgresql-simple-migration
+
 library:
   source-dirs: src
   # dependencies:
