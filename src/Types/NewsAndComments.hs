@@ -111,8 +111,6 @@ newtype CommentText =
     deriving (Show, Eq)
     deriving ToField via T.Text
 
-{-instance ToField CommentText where
-    toField = toField . getCommentText-}
 newtype Sort =
     Sort
         { getSort :: BC.ByteString
@@ -138,8 +136,6 @@ newtype TagFilterParam =
     deriving (Show, Eq)
     deriving ToField via Id
 
-{-instance ToField TagFilterParam where
-    toField = toField . getTagFp -}
 newtype TagAllFilterParam =
     TagAllFilterParam
         { getTagAllFp :: [Int]
@@ -165,8 +161,6 @@ newtype DateFilterParam =
     deriving (Show, Eq)
     deriving ToField via Day
 
-{-instance ToField DateFilterParam where
-    toField = toField . getDateFp -}
 newtype BeforeDateFilterParam =
     BeforeDateFilterParam
         { getBeforeDateFp :: Day
@@ -174,8 +168,6 @@ newtype BeforeDateFilterParam =
     deriving (Show, Eq)
     deriving ToField via Day
 
-{-instance ToField BeforeDateFilterParam where
-    toField = toField . getBeforeDateFp -}
 newtype AfterDateFilterParam =
     AfterDateFilterParam
         { getAfterDateFp :: Day
@@ -183,8 +175,6 @@ newtype AfterDateFilterParam =
     deriving (Show, Eq)
     deriving ToField via Day
 
-{-instance ToField AfterDateFilterParam where
-    toField = toField . getAfterDateFp -}
 newtype AuthorFilterParam =
     AuthorFilterParam
         { getAuthorFp :: T.Text

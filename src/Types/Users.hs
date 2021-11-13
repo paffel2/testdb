@@ -45,8 +45,6 @@ newtype Password =
     deriving (Show, Eq)
     deriving ToField via T.Text
 
-{-instance ToField Password where
-    toField = toField . getPassword -}
 newtype Login =
     Login
         { getLogin :: T.Text
@@ -54,8 +52,6 @@ newtype Login =
     deriving (Show, Eq) 
     deriving ToField via T.Text
 
-{-instance ToField Login where
-    toField = toField . getLogin-}
 data CreateUser =
     CreateUser
         { cuAvatarFileName    :: Maybe BC.ByteString

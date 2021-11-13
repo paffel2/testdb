@@ -39,6 +39,12 @@
             "type": "shell",
             "command": "stack test",
             "problemMatcher": []
+        },
+        {
+            "label" : "run",
+            "type" : "shell",
+            "command" : "chcp 65001; stack run",
+            "problemMatcher" : []
         }
 
     ]

@@ -40,8 +40,6 @@ newtype TagName =
     deriving (Show, Eq)
     deriving ToField via T.Text
 
-{-instance ToField TagName where
-    toField = toField . getTagName -}
 data EditTag =
     EditTag
         { editTagNewName :: Maybe TagName
