@@ -15,7 +15,10 @@ import           HelpFunction                     (readByteStringListInt,
                                                    readByteStringToInt)
 
 import           Network.Wai                      (Request (queryString))
-import           Network.Wai.Parse                (FileInfo (..), Param)
+import           Network.Wai.Parse                (File,
+                                                   FileInfo (fileContent, fileContentType, fileName),
+                                                   Param, lbsBackEnd,
+                                                   parseRequestBody)
 
 import           Types.Authors                    (AuthorLogin (AuthorLogin),
                                                    CreateAuthor (..),
@@ -45,6 +48,9 @@ import           Types.Tags                       (EditTag (..),
 import           Types.Users                      (CreateUser (..),
                                                    Login (Login),
                                                    Password (Password))
+
+parseRequestBodyLBS :: Request -> IO ([Param], [File LBS.ByteString])
+parseRequestBodyLBS = parseRequestBody lbsBackEnd
 
 takeToken :: Request -> Maybe Token
 takeToken req =

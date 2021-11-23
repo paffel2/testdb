@@ -1,5 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module OperationsHandle where
 
+import           Control.Monad.Except
 import qualified Data.ByteString.Lazy               as LBS
 import           Data.Pool                          (Pool)
 import           Database.PostgreSQL.Simple         (Connection)
@@ -38,10 +41,7 @@ import           Databaseoperations.Tags            (createTagInDb,
                                                      deleteTagFromDb,
                                                      editTagInDb,
                                                      getTagsListFromDb)
-import           Databaseoperations.Users           (authentication,
-                                                     createUserInDb,
-                                                     deleteUserFromDb,
-                                                     profileOnDb)
+import           Databaseoperations.Users
 import           Logger                             (LoggerHandle)
 import           Network.Wai                        (Request)
 import           Network.Wai.Parse                  (File, Param, lbsBackEnd,
@@ -75,7 +75,7 @@ import           Types.Tags                         (EditTag, TagName, TagsList)
 import           Types.Users                        (CreateUser, Login,
                                                      Password, Profile)
 
-data OperationsHandle m =
+{-data OperationsHandle m =
     OperationsHandle
         { authorsHandle         :: AuthorsHandle m
         , categoriesHandle      :: CategoriesHandle m
@@ -101,8 +101,7 @@ operationsHandler hLogger pool tokenLifeTime =
               newsAndCommentsHandler pool hLogger tokenLifeTime
         , tagsHandle = tagsHandler pool hLogger tokenLifeTime
         , usersHandle = usersHandler pool hLogger tokenLifeTime
-        }
-
+        } -}
 data AuthorsHandle m =
     AuthorsHandle
         { ahCreateAuthorInDb :: Maybe Token -> CreateAuthor -> m (Either SomeError SendId)
@@ -272,7 +271,7 @@ tagsHandler pool hLogger tokenLifeTime =
         , thParseRequestBody = parseRequestBody lbsBackEnd
         }
 
-data UsersHandle m =
+{-data UsersHandle m =
     UsersHandle
         { uhAuth :: Maybe Login -> Maybe Password -> m (Either SomeError Token)
         , uhCreateUserInDb :: CreateUser -> m (Either SomeError Token)
@@ -280,9 +279,8 @@ data UsersHandle m =
         , uhProfileOnDb :: Maybe Token -> m (Either SomeError Profile)
         , uhLogger :: LoggerHandle m
         , uhParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
-        }
-
-usersHandler ::
+        } -}
+{-usersHandler ::
        Pool Connection -> LoggerHandle IO -> TokenLifeTime -> UsersHandle IO
 usersHandler pool hLogger tokenLifeTime =
     UsersHandle
@@ -292,4 +290,55 @@ usersHandler pool hLogger tokenLifeTime =
         , uhProfileOnDb = profileOnDb pool tokenLifeTime hLogger
         , uhLogger = hLogger
         , uhParseRequestBody = parseRequestBody lbsBackEnd
+        } -}
+data UsersHandle m io =
+    UsersHandle
+        { uhAuth             :: Maybe Login -> Maybe Password -> m Token
+        , uhCreateUserInDb   :: CreateUser -> m Token
+        , uhDeleteUserFromDb :: Maybe Token -> Maybe Login -> m ()
+        , uhProfileOnDb      :: Maybe Token -> m Profile
+        , uhLogger           :: LoggerHandle io
         }
+
+usersHandler ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> LoggerHandle IO
+    -> TokenLifeTime
+    -> UsersHandle m IO
+usersHandler pool hLogger tokenLifeTime =
+    UsersHandle
+        { uhCreateUserInDb = createUserInDb pool hLogger
+        , uhAuth = authentication pool hLogger
+        , uhDeleteUserFromDb = deleteUserFromDb pool tokenLifeTime hLogger
+        , uhProfileOnDb = profileOnDb pool tokenLifeTime hLogger
+        , uhLogger = hLogger
+        }
+
+data OperationsHandle m io =
+    OperationsHandle
+          --authorsHandle         :: AuthorsHandle m
+        --, categoriesHandle      :: CategoriesHandle m
+        --, draftsHandle          :: DraftsHandle m
+        --, imagesHandle          :: ImagesHandle m
+        --, newsAndCommentsHandle :: NewsAndCommentsHandle m
+        --, tagsHandle            :: TagsHandle m
+        { usersHandle :: UsersHandle m io
+        }
+
+operationsHandler ::
+       (MonadIO m, MonadError SomeError m)
+    => LoggerHandle IO
+    -> Pool Connection
+    -> TokenLifeTime
+    -> OperationsHandle m IO
+operationsHandler hLogger pool tokenLifeTime =
+    OperationsHandle
+          --authorsHandle = authorsHandler pool hLogger tokenLifeTime
+        --, categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
+        --, draftsHandle = draftsHandler pool hLogger tokenLifeTime
+        --, imagesHandle = imagesHandler pool hLogger
+        --, newsAndCommentsHandle =
+        --      newsAndCommentsHandler pool hLogger tokenLifeTime
+        --, tagsHandle = tagsHandler pool hLogger tokenLifeTime
+        {usersHandle = usersHandler pool hLogger tokenLifeTime}

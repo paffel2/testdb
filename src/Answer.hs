@@ -19,3 +19,20 @@ answer ::
 answer request handler =
     parseInformation handler request >>= databaseOperation handler >>=
     sendResult handler
+
+data AnswerHandle' m a b io =
+    AnswerHandle'
+        { parseInformation' :: Request -> m a
+        , databaseOperation' :: a -> m b
+        , sendResult' :: m b -> io (Either ResponseErrorMessage ResponseOkMessage)
+        }
+
+answer' ::
+       (Monad m, Monad io)
+    => Request
+    -> AnswerHandle' m a b io
+    -> io (Either ResponseErrorMessage ResponseOkMessage)
+answer' request handler = do
+    let result =
+            parseInformation' handler request >>= databaseOperation' handler
+    sendResult' handler result

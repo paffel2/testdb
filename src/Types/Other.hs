@@ -7,6 +7,7 @@ import qualified Data.ByteString.Lazy               as LBS
 import qualified Data.Text                          as T
 import           Database.PostgreSQL.Simple.ToField (ToField (..))
 import           Types.Images                       (ImageB)
+import Control.Monad.Except ( ExceptT )
 
 newtype TokenLifeTime =
     TokenLifeTime
@@ -58,3 +59,6 @@ data ResponseOkMessage
     deriving (Show, Eq)
 
 type SendId = Int
+
+
+type MonadWithError = ExceptT SomeError IO

@@ -1,9 +1,13 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Databaseoperations.Authors where
 
 import           Control.Exception             (catch)
+
+import           Control.Monad.Error.Class
+import           Control.Monad.Except
 import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
@@ -15,6 +19,7 @@ import           HelpFunction                  (pageToBS, readByteStringToInt,
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
+import           Text.Read
 import           Types.Authors                 (AuthorLogin,
                                                 AuthorsList (AuthorsList),
                                                 CreateAuthor (..),
