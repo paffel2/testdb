@@ -13,7 +13,7 @@ import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, Only (..),
                                                 SqlError (sqlState))
-import           Databaseoperations.CheckAdmin (checkAdmin, checkAdmin')
+import           Databaseoperations.CheckAdmin (checkAdmin')
 import           HelpFunction                  (pageToBS, readByteStringToInt,
                                                 toQuery)
 import           Logger                        (LoggerHandle, logError, logInfo)

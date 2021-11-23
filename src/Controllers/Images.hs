@@ -4,21 +4,21 @@ module Controllers.Images where
 
 import qualified Data.ByteString.Char8 as BC
 
-import           Answer                (answer)
+import           Answer                (answer')
 import           Answers.Images        (getImageHandle, getImagesListHandle)
 import           Network.Wai           (Request (rawPathInfo))
 import           OperationsHandle      (ImagesHandle)
-import           Types.Other           (ResponseErrorMessage (NotFound),
+import           Types.Other           (MonadWithError,
+                                        ResponseErrorMessage (NotFound),
                                         ResponseOkMessage)
 
 imagesRouter ::
-       Monad m
-    => ImagesHandle m
+       ImagesHandle MonadWithError IO
     -> Request
-    -> m (Either ResponseErrorMessage ResponseOkMessage)
+    -> IO (Either ResponseErrorMessage ResponseOkMessage)
 imagesRouter operations req
-    | pathElemsC == 1 = answer req (getImagesListHandle operations)
-    | pathElemsC == 2 = answer req (getImageHandle operations)
+    | pathElemsC == 1 = answer' req (getImagesListHandle operations)
+    | pathElemsC == 2 = answer' req (getImageHandle operations)
     | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

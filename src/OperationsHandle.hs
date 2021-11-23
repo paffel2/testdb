@@ -177,14 +177,18 @@ draftsHandler pool hLogger tokenLifeTime =
         , dhParseRequestBody = parseRequestBody lbsBackEnd
         }
 
-data ImagesHandle m =
+data ImagesHandle m io =
     ImagesHandle
-        { ihGetPhoto     :: Id -> m (Either SomeError ImageB)
-        , ihGetPhotoList :: Maybe Page -> m (Either SomeError ImageArray)
-        , ihLogger       :: LoggerHandle m
+        { ihGetPhoto     :: Id -> m ImageB
+        , ihGetPhotoList :: Maybe Page -> m ImageArray
+        , ihLogger       :: LoggerHandle io
         }
 
-imagesHandler :: Pool Connection -> LoggerHandle IO -> ImagesHandle IO
+imagesHandler ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> LoggerHandle IO
+    -> ImagesHandle m IO
 imagesHandler pool hLogger =
     ImagesHandle
         { ihGetPhoto = getPhotoFromDb pool hLogger
@@ -304,10 +308,10 @@ data OperationsHandle m io =
           --authorsHandle         :: AuthorsHandle m
         --, categoriesHandle      :: CategoriesHandle m
         --, draftsHandle          :: DraftsHandle m
-        --, imagesHandle          :: ImagesHandle m
+        { imagesHandle :: ImagesHandle m io
         --, newsAndCommentsHandle :: NewsAndCommentsHandle m
-        { tagsHandle  :: TagsHandle m io
-        , usersHandle :: UsersHandle m io
+        , tagsHandle   :: TagsHandle m io
+        , usersHandle  :: UsersHandle m io
         }
 
 operationsHandler ::
@@ -321,9 +325,9 @@ operationsHandler hLogger pool tokenLifeTime =
           --authorsHandle = authorsHandler pool hLogger tokenLifeTime
         --, categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
         --, draftsHandle = draftsHandler pool hLogger tokenLifeTime
-        --, imagesHandle = imagesHandler pool hLogger
+        { imagesHandle = imagesHandler pool hLogger
         --, newsAndCommentsHandle =
         --      newsAndCommentsHandler pool hLogger tokenLifeTime
-        { tagsHandle = tagsHandler pool hLogger tokenLifeTime
+        , tagsHandle = tagsHandler pool hLogger tokenLifeTime
         , usersHandle = usersHandler pool hLogger tokenLifeTime
         }
