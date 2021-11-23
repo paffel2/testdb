@@ -42,6 +42,11 @@ data SomeError
     | DatabaseError
     | BadMethod
     | OtherError String
+    | DatabaseErrorNew Int
+
+someErrorToInt :: SomeError -> Int
+someErrorToInt (DatabaseErrorNew n) = n
+someErrorToInt _ = 0
 
 data ResponseErrorMessage
     = Forbidden LBS.ByteString
@@ -62,3 +67,12 @@ type SendId = Int
 
 
 type MonadWithError = ExceptT SomeError IO
+
+
+
+{-data SomeErrorNew
+    = BadTokenNew
+    | NotAdminNew
+    | DatabaseErrorNew Int
+    | BadMethodNew
+    | OtherErrorNew String -}

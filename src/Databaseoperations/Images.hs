@@ -4,8 +4,7 @@
 module Databaseoperations.Images where
 
 import           Control.Exception          (try)
-import           Control.Monad.Except       (MonadError (throwError),
-                                             MonadIO (..))
+import           Control.Monad.Except
 import           Data.Maybe                 (fromMaybe)
 import           Data.Pool                  (Pool)
 import qualified Data.Text                  as T
@@ -13,10 +12,9 @@ import           Database.PostgreSQL.Simple (Connection, SqlError (sqlState))
 import           HelpFunction               (pageToBS, readByteStringToInt,
                                              toQuery)
 import           Logger                     (LoggerHandle, logError, logInfo)
-import           PostgreSqlWithPool         (queryWithPool, query_WithPool)
+import           PostgreSqlWithPool
 import           Types.Images               (ImageArray (ImageArray), ImageB)
-import           Types.Other                (Id, Page,
-                                             SomeError (DatabaseError, OtherError))
+import           Types.Other
 
 --------------------------------------------------------------------------------
 getPhotoFromDb ::
@@ -44,7 +42,7 @@ getPhotoFromDb pool hLogger imageId = do
             T.concat ["Database error ", T.pack $ show errStateInt]
         throwError DatabaseError
 
----------------------------------------------------------------------------------------------------
+{---------------------------------------------------------------------------------------------------
 getPhotoListFromDb ::
        (MonadIO m, MonadError SomeError m)
     => Pool Connection
@@ -70,3 +68,24 @@ getPhotoListFromDb pool hLogger pageParam = do
             logError hLogger $
             T.concat ["Database error ", T.pack $ show errStateInt]
         throwError DatabaseError
+
+-------------}
+getPhotoListFromDb ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> LoggerHandle IO
+    -> Maybe Page
+    -> m ImageArray
+getPhotoListFromDb pool hLogger pageParam = do
+    rows <-
+        catchError (query_WithPoolNew pool q) $ \e -> do
+            liftIO $
+                logError hLogger $
+                T.concat ["Database error ", T.pack $ show $ someErrorToInt e]
+            throwError e
+    return (ImageArray rows)
+  where
+    q =
+        toQuery $
+        "select image_id, image_name from images order by image_id" <>
+        pageToBS pageParam

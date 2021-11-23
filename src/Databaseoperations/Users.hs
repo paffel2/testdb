@@ -16,14 +16,15 @@ import           Data.Time                     (UTCTime, getCurrentTime)
 import           Database.PostgreSQL.Simple    (Binary (fromBinary), Connection,
                                                 SqlError (sqlErrorMsg, sqlState))
 
-import           Control.Monad.Except          (MonadError (throwError),
-                                                MonadIO (..))
+import           Control.Monad.Except          (MonadError (..), MonadIO (..))
 import           Databaseoperations.CheckAdmin (checkAdmin')
 import           HelpFunction                  (readByteStringToInt)
 import           Logger                        (LoggerHandle, logError, logInfo)
-import           PostgreSqlWithPool            (executeWithPool, queryWithPool)
-import           Types.Other                   (SomeError (BadToken, DatabaseError, NotAdmin, OtherError),
-                                                Token (Token), TokenLifeTime)
+import           PostgreSqlWithPool            (executeWithPool,
+                                                executeWithPoolNew,
+                                                queryWithPool, queryWithPoolNew)
+import           Types.Other                   (SomeError (..), Token (Token),
+                                                TokenLifeTime, someErrorToInt)
 import           Types.Users                   (CreateUser (..),
                                                 Login (getLogin), Password,
                                                 Profile,
@@ -71,92 +72,6 @@ firstToken hLogger _ _ _ = do
     return . Left . OtherError $ "Bad login or password parameters"
 
 --------------------------------------------------------------------------------------------------------------------------------------
-createUserInDb ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> LoggerHandle IO
-    -> CreateUser
-    -> m Token
-createUserInDb _ hLogger CreateUser {cuFirstName = Nothing} = do
-    liftIO $ logError hLogger "User not created. No first_name parameter"
-    throwError $ OtherError "User not created. No first_name parameter"
-createUserInDb _ hLogger CreateUser {cuLastName = Nothing} = do
-    liftIO $ logError hLogger "User not created. No last_name parameter"
-    throwError $ OtherError "No last_name parameter"
-createUserInDb _ hLogger CreateUser {cuUserLogin = Nothing} = do
-    liftIO $ logError hLogger "User not created. No login parameter"
-    throwError $ OtherError "No login parameter"
-createUserInDb _ hLogger CreateUser {cuUserPassword = Nothing} = do
-    liftIO $ logError hLogger "User not created. No password parameter"
-    throwError $ OtherError "No password parameter"
-createUserInDb pool hLogger createUser@(CreateUser (Just avFileName) (Just avContent) (Just avContentType) (Just _) (Just _) (Just _) (Just _) _) = do
-    if avFileName == "" ||
-       avContentType == "" ||
-       fromBinary avContent == "" || BC.take 5 avContentType /= "image"
-        then do
-            liftIO $ logError hLogger "User not created. Bad image file"
-            throwError $ OtherError "Bad image file"
-        else do
-            n <- liftIO $ try $ executeWithPool pool q createUser
-            case n of
-                Left e -> errorHandle e
-                Right 0 -> do
-                    liftIO $ logError hLogger "Registration failed"
-                    throwError $ OtherError "Registration failed"
-                Right _ -> do
-                    liftIO $ logInfo hLogger "New user registered."
-                    firstToken'
-                        hLogger
-                        pool
-                        (cuUserLogin createUser)
-                        (cuUserPassword createUser)
-  where
-    q =
-        "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) \
-         \insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) \
-         \values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),now(),?)"
-    errorHandle sqlError = do
-        let errState = sqlState sqlError
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        let err = E.decodeUtf8 $ sqlErrorMsg sqlError
-        liftIO $ logError hLogger err
-        case errStateInt of
-            22001 -> throwError $ OtherError "One or more parameter too long"
-            23505 ->
-                throwError $ OtherError "User with that login already exist"
-            _ -> throwError DatabaseError
-createUserInDb pool hLogger (CreateUser Nothing Nothing Nothing (Just firstName) (Just lastName) (Just login) (Just password) _) = do
-    liftIO $ logInfo hLogger "Registartion without avatar"
-    n <-
-        liftIO $
-        try $
-        executeWithPool pool q (firstName, lastName, login, password, False)
-    case n of
-        Left e -> errorHandle e
-        Right 0 -> do
-            liftIO $ logError hLogger "Registration failed"
-            throwError $ OtherError "Registration failed"
-        Right _ -> do
-            liftIO $ logInfo hLogger "New user registered."
-            firstToken' hLogger pool (Just login) (Just password)
-  where
-    q =
-        "insert into users (first_name, last_name, login, user_password, creation_date, admin_mark) \
-             \values (?,?,?,crypt(?,gen_salt('md5')),now(),?)"
-    errorHandle sqlError = do
-        let errState = sqlState sqlError
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        let err = E.decodeUtf8 $ sqlErrorMsg sqlError
-        liftIO $ logError hLogger err
-        case errStateInt of
-            22001 -> throwError $ OtherError "One or more parameter too long"
-            23505 ->
-                throwError $ OtherError "User with that login already exist"
-            _ -> throwError DatabaseError
-createUserInDb _ hLogger _ = do
-    liftIO $ logError hLogger "Unexpected error"
-    throwError $ OtherError "Unexpected error"
-
 firstToken' ::
        (MonadIO m, MonadError SomeError m)
     => LoggerHandle IO
@@ -196,43 +111,6 @@ firstToken' hLogger pool (Just login) (Just password) = do
 firstToken' hLogger _ _ _ = do
     liftIO $ logError hLogger "Bad login or password parameters"
     throwError $ OtherError "Bad login or password parameters"
-
-profileOnDb ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> TokenLifeTime
-    -> LoggerHandle IO
-    -> Maybe Token
-    -> m Profile
-profileOnDb _ _ hLogger Nothing = do
-    liftIO $
-        logError hLogger "User's information not sended. No token parameter"
-    throwError $ OtherError "No token parameter"
-profileOnDb pool tokenLifeTime hLogger (Just token) = do
-    rows <-
-        liftIO $
-        try
-            (queryWithPool
-                 pool
-                 "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
-                 (TokenProfile token tokenLifeTime))
-    case rows of
-        Left e -> errorHandle e
-        Right [] -> do
-            liftIO $
-                logError hLogger "User's information not sended. Bad token."
-            throwError BadToken
-        Right (profile:_) -> do
-            liftIO $ logInfo hLogger "User's inforamtion sended"
-            return profile
-  where
-    errorHandle sqlError = do
-        let errState = sqlState sqlError
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        liftIO $
-            logError hLogger $
-            T.concat ["Database error ", T.pack $ show errStateInt]
-        throwError DatabaseError
 
 --------------------------------------------------------------------------------------------------------------------------
 authentication ::
@@ -312,3 +190,117 @@ deleteUserFromDb pool tokenLifeTime hLogger token (Just login) = do
         let err = E.decodeUtf8 $ sqlErrorMsg sqlError
         liftIO $ logError hLogger err
         throwError DatabaseError
+
+-------------------------
+profileOnDb ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> TokenLifeTime
+    -> LoggerHandle IO
+    -> Maybe Token
+    -> m Profile
+profileOnDb _ _ hLogger Nothing = do
+    liftIO $
+        logError hLogger "User's information not sended. No token parameter"
+    throwError $ OtherError "No token parameter"
+profileOnDb pool tokenLifeTime hLogger (Just token) = do
+    rows <-
+        catchError
+            (queryWithPoolNew
+                 pool
+                 "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
+                 (TokenProfile token tokenLifeTime)) $ \e -> do
+            liftIO $
+                logError hLogger $
+                T.concat ["Database error ", T.pack $ show $ someErrorToInt e]
+            throwError DatabaseError
+    case rows of
+        [] -> do
+            liftIO $
+                logError hLogger "User's information not sended. Bad token."
+            throwError BadToken
+        (profile:_) -> do
+            liftIO $ logInfo hLogger "User's information sended"
+            return profile
+
+-----------------------------------------------------------------------------------------------
+createUserInDb ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> LoggerHandle IO
+    -> CreateUser
+    -> m Token
+createUserInDb _ hLogger CreateUser {cuFirstName = Nothing} = do
+    liftIO $ logError hLogger "User not created. No first_name parameter"
+    throwError $ OtherError "User not created. No first_name parameter"
+createUserInDb _ hLogger CreateUser {cuLastName = Nothing} = do
+    liftIO $ logError hLogger "User not created. No last_name parameter"
+    throwError $ OtherError "No last_name parameter"
+createUserInDb _ hLogger CreateUser {cuUserLogin = Nothing} = do
+    liftIO $ logError hLogger "User not created. No login parameter"
+    throwError $ OtherError "No login parameter"
+createUserInDb _ hLogger CreateUser {cuUserPassword = Nothing} = do
+    liftIO $ logError hLogger "User not created. No password parameter"
+    throwError $ OtherError "No password parameter"
+createUserInDb pool hLogger createUser@(CreateUser (Just avFileName) (Just avContent) (Just avContentType) (Just _) (Just _) (Just _) (Just _) _) = do
+    if avFileName == "" ||
+       avContentType == "" ||
+       fromBinary avContent == "" || BC.take 5 avContentType /= "image"
+        then do
+            liftIO $ logError hLogger "User not created. Bad image file"
+            throwError $ OtherError "Bad image file"
+        else do
+            n <-
+                catchError (executeWithPoolNew pool q createUser) $ \e ->
+                    case someErrorToInt e of
+                        22001 ->
+                            throwError $
+                            OtherError "One or more parameter too long"
+                        23505 ->
+                            throwError $
+                            OtherError "User with that login already exist"
+                        _ -> throwError DatabaseError
+            if n > 0
+                then do
+                    liftIO $ logInfo hLogger "New user registered."
+                    firstToken'
+                        hLogger
+                        pool
+                        (cuUserLogin createUser)
+                        (cuUserPassword createUser)
+                else do
+                    liftIO $ logError hLogger "Registration failed"
+                    throwError $ OtherError "Registration failed"
+  where
+    q =
+        "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) \
+         \insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) \
+         \values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),now(),?)"
+createUserInDb pool hLogger (CreateUser Nothing Nothing Nothing (Just firstName) (Just lastName) (Just login) (Just password) _) = do
+    liftIO $ logInfo hLogger "Registartion without avatar"
+    n <-
+        catchError
+            (executeWithPoolNew
+                 pool
+                 q
+                 (firstName, lastName, login, password, False)) $ \e ->
+            case someErrorToInt e of
+                22001 ->
+                    throwError $ OtherError "One or more parameter too long"
+                23505 ->
+                    throwError $ OtherError "User with that login already exist"
+                _ -> throwError DatabaseError
+    if n > 0
+        then do
+            liftIO $ logInfo hLogger "New user registered."
+            firstToken' hLogger pool (Just login) (Just password)
+        else do
+            liftIO $ logError hLogger "Registration failed"
+            throwError $ OtherError "Registration failed"
+  where
+    q =
+        "insert into users (first_name, last_name, login, user_password, creation_date, admin_mark) \
+             \values (?,?,?,crypt(?,gen_salt('md5')),now(),?)"
+createUserInDb _ hLogger _ = do
+    liftIO $ logError hLogger "Unexpected error"
+    throwError $ OtherError "Unexpected error"
