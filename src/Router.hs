@@ -40,7 +40,7 @@ routes operations req =
         "profile" -> answer' req (profileUserHandle $ usersHandle operations)
         --"drafts" -> draftsRouter (draftsHandle operations) req
         --"new_draft" -> answer req (createDraftHandle $ draftsHandle operations)
-        --"tags" -> tagsRouter (tagsHandle operations) req
+        "tags" -> tagsRouter (tagsHandle operations) req
         --"image" -> imagesRouter (imagesHandle operations) req
         --"authors" -> authorsRouter (authorsHandle operations) req
         _ -> return $ Left $ NotFound "Not Found"

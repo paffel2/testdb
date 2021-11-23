@@ -6,7 +6,7 @@
 
 module Databaseoperations.Users where
 
-import           Control.Exception
+import           Control.Exception             (catch, try)
 import qualified Data.ByteString.Char8         as BC
 import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
@@ -16,8 +16,8 @@ import           Data.Time                     (UTCTime, getCurrentTime)
 import           Database.PostgreSQL.Simple    (Binary (fromBinary), Connection,
                                                 SqlError (sqlErrorMsg, sqlState))
 
-import           Control.Monad.Except
-import           Data.Int
+import           Control.Monad.Except          (MonadError (throwError),
+                                                MonadIO (..))
 import           Databaseoperations.CheckAdmin (checkAdmin')
 import           HelpFunction                  (readByteStringToInt)
 import           Logger                        (LoggerHandle, logError, logInfo)
@@ -37,69 +37,6 @@ generateToken login = do
   where
     filt = " :.-UTC" :: String
 
-{-authentication ::
-       Pool Connection
-    -> LoggerHandle IO
-    -> Maybe Login
-    -> Maybe Password
-    -> IO (Either SomeError Token)
-authentication _ hLogger _ Nothing = do
-    logError hLogger "No login parameter."
-    return . Left . OtherError $ "No login parameter."
-authentication _ hLogger Nothing _ = do
-    logError hLogger "No password parameter."
-    return . Left . OtherError $ "No password parameter."
-authentication pool hLogger (Just login) (Just password) =
-    catch
-        (do (token, now) <- generateToken login
-            n <- executeWithPool pool q (login, password, token, now)
-            if n > 0
-                then do
-                    logInfo hLogger "User logged"
-                    return $ Right token
-                else do
-                    logError hLogger "Bad authorization"
-                    return . Left . OtherError $ "Wrong login or password") $ \e -> do
-        let errState = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ "Database error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
-  where
-    q =
-        "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
-         \update tokens set token = ?, creation_date = ? where user_id in (select user_id from loging_user)"
--}
-{-deleteUserFromDb ::
-       Pool Connection
-    -> TokenLifeTime
-    -> LoggerHandle IO
-    -> Maybe Token
-    -> Maybe Login
-    -> IO (Either SomeError ())
-deleteUserFromDb _ _ hLogger _ Nothing = do
-    logError hLogger "User not deleted. No login parameter"
-    return . Left . OtherError $ "No login parameter"
-deleteUserFromDb pool tokenLifeTime hLogger token (Just login) =
-    catch
-        (do ch <- checkAdmin hLogger pool tokenLifeTime token
-            case ch of
-                (False, bs) -> return $ Left bs
-                (True, _) -> do
-                    n <-
-                        executeWithPool
-                            pool
-                            "delete from users where login = ?"
-                            [login]
-                    if n > 0
-                        then do
-                            logInfo hLogger "User deleted"
-                            return $ Right ()
-                        else do
-                            logError hLogger "User not deleted"
-                            return . Left . OtherError $ "User not exist") $ \e -> do
-        let err = E.decodeUtf8 $ sqlErrorMsg e
-        logError hLogger err
-        return $ Left DatabaseError -}
 firstToken ::
        LoggerHandle IO
     -> Pool Connection
@@ -162,11 +99,11 @@ createUserInDb pool hLogger createUser@(CreateUser (Just avFileName) (Just avCon
         else do
             n <- liftIO $ try $ executeWithPool pool q createUser
             case n of
-                Left (e :: SqlError) -> errorHandle e
+                Left e -> errorHandle e
                 Right 0 -> do
                     liftIO $ logError hLogger "Registration failed"
                     throwError $ OtherError "Registration failed"
-                Right k -> do
+                Right _ -> do
                     liftIO $ logInfo hLogger "New user registered."
                     firstToken'
                         hLogger
@@ -195,11 +132,11 @@ createUserInDb pool hLogger (CreateUser Nothing Nothing Nothing (Just firstName)
         try $
         executeWithPool pool q (firstName, lastName, login, password, False)
     case n of
-        Left (e :: SqlError) -> errorHandle e
+        Left e -> errorHandle e
         Right 0 -> do
             liftIO $ logError hLogger "Registration failed"
             throwError $ OtherError "Registration failed"
-        Right k -> do
+        Right _ -> do
             liftIO $ logInfo hLogger "New user registered."
             firstToken' hLogger pool (Just login) (Just password)
   where
@@ -234,7 +171,7 @@ firstToken' hLogger pool (Just login) (Just password) = do
     (token, now) <- liftIO $ generateToken login
     n <- liftIO $ try (executeWithPool pool q (login, password, token, now))
     case n of
-        Left (e :: SqlError) -> errorHandle e
+        Left e -> errorHandle e
         Right k ->
             if k > 0
                 then do
@@ -280,7 +217,7 @@ profileOnDb pool tokenLifeTime hLogger (Just token) = do
                  "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
                  (TokenProfile token tokenLifeTime))
     case rows of
-        Left (e :: SqlError) -> errorHandle e
+        Left e -> errorHandle e
         Right [] -> do
             liftIO $
                 logError hLogger "User's information not sended. Bad token."
@@ -315,9 +252,9 @@ authentication pool hLogger (Just login) (Just password) = do
     (token, now) <- liftIO $ generateToken login
     n <- liftIO $ try (executeWithPool pool q (login, password, token, now))
     case n of
-        Left (e :: SqlError) -> errorHandle e
-        Right n ->
-            if n > 0
+        Left e -> errorHandle e
+        Right k ->
+            if k > 0
                 then do
                     liftIO $ logInfo hLogger "User's inforamtion sended"
                     return token
@@ -360,8 +297,8 @@ deleteUserFromDb pool tokenLifeTime hLogger token (Just login) = do
                          [login])
             case n of
                 Left e -> errorHandle e
-                Right n ->
-                    if n > 0
+                Right k ->
+                    if k > 0
                         then do
                             liftIO $ logInfo hLogger "User deleted"
                             return ()

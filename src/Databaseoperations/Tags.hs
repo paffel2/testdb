@@ -1,156 +1,188 @@
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Databaseoperations.Tags where
 
-import           Control.Exception             (catch)
+import           Control.Exception             (try)
+import           Control.Monad.Except          (MonadError (throwError),
+                                                MonadIO (..))
 import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
-import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly),
+import           Database.PostgreSQL.Simple    (Connection, Only (..),
                                                 SqlError (sqlState))
-import           Databaseoperations.CheckAdmin (checkAdmin)
+import           Databaseoperations.CheckAdmin (checkAdmin, checkAdmin')
 import           HelpFunction                  (pageToBS, readByteStringToInt,
                                                 toQuery)
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
                                                 query_WithPool)
 import           Types.Other                   (Page,
-                                                SomeError (DatabaseError, OtherError),
+                                                SomeError (DatabaseError, NotAdmin, OtherError),
                                                 Token, TokenLifeTime)
 import           Types.Tags                    (EditTag (..),
                                                 TagName (getTagName),
                                                 TagsList (TagsList))
 
 createTagInDb ::
-       Pool Connection
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
     -> TokenLifeTime
     -> LoggerHandle IO
     -> Maybe Token
     -> Maybe TagName
-    -> IO (Either SomeError Int)
+    -> m Int
 createTagInDb _ _ hLogger _ Nothing = do
-    logError hLogger "Tag not created. No tag_name parameter"
-    return . Left . OtherError $ "No tag_name parameter"
-createTagInDb pool tokenLifeTime hLogger token (Just tagName) =
-    catch
-        (do ch <- checkAdmin hLogger pool tokenLifeTime token
-            case ch of
-                (False, bs) -> return $ Left bs
-                (True, _) -> do
-                    rows <-
-                        queryWithPool
-                            pool
-                            "insert into tags (tag_name) values (?) returning tag_id"
-                            [tagName] :: IO [Only Int]
-                    if Prelude.null rows
-                        then do
-                            logError hLogger "Tag not created."
-                            return . Left . OtherError $ "Tag not created."
-                        else do
-                            return $ Right $ fromOnly $ Prelude.head rows) $ \e -> do
-        let errState = sqlState e
+    liftIO $ logError hLogger "Tag not created. No tag_name parameter"
+    throwError $ OtherError "No tag_name parameter"
+createTagInDb pool tokenLifeTime hLogger token (Just tagName) = do
+    ch <- checkAdmin' hLogger pool tokenLifeTime token
+    if ch
+        then (do rows <-
+                     liftIO $
+                     try
+                         (queryWithPool
+                              pool
+                              "insert into tags (tag_name) values (?) returning tag_id"
+                              [tagName])
+                 case rows of
+                     Left e -> errorHandle e
+                     Right [] -> do
+                         liftIO $ logError hLogger "Tag not created."
+                         throwError $ OtherError "Tag not created."
+                     Right ((Only n):_) -> do
+                         return n)
+        else throwError NotAdmin
+  where
+    errorHandle sqlError = do
+        let errState = sqlState sqlError
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         case errStateInt of
             23505 -> do
-                logError hLogger "Tag already exist"
-                return . Left . OtherError $ "Tag already exist"
+                liftIO $ logError hLogger "Tag already exist"
+                throwError $ OtherError "Tag already exist"
             _ -> do
-                logError hLogger $
+                liftIO $
+                    logError hLogger $
                     "Database error " <> T.pack (show errStateInt)
-                return $ Left DatabaseError
+                throwError DatabaseError
 
 deleteTagFromDb ::
-       Pool Connection
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
     -> TokenLifeTime
     -> LoggerHandle IO
     -> Maybe Token
     -> Maybe TagName
-    -> IO (Either SomeError ())
+    -> m ()
 deleteTagFromDb _ _ hLogger _ Nothing = do
-    logError hLogger "Tag not deleted. No tag_name parameter"
-    return . Left . OtherError $ "Tag not deleted. No tag_name parameter"
-deleteTagFromDb pool tokenLifeTime hLogger token (Just tagName) =
-    catch
-        (do logInfo hLogger $ T.concat ["Deleting tag ", getTagName tagName]
-            ch <- checkAdmin hLogger pool tokenLifeTime token
-            case ch of
-                (False, bs) -> return $ Left bs
-                (True, _) -> do
-                    n <-
-                        executeWithPool
-                            pool
-                            "delete from tags where tag_name = ?"
-                            [tagName]
-                    if n > 0
-                        then do
-                            logInfo hLogger $
-                                "Tag " <> getTagName tagName <> " deleted"
-                            return $ Right ()
-                        else do
-                            logError hLogger $
-                                "Tag " <> getTagName tagName <> " not deleted"
-                            return $ Right ()) $ \e -> do
-        let errState = sqlState e
+    liftIO $ logError hLogger "Tag not deleted. No tag_name parameter"
+    throwError $ OtherError "Tag not deleted. No tag_name parameter"
+deleteTagFromDb pool tokenLifeTime hLogger token (Just tagName) = do
+    liftIO $ logInfo hLogger $ T.concat ["Deleting tag ", getTagName tagName]
+    ch <- checkAdmin' hLogger pool tokenLifeTime token
+    if ch
+        then (do n <-
+                     liftIO $
+                     try
+                         (executeWithPool
+                              pool
+                              "delete from tags where tag_name = ?"
+                              [tagName])
+                 case n of
+                     Left e -> errorHandle e
+                     Right k ->
+                         if k > 0
+                             then do
+                                 liftIO $
+                                     logInfo hLogger $
+                                     "Tag " <> getTagName tagName <> " deleted"
+                                 return ()
+                             else do
+                                 liftIO $
+                                     logError hLogger $
+                                     "Tag " <>
+                                     getTagName tagName <> " not deleted"
+                                 throwError $ OtherError "Tag not deleted")
+        else throwError NotAdmin
+  where
+    errorHandle sqlError = do
+        let errState = sqlState sqlError
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ "Database error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
+        liftIO $
+            logError hLogger $ "Database error " <> T.pack (show errStateInt)
+        throwError DatabaseError
 
+-----------------------------------------------------------------------------------------------------
 getTagsListFromDb ::
-       Pool Connection
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
     -> LoggerHandle IO
     -> Maybe Page
-    -> IO (Either SomeError TagsList)
-getTagsListFromDb pool hLogger page =
-    catch
-        (do rows <- query_WithPool pool q
-            logInfo hLogger "List of tags sended"
-            return $ Right $ TagsList rows) $ \e -> do
-        let _ = sqlState e
-        logError hLogger "Database error"
-        return $ Left DatabaseError
+    -> m TagsList
+getTagsListFromDb pool hLogger page = do
+    rows <- liftIO $ try (query_WithPool pool q)
+    case rows of
+        Left (_ :: SqlError) -> do
+            liftIO $ logError hLogger "Database error"
+            throwError DatabaseError
+        Right tagList -> do
+            liftIO $ logInfo hLogger "List of tags sended"
+            return $ TagsList tagList
   where
     q = toQuery $ "select tag_name from tags order by tag_name" <> pageToBS page
 
+---------------------------------------------------------------------------------
 editTagInDb ::
-       Pool Connection
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
     -> TokenLifeTime
     -> LoggerHandle IO
     -> Maybe Token
     -> EditTag
-    -> IO (Either SomeError ())
+    -> m ()
 editTagInDb _ _ hLogger _ EditTag {editTagNewName = Nothing} = do
-    logError hLogger "Tag not edited. No new_tag_name field"
-    return . Left . OtherError $ "No new_tag_name field"
+    liftIO $ logError hLogger "Tag not edited. No new_tag_name field"
+    throwError $ OtherError "No new_tag_name field"
 editTagInDb _ _ hLogger _ EditTag {editTagOldName = Nothing} = do
-    logError hLogger "Tag not edited. No old_tag_name field"
-    return . Left . OtherError $ "Tag not edited. No old_tag_name field"
+    liftIO $ logError hLogger "Tag not edited. No old_tag_name field"
+    throwError $ OtherError "Tag not edited. No old_tag_name field"
 editTagInDb _ _ hLogger Nothing _ = do
-    logError hLogger "Tag not edited. No token param"
-    return . Left . OtherError $ "No token param"
-editTagInDb pool tokenLifetime hLogger token editTagParams@(EditTag (Just newTagName) (Just oldTagName)) =
-    catch
-        (do ch <- checkAdmin hLogger pool tokenLifetime token
-            case ch of
-                (False, bs) -> return $ Left bs
-                (True, _) -> do
-                    n <-
-                        executeWithPool
-                            pool
-                            "update tags set tag_name = ? where tag_name = ?"
-                            editTagParams
-                    if n > 0
+    liftIO $ logError hLogger "Tag not edited. No token param"
+    throwError $ OtherError "No token param"
+editTagInDb pool tokenLifetime hLogger token editTagParams@(EditTag (Just newTagName) (Just oldTagName)) = do
+    ch <- checkAdmin' hLogger pool tokenLifetime token
+    if ch
+        then do
+            n <-
+                liftIO $
+                try
+                    (executeWithPool
+                         pool
+                         "update tags set tag_name = ? where tag_name = ?"
+                         editTagParams)
+            case n of
+                Left e -> errorHandle e
+                Right k ->
+                    if k > 0
                         then do
-                            logInfo hLogger $
+                            liftIO $
+                                logInfo hLogger $
                                 "Tag '" <>
                                 getTagName oldTagName <>
                                 "' renaimed to '" <>
                                 getTagName newTagName <> "'"
-                            return $ Right ()
+                            return ()
                         else do
-                            logError hLogger "Tag not exist"
-                            return . Left . OtherError $ "Tag not exist") $ \e -> do
-        let errState = sqlState e
+                            liftIO $ logError hLogger "Tag not exist"
+                            throwError $ OtherError "Tag not exist"
+        else throwError NotAdmin
+  where
+    errorHandle sqlError = do
+        let errState = sqlState sqlError
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $ "Database error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
+        liftIO $
+            logError hLogger $ "Database error " <> T.pack (show errStateInt)
+        throwError DatabaseError

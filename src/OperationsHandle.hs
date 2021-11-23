@@ -249,18 +249,22 @@ newsAndCommentsHandler pool hLogger tokenLifeTime =
         , nchParseRequestBody = parseRequestBody lbsBackEnd
         }
 
-data TagsHandle m =
+data TagsHandle m io =
     TagsHandle
-        { thCreateTagInDb :: Maybe Token -> Maybe TagName -> m (Either SomeError SendId)
-        , thDeleteTagFromDb :: Maybe Token -> Maybe TagName -> m (Either SomeError ())
-        , thGetTagsListFromDb :: Maybe Page -> m (Either SomeError TagsList)
-        , thEditTagInDb :: Maybe Token -> EditTag -> m (Either SomeError ())
-        , thLogger :: LoggerHandle m
-        , thParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
+        { thCreateTagInDb     :: Maybe Token -> Maybe TagName -> m SendId
+        , thDeleteTagFromDb   :: Maybe Token -> Maybe TagName -> m ()
+        , thGetTagsListFromDb :: Maybe Page -> m TagsList
+        , thEditTagInDb       :: Maybe Token -> EditTag -> m ()
+        , thLogger            :: LoggerHandle io
+        --, thParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 tagsHandler ::
-       Pool Connection -> LoggerHandle IO -> TokenLifeTime -> TagsHandle IO
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> LoggerHandle IO
+    -> TokenLifeTime
+    -> TagsHandle m IO
 tagsHandler pool hLogger tokenLifeTime =
     TagsHandle
         { thCreateTagInDb = createTagInDb pool tokenLifeTime hLogger
@@ -268,29 +272,9 @@ tagsHandler pool hLogger tokenLifeTime =
         , thGetTagsListFromDb = getTagsListFromDb pool hLogger
         , thEditTagInDb = editTagInDb pool tokenLifeTime hLogger
         , thLogger = hLogger
-        , thParseRequestBody = parseRequestBody lbsBackEnd
+        --, thParseRequestBody = parseRequestBody lbsBackEnd
         }
 
-{-data UsersHandle m =
-    UsersHandle
-        { uhAuth :: Maybe Login -> Maybe Password -> m (Either SomeError Token)
-        , uhCreateUserInDb :: CreateUser -> m (Either SomeError Token)
-        , uhDeleteUserFromDb :: Maybe Token -> Maybe Login -> m (Either SomeError ())
-        , uhProfileOnDb :: Maybe Token -> m (Either SomeError Profile)
-        , uhLogger :: LoggerHandle m
-        , uhParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
-        } -}
-{-usersHandler ::
-       Pool Connection -> LoggerHandle IO -> TokenLifeTime -> UsersHandle IO
-usersHandler pool hLogger tokenLifeTime =
-    UsersHandle
-        { uhAuth = authentication pool hLogger
-        , uhCreateUserInDb = createUserInDb pool hLogger
-        , uhDeleteUserFromDb = deleteUserFromDb pool tokenLifeTime hLogger
-        , uhProfileOnDb = profileOnDb pool tokenLifeTime hLogger
-        , uhLogger = hLogger
-        , uhParseRequestBody = parseRequestBody lbsBackEnd
-        } -}
 data UsersHandle m io =
     UsersHandle
         { uhAuth             :: Maybe Login -> Maybe Password -> m Token
@@ -322,8 +306,8 @@ data OperationsHandle m io =
         --, draftsHandle          :: DraftsHandle m
         --, imagesHandle          :: ImagesHandle m
         --, newsAndCommentsHandle :: NewsAndCommentsHandle m
-        --, tagsHandle            :: TagsHandle m
-        { usersHandle :: UsersHandle m io
+        { tagsHandle  :: TagsHandle m io
+        , usersHandle :: UsersHandle m io
         }
 
 operationsHandler ::
@@ -340,5 +324,6 @@ operationsHandler hLogger pool tokenLifeTime =
         --, imagesHandle = imagesHandler pool hLogger
         --, newsAndCommentsHandle =
         --      newsAndCommentsHandler pool hLogger tokenLifeTime
-        --, tagsHandle = tagsHandler pool hLogger tokenLifeTime
-        {usersHandle = usersHandler pool hLogger tokenLifeTime}
+        { tagsHandle = tagsHandler pool hLogger tokenLifeTime
+        , usersHandle = usersHandler pool hLogger tokenLifeTime
+        }
