@@ -1,99 +1,71 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Answers.Images where
 
-import           Answer                    (AnswerHandle' (..))
-import           Control.Monad.Except      (ExceptT, MonadError (throwError),
-                                            MonadIO (liftIO), runExceptT)
-import           Data.Aeson                (encode)
+import           Answer                    (AnswerHandle'' (..))
+import           Control.Monad.Except      (MonadError (throwError), MonadIO)
 import qualified Data.ByteString.Char8     as BC
 import           FromRequest               (toPage)
 import           HelpFunction              (readByteStringToId)
-import           Logger                    (logError)
 import           Network.HTTP.Types.Method (methodGet)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
-import           OperationsHandle          (ImagesHandle (ihGetPhoto, ihGetPhotoList, ihLogger))
-import           Responses                 (toResponseErrorMessage)
+import           OperationsHandle          (ImagesHandle (ihGetPhoto, ihGetPhotoList))
 import           Types.Images              (ImageArray, ImageB)
-import           Types.Other               (Id, MonadWithError, Page,
-                                            ResponseErrorMessage,
-                                            ResponseOkMessage (OkImage, OkJSON),
+import           Types.Other               (Id, Page,
                                             SomeError (BadMethod, OtherError))
 
-----------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+imagesListParseInformation ::
+       (MonadIO m, MonadError SomeError m)
+    => ImagesHandle m
+    -> Request
+    -> m (Maybe Page)
+imagesListParseInformation handler request =
+    if requestMethod request /= methodGet
+        then throwError BadMethod
+        else return $ toPage request
+
+imagesListDatabaseOperation ::
+       (MonadIO m, MonadError SomeError m)
+    => ImagesHandle m
+    -> Maybe Page
+    -> m ImageArray
+imagesListDatabaseOperation = ihGetPhotoList
+
+getImagesListHandle ::
+       (MonadIO m, MonadError SomeError m)
+    => ImagesHandle m
+    -> AnswerHandle'' m (Maybe Page) ImageArray
+getImagesListHandle imagesHandle =
+    AnswerHandle''
+        { parseInformation'' = imagesListParseInformation imagesHandle
+        , databaseOperation'' = imagesListDatabaseOperation imagesHandle
+        }
+
+-----------------------------------------------------------------------------------------
 getImageParseInformation ::
-       ImagesHandle MonadWithError IO -> Request -> MonadWithError Id
+       (MonadIO m, MonadError SomeError m) => ImagesHandle m -> Request -> m Id
 getImageParseInformation handler request = do
     if requestMethod request /= methodGet
-        then do
-            liftIO $ logError (ihLogger handler) "Bad request method"
-            throwError BadMethod
-        else do
-            case readByteStringToId $ last pathElems of
-                Nothing -> throwError $ OtherError "Bad image id"
-                Just n  -> return n
+        then throwError BadMethod
+        else case readByteStringToId $ last pathElems of
+                 Nothing -> throwError $ OtherError "Bad image id"
+                 Just n  -> return n
   where
     path = BC.tail $ rawPathInfo request
     pathElems = BC.split '/' path
 
 getImageDatabaseOperation ::
-       ImagesHandle MonadWithError IO -> Id -> MonadWithError ImageB
+       (MonadIO m, MonadError SomeError m) => ImagesHandle m -> Id -> m ImageB
 getImageDatabaseOperation = ihGetPhoto
 
-getImageSendResult ::
-       MonadWithError ImageB
-    -> IO (Either ResponseErrorMessage ResponseOkMessage)
-getImageSendResult result = do
-    a <- runExceptT result
-    case a of
-        Left someError ->
-            return $ Left $ toResponseErrorMessage "Image not sended." someError
-        Right image -> do
-            return $ Right $ OkImage image
-
 getImageHandle ::
-       ImagesHandle MonadWithError IO
-    -> AnswerHandle' (ExceptT SomeError IO) Id ImageB IO
+       (MonadIO m, MonadError SomeError m)
+    => ImagesHandle m
+    -> AnswerHandle'' m Id ImageB
 getImageHandle imagesHandle =
-    AnswerHandle'
-        { parseInformation' = getImageParseInformation imagesHandle
-        , databaseOperation' = getImageDatabaseOperation imagesHandle
-        , sendResult' = getImageSendResult
-        }
-
-------------------------------------------------------------------------------------
-imagesListParseInformation ::
-       ImagesHandle MonadWithError IO -> Request -> MonadWithError (Maybe Page)
-imagesListParseInformation handler request =
-    if requestMethod request /= methodGet
-        then do
-            liftIO $ logError (ihLogger handler) "Bad request method"
-            throwError BadMethod
-        else do
-            return $ toPage request
-
-imagesListDatabaseOperation ::
-       ImagesHandle MonadWithError IO -> Maybe Page -> MonadWithError ImageArray
-imagesListDatabaseOperation = ihGetPhotoList
-
-imagesListSendResult ::
-       MonadWithError ImageArray
-    -> IO (Either ResponseErrorMessage ResponseOkMessage)
-imagesListSendResult result = do
-    a <- runExceptT result
-    case a of
-        Left someError ->
-            return $
-            Left $ toResponseErrorMessage "List of images not sended." someError
-        Right imagesArray -> do
-            return $ Right $ OkJSON $ encode imagesArray
-
-getImagesListHandle ::
-       ImagesHandle MonadWithError IO
-    -> AnswerHandle' (ExceptT SomeError IO) (Maybe Page) ImageArray IO
-getImagesListHandle imagesHandle =
-    AnswerHandle'
-        { parseInformation' = imagesListParseInformation imagesHandle
-        , databaseOperation' = imagesListDatabaseOperation imagesHandle
-        , sendResult' = imagesListSendResult
+    AnswerHandle''
+        { parseInformation'' = getImageParseInformation imagesHandle
+        , databaseOperation'' = getImageDatabaseOperation imagesHandle
         }

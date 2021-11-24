@@ -36,3 +36,14 @@ answer' request handler = do
     let result =
             parseInformation' handler request >>= databaseOperation' handler
     sendResult' handler result
+
+data AnswerHandle'' m a b =
+    AnswerHandle''
+        { parseInformation''  :: Request -> m a
+        , databaseOperation'' :: a -> m b
+        --, sendResult' :: m b -> io (Either ResponseErrorMessage ResponseOkMessage)
+        }
+
+answer'' :: Monad m => Request -> AnswerHandle'' m a b -> m b
+answer'' request handler =
+    parseInformation'' handler request >>= databaseOperation'' handler

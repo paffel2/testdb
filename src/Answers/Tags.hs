@@ -1,198 +1,140 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Answers.Tags where
 
-import           Answer                    (AnswerHandle' (..))
-import           Control.Monad.Except      (ExceptT, MonadError (throwError),
-                                            MonadIO (liftIO), runExceptT)
-import           Data.Aeson                (encode)
-import qualified Data.ByteString.Char8     as BC
-import qualified Data.ByteString.Lazy      as LBS
-import           FromRequest               (parseRequestBodyLBS, takeToken,
-                                            toEditTag, toPage, toTagName)
-import           Logger                    (logError, logInfo)
+import           Answer                    (AnswerHandle'' (..))
+import           Control.Monad.Except      (MonadError (throwError), MonadIO)
+import           FromRequest               (takeToken, toEditTag, toPage,
+                                            toTagName)
 import           Network.HTTP.Types.Method (methodDelete, methodGet, methodPost,
                                             methodPut)
 import           Network.Wai               (Request (requestMethod))
-import           OperationsHandle          (TagsHandle (thCreateTagInDb, thDeleteTagFromDb, thEditTagInDb, thGetTagsListFromDb, thLogger))
-import           Responses                 (toResponseErrorMessage)
-import           Types.Other               (MonadWithError, Page,
-                                            ResponseErrorMessage,
-                                            ResponseOkMessage (Created, OkJSON, OkMessage),
-                                            SendId, SomeError (BadMethod),
+import           OperationsHandle          (TagsHandle (thCreateTagInDb, thDeleteTagFromDb, thEditTagInDb, thGetTagsListFromDb, thParseRequestBody))
+import           Types.Other               (Page, SendId, SomeError (BadMethod),
                                             Token)
 import           Types.Tags                (EditTag, TagName, TagsList)
 
+-------------------------------------------------------------------------------------
 createTagParseInformation ::
-       TagsHandle MonadWithError IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
     -> Request
-    -> MonadWithError (Maybe Token, Maybe TagName)
+    -> m (Maybe Token, Maybe TagName)
 createTagParseInformation handler request =
     if requestMethod request /= methodPost
-        then do
-            liftIO $ logError (thLogger handler) "Bad request method"
-            throwError BadMethod
+        then throwError BadMethod
         else do
-            liftIO $
-                logInfo (thLogger handler) "Preparing data for creating tag."
             let token = takeToken request
             let tagNameParam = toTagName request
             return (token, tagNameParam)
 
 createTagDatabaseOperation ::
-       TagsHandle MonadWithError IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
     -> (Maybe Token, Maybe TagName)
-    -> MonadWithError SendId
+    -> m SendId
 createTagDatabaseOperation tagHandle (token, tagNameParam) =
     thCreateTagInDb tagHandle token tagNameParam
 
-createTagSendResult ::
-       MonadWithError SendId
-    -> IO (Either ResponseErrorMessage ResponseOkMessage)
-createTagSendResult result = do
-    a <- runExceptT result
-    case a of
-        Left someError ->
-            return $ Left $ toResponseErrorMessage "Tag not created." someError
-        Right n -> do
-            return $ Right $ Created $ LBS.fromStrict $ BC.pack $ show n
-
 createTagHandle ::
-       TagsHandle MonadWithError IO
-    -> AnswerHandle' (ExceptT SomeError IO) (Maybe Token, Maybe TagName) SendId IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
+    -> AnswerHandle'' m (Maybe Token, Maybe TagName) SendId
 createTagHandle tagHandle =
-    AnswerHandle'
-        { parseInformation' = createTagParseInformation tagHandle
-        , databaseOperation' = createTagDatabaseOperation tagHandle
-        , sendResult' = createTagSendResult
+    AnswerHandle''
+        { parseInformation'' = createTagParseInformation tagHandle
+        , databaseOperation'' = createTagDatabaseOperation tagHandle
         }
 
---------------------------------------------------------------------------------------------------------------------
 deleteTagParseInformation ::
-       TagsHandle MonadWithError IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
     -> Request
-    -> MonadWithError (Maybe Token, Maybe TagName)
+    -> m (Maybe Token, Maybe TagName)
 deleteTagParseInformation handler request =
     if requestMethod request /= methodDelete
-        then do
-            liftIO $ logError (thLogger handler) "Bad request method"
-            throwError BadMethod
+        then throwError BadMethod
         else do
-            liftIO $
-                logInfo (thLogger handler) "Preparing data for deleting tag."
             let token = takeToken request
             let tagNameParam = toTagName request
             return (token, tagNameParam)
 
 deleteTagDatabaseOperation ::
-       TagsHandle MonadWithError IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
     -> (Maybe Token, Maybe TagName)
-    -> MonadWithError ()
+    -> m ()
 deleteTagDatabaseOperation tagHandle (token, tagNameParam) =
     thDeleteTagFromDb tagHandle token tagNameParam
 
-deleteTagSendResult ::
-       MonadWithError () -> IO (Either ResponseErrorMessage ResponseOkMessage)
-deleteTagSendResult result = do
-    a <- runExceptT result
-    case a of
-        Left someError ->
-            return $ Left $ toResponseErrorMessage "Tag not deleted." someError
-        Right _ -> do
-            return $ Right $ OkMessage "Tag deleted."
-
 deleteTagHandle ::
-       TagsHandle MonadWithError IO
-    -> AnswerHandle' (ExceptT SomeError IO) (Maybe Token, Maybe TagName) () IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
+    -> AnswerHandle'' m (Maybe Token, Maybe TagName) ()
 deleteTagHandle tagHandle =
-    AnswerHandle'
-        { parseInformation' = deleteTagParseInformation tagHandle
-        , databaseOperation' = deleteTagDatabaseOperation tagHandle
-        , sendResult' = deleteTagSendResult
+    AnswerHandle''
+        { parseInformation'' = deleteTagParseInformation tagHandle
+        , databaseOperation'' = deleteTagDatabaseOperation tagHandle
         }
 
-------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 getTagsListParseInformation ::
-       TagsHandle MonadWithError IO -> Request -> MonadWithError (Maybe Page)
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
+    -> Request
+    -> m (Maybe Page)
 getTagsListParseInformation handler request =
     if requestMethod request /= methodGet
-        then do
-            liftIO $ logError (thLogger handler) "Bad request method"
-            throwError BadMethod
-        else do
-            liftIO $
-                logInfo
-                    (thLogger handler)
-                    "Preparing parameters for sending tags list."
-            return (toPage request)
+        then throwError BadMethod
+        else return (toPage request)
 
 getTagsListDatabaseOperation ::
-       TagsHandle MonadWithError IO -> Maybe Page -> MonadWithError TagsList
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
+    -> Maybe Page
+    -> m TagsList
 getTagsListDatabaseOperation = thGetTagsListFromDb
 
-getTagsListSendResult ::
-       MonadWithError TagsList
-    -> IO (Either ResponseErrorMessage ResponseOkMessage)
-getTagsListSendResult result = do
-    a <- runExceptT result
-    case a of
-        Left someError ->
-            return $
-            Left $ toResponseErrorMessage "List of tags not sended." someError
-        Right someList -> do
-            return $ Right $ OkJSON $ encode someList
-
 getTagsListHandle ::
-       TagsHandle MonadWithError IO
-    -> AnswerHandle' (ExceptT SomeError IO) (Maybe Page) TagsList IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
+    -> AnswerHandle'' m (Maybe Page) TagsList
 getTagsListHandle tagHandle =
-    AnswerHandle'
-        { parseInformation' = getTagsListParseInformation tagHandle
-        , databaseOperation' = getTagsListDatabaseOperation tagHandle
-        , sendResult' = getTagsListSendResult
+    AnswerHandle''
+        { parseInformation'' = getTagsListParseInformation tagHandle
+        , databaseOperation'' = getTagsListDatabaseOperation tagHandle
         }
 
-------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 updateTagParseInformation ::
-       TagsHandle MonadWithError IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
     -> Request
-    -> MonadWithError (Maybe Token, EditTag)
+    -> m (Maybe Token, EditTag)
 updateTagParseInformation handler request =
     if requestMethod request /= methodPut
-        then do
-            liftIO $ logError (thLogger handler) "Bad request method"
-            throwError BadMethod
+        then throwError BadMethod
         else do
-            liftIO $
-                logInfo (thLogger handler) "Preparing data for editing tag."
             let token = takeToken request
-            (i, _) <- liftIO $ parseRequestBodyLBS request
+            (i, _) <- thParseRequestBody handler request
             let tagEditParams = toEditTag i
             return (token, tagEditParams)
 
 updateTagDatabaseOperation ::
-       TagsHandle MonadWithError IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
     -> (Maybe Token, EditTag)
-    -> MonadWithError ()
+    -> m ()
 updateTagDatabaseOperation tagHandle (token, tagEditParams) =
     thEditTagInDb tagHandle token tagEditParams
 
-updateTagSendResult ::
-       MonadWithError () -> IO (Either ResponseErrorMessage ResponseOkMessage)
-updateTagSendResult result = do
-    a <- runExceptT result
-    case a of
-        Left someError ->
-            return $ Left $ toResponseErrorMessage "Tag not edited." someError
-        Right _ -> do
-            return $ Right $ OkMessage "Tag edited."
-
 updateTagHandle ::
-       TagsHandle MonadWithError IO
-    -> AnswerHandle' (ExceptT SomeError IO) (Maybe Token, EditTag) () IO
+       (MonadIO m, MonadError SomeError m)
+    => TagsHandle m
+    -> AnswerHandle'' m (Maybe Token, EditTag) ()
 updateTagHandle tagHandle =
-    AnswerHandle'
-        { parseInformation' = updateTagParseInformation tagHandle
-        , databaseOperation' = updateTagDatabaseOperation tagHandle
-        , sendResult' = updateTagSendResult
+    AnswerHandle''
+        { parseInformation'' = updateTagParseInformation tagHandle
+        , databaseOperation'' = updateTagDatabaseOperation tagHandle
         }

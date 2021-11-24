@@ -75,3 +75,29 @@ checkAdmin' hLogger pool tokenLifetime (Just token) = do
         liftIO $
             logError hLogger $ "Database error " <> T.pack (show errStateInt)
         throwError DatabaseError
+
+checkAdmin'' ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> TokenLifeTime
+    -> Maybe Token
+    -> m Bool
+checkAdmin'' _ _ Nothing = do
+    throwError $ OtherError "No token parameter"
+checkAdmin'' pool tokenLifetime (Just token) = do
+    rows <-
+        liftIO $
+        try
+            (queryWithPool
+                 pool
+                 "select admin_mark from users join tokens using (user_id) where token = ? and ((current_timestamp - tokens.creation_date) < make_interval(secs => ?))"
+                 (token, tokenLifetime))
+    case rows of
+        Left (e :: SqlError) -> errorHandle e
+        Right []             -> throwError BadToken
+        Right (mark:_)       -> return $ fromOnly mark
+  where
+    errorHandle sqlError = do
+        let errState = sqlState sqlError
+        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
+        throwError DatabaseError

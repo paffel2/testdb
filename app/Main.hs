@@ -46,4 +46,4 @@ main = do
                 (setMaximumBodyFlush
                      (server_maximum_body_flush . server_conf $ hConfig) $
                  setPort (server_port . server_conf $ hConfig) defaultSettings) $
-                application hOperations
+                application hOperations hLogger

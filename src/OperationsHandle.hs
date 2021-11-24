@@ -177,23 +177,22 @@ draftsHandler pool hLogger tokenLifeTime =
         , dhParseRequestBody = parseRequestBody lbsBackEnd
         }
 
-data ImagesHandle m io =
+data ImagesHandle m =
     ImagesHandle
         { ihGetPhoto     :: Id -> m ImageB
         , ihGetPhotoList :: Maybe Page -> m ImageArray
-        , ihLogger       :: LoggerHandle io
+        --, ihParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
+        --, ihLogger       :: LoggerHandle m
         }
 
 imagesHandler ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> LoggerHandle IO
-    -> ImagesHandle m IO
-imagesHandler pool hLogger =
+       (MonadIO m, MonadError SomeError m) => Pool Connection -> ImagesHandle m
+imagesHandler pool =
     ImagesHandle
-        { ihGetPhoto = getPhotoFromDb pool hLogger
-        , ihGetPhotoList = getPhotoListFromDb pool hLogger
-        , ihLogger = hLogger
+        { ihGetPhoto = getPhotoFromDb pool
+        , ihGetPhotoList = getPhotoListFromDb pool
+        --, ihParseRequestBody = liftIO . parseRequestBody lbsBackEnd
+        --, ihLogger = hLogger
         }
 
 data NewsAndCommentsHandle m =
@@ -253,30 +252,29 @@ newsAndCommentsHandler pool hLogger tokenLifeTime =
         , nchParseRequestBody = parseRequestBody lbsBackEnd
         }
 
-data TagsHandle m io =
+data TagsHandle m =
     TagsHandle
         { thCreateTagInDb     :: Maybe Token -> Maybe TagName -> m SendId
         , thDeleteTagFromDb   :: Maybe Token -> Maybe TagName -> m ()
         , thGetTagsListFromDb :: Maybe Page -> m TagsList
         , thEditTagInDb       :: Maybe Token -> EditTag -> m ()
-        , thLogger            :: LoggerHandle io
-        --, thParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
+        --, thLogger            :: LoggerHandle io
+        , thParseRequestBody  :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 tagsHandler ::
        (MonadIO m, MonadError SomeError m)
     => Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
-    -> TagsHandle m IO
-tagsHandler pool hLogger tokenLifeTime =
+    -> TagsHandle m
+tagsHandler pool tokenLifeTime =
     TagsHandle
-        { thCreateTagInDb = createTagInDb pool tokenLifeTime hLogger
-        , thDeleteTagFromDb = deleteTagFromDb pool tokenLifeTime hLogger
-        , thGetTagsListFromDb = getTagsListFromDb pool hLogger
-        , thEditTagInDb = editTagInDb pool tokenLifeTime hLogger
-        , thLogger = hLogger
-        --, thParseRequestBody = parseRequestBody lbsBackEnd
+        { thCreateTagInDb = createTagInDb pool tokenLifeTime
+        , thDeleteTagFromDb = deleteTagFromDb pool tokenLifeTime
+        , thGetTagsListFromDb = getTagsListFromDb pool
+        , thEditTagInDb = editTagInDb pool tokenLifeTime
+        --, thLogger = hLogger
+        , thParseRequestBody = liftIO . parseRequestBody lbsBackEnd
         }
 
 data UsersHandle m io =
@@ -303,15 +301,15 @@ usersHandler pool hLogger tokenLifeTime =
         , uhLogger = hLogger
         }
 
-data OperationsHandle m io =
+data OperationsHandle m =
     OperationsHandle
           --authorsHandle         :: AuthorsHandle m
         --, categoriesHandle      :: CategoriesHandle m
         --, draftsHandle          :: DraftsHandle m
-        { imagesHandle :: ImagesHandle m io
+        { imagesHandle :: ImagesHandle m
         --, newsAndCommentsHandle :: NewsAndCommentsHandle m
-        , tagsHandle   :: TagsHandle m io
-        , usersHandle  :: UsersHandle m io
+        , tagsHandle   :: TagsHandle m
+        --, usersHandle  :: UsersHandle m io
         }
 
 operationsHandler ::
@@ -319,15 +317,15 @@ operationsHandler ::
     => LoggerHandle IO
     -> Pool Connection
     -> TokenLifeTime
-    -> OperationsHandle m IO
+    -> OperationsHandle m
 operationsHandler hLogger pool tokenLifeTime =
     OperationsHandle
           --authorsHandle = authorsHandler pool hLogger tokenLifeTime
         --, categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
         --, draftsHandle = draftsHandler pool hLogger tokenLifeTime
-        { imagesHandle = imagesHandler pool hLogger
+        { imagesHandle = imagesHandler pool
         --, newsAndCommentsHandle =
         --      newsAndCommentsHandler pool hLogger tokenLifeTime
-        , tagsHandle = tagsHandler pool hLogger tokenLifeTime
-        , usersHandle = usersHandler pool hLogger tokenLifeTime
+        , tagsHandle = tagsHandler pool tokenLifeTime
+        --, usersHandle = usersHandler pool hLogger tokenLifeTime
         }
