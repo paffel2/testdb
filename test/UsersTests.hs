@@ -2,8 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module UsersTests where
-
-import           Data.Functor.Identity (Identity)
+{-import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
                                         methodPut)
@@ -294,3 +293,4 @@ usersTests =
                         (Left
                              (InternalServerError
                                   "Profile inforamtion not sended. Database Error."))
+-}

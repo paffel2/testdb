@@ -2,8 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module DraftsTests where
-
-import           Data.Functor.Identity            (Identity)
+{-import           Data.Functor.Identity            (Identity)
 import           Data.Time.Clock                  (UTCTime)
 import           Database.PostgreSQL.Simple.Types (PGArray (PGArray))
 import           Logger                           (LoggerHandle (..),
@@ -494,3 +493,4 @@ draftsTests =
                         (Left
                              (InternalServerError
                                   "News not created. Database Error."))
+-}

@@ -2,8 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module NewsTests where
-
-import           Data.Functor.Identity            (Identity)
+{-import           Data.Functor.Identity            (Identity)
 import           Data.Time                        (Day)
 import           Logger                           (LoggerHandle (..),
                                                    Priority (Debug))
@@ -751,3 +750,4 @@ newsTests =
                         (Left
                              (InternalServerError
                                   "News not sended. Database Error."))
+-}

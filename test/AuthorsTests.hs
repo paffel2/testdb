@@ -2,8 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module AuthorsTests where
-
-import           Data.Functor.Identity (Identity)
+{-import           Data.Functor.Identity (Identity)
 
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
@@ -322,3 +321,4 @@ authorsTests =
                         (Left
                              (InternalServerError
                                   "Author not edited. Database Error."))
+-}

@@ -122,7 +122,7 @@ toResponseErrorMessage' hLogger prefix DatabaseError = do
 toResponseErrorMessage' hLogger prefix (OtherError message) = do
     logError hLogger $ prefix <> T.pack message
     return $
-        InternalServerError $
+        BadRequest $
         LBS.concat
             [ LBS.fromStrict $ E.encodeUtf8 prefix
             , " "

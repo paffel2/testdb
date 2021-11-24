@@ -2,8 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module CommentsTests where
-
-import           Data.Functor.Identity (Identity)
+{-import           Data.Functor.Identity (Identity)
 
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
@@ -246,3 +245,4 @@ commentsTests =
                         (Left
                              (InternalServerError
                                   "Commentary not deleted. Database Error."))
+-}
