@@ -36,17 +36,18 @@ routes operations hLogger req =
     case pathHead
         --"news" -> newsAndCommentsRouter (newsAndCommentsHandle operations) req
           of
-        "login"        -> signIn (usersHandle operations) hLogger req
+        "login" -> signIn (usersHandle operations) hLogger req
         "registration" -> registration (usersHandle operations) hLogger req
-        "deleteUser"   -> deleteUser (usersHandle operations) hLogger req
-        --"categories" -> categoriesRouter (categoriesHandle operations) req
-        "profile"      -> profile (usersHandle operations) hLogger req
+        "deleteUser" -> deleteUser (usersHandle operations) hLogger req
+        "categories" ->
+            categoriesRouter (categoriesHandle operations) hLogger req
+        "profile" -> profile (usersHandle operations) hLogger req
         --"drafts" -> draftsRouter (draftsHandle operations) req
         --"new_draft" -> answer req (createDraftHandle $ draftsHandle operations)
-        "tags"         -> tagsRouter (tagsHandle operations) hLogger req
-        "image"        -> imagesRouter (imagesHandle operations) hLogger req
+        "tags" -> tagsRouter (tagsHandle operations) hLogger req
+        "image" -> imagesRouter (imagesHandle operations) hLogger req
         --"authors" -> authorsRouter (authorsHandle operations) req
-        _              -> return $ Left $ NotFound "Not Found"
+        _ -> return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

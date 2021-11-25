@@ -21,7 +21,7 @@ imagesListParseInformation ::
     => ImagesHandle m
     -> Request
     -> m (Maybe Page)
-imagesListParseInformation handler request =
+imagesListParseInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
         else return $ toPage request
@@ -46,7 +46,7 @@ getImagesListHandle imagesHandle =
 -----------------------------------------------------------------------------------------
 getImageParseInformation ::
        (MonadIO m, MonadError SomeError m) => ImagesHandle m -> Request -> m Id
-getImageParseInformation handler request = do
+getImageParseInformation _ request = do
     if requestMethod request /= methodGet
         then throwError BadMethod
         else case readByteStringToId $ last pathElems of

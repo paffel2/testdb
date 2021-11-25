@@ -21,7 +21,7 @@ createTagParseInformation ::
     => TagsHandle m
     -> Request
     -> m (Maybe Token, Maybe TagName)
-createTagParseInformation handler request =
+createTagParseInformation _ request =
     if requestMethod request /= methodPost
         then throwError BadMethod
         else do
@@ -52,7 +52,7 @@ deleteTagParseInformation ::
     => TagsHandle m
     -> Request
     -> m (Maybe Token, Maybe TagName)
-deleteTagParseInformation handler request =
+deleteTagParseInformation _ request =
     if requestMethod request /= methodDelete
         then throwError BadMethod
         else do
@@ -84,7 +84,7 @@ getTagsListParseInformation ::
     => TagsHandle m
     -> Request
     -> m (Maybe Page)
-getTagsListParseInformation handler request =
+getTagsListParseInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
         else return (toPage request)

@@ -88,7 +88,7 @@ deleteUserParseInformation ::
     => UsersHandle m
     -> Request
     -> m (Maybe Token, Maybe Login)
-deleteUserParseInformation handler request =
+deleteUserParseInformation _ request =
     if requestMethod request /= methodDelete
         then throwError BadMethod
         else do
@@ -122,7 +122,7 @@ profileUserParseInformation ::
     => UsersHandle m
     -> Request
     -> m (Maybe Token)
-profileUserParseInformation handler request =
+profileUserParseInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
         else return $ takeToken request

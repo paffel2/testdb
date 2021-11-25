@@ -126,28 +126,25 @@ authorsHandler pool hLogger tokenLifeTime =
 
 data CategoriesHandle m =
     CategoriesHandle
-        { chGetCategoriesListFromDb :: Maybe Page -> m (Either SomeError ListOfCategories)
-        , chCreateCategoryOnDb :: Maybe Token -> CreateCategory -> m (Either SomeError SendId)
-        , chDeleteCategoryFromDb :: Maybe Token -> Maybe CategoryName -> m (Either SomeError ())
-        , chEditCategoryOnDb :: Maybe Token -> EditCategory -> m (Either SomeError ())
-        , chLogger :: LoggerHandle m
+        { chGetCategoriesListFromDb :: Maybe Page -> m ListOfCategories
+        , chCreateCategoryOnDb :: Maybe Token -> CreateCategory -> m SendId
+        , chDeleteCategoryFromDb :: Maybe Token -> Maybe CategoryName -> m ()
+        , chEditCategoryOnDb :: Maybe Token -> EditCategory -> m ()
         , chParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 categoriesHandler ::
-       Pool Connection
-    -> LoggerHandle IO
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
     -> TokenLifeTime
-    -> CategoriesHandle IO
-categoriesHandler pool hLogger tokenLifeTime =
+    -> CategoriesHandle m
+categoriesHandler pool tokenLifeTime =
     CategoriesHandle
-        { chGetCategoriesListFromDb = getCategoriesListFromDb pool hLogger
-        , chCreateCategoryOnDb = createCategoryOnDb pool tokenLifeTime hLogger
-        , chDeleteCategoryFromDb =
-              deleteCategoryFromDb pool tokenLifeTime hLogger
-        , chEditCategoryOnDb = editCategoryOnDb pool tokenLifeTime hLogger
-        , chLogger = hLogger
-        , chParseRequestBody = parseRequestBody lbsBackEnd
+        { chGetCategoriesListFromDb = getCategoriesListFromDb pool
+        , chCreateCategoryOnDb = createCategoryOnDb pool tokenLifeTime
+        , chDeleteCategoryFromDb = deleteCategoryFromDb pool tokenLifeTime
+        , chEditCategoryOnDb = editCategoryOnDb pool tokenLifeTime
+        , chParseRequestBody = liftIO . parseRequestBody lbsBackEnd
         }
 
 data DraftsHandle m =
@@ -181,8 +178,6 @@ data ImagesHandle m =
     ImagesHandle
         { ihGetPhoto     :: Id -> m ImageB
         , ihGetPhotoList :: Maybe Page -> m ImageArray
-        --, ihParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
-        --, ihLogger       :: LoggerHandle m
         }
 
 imagesHandler ::
@@ -191,8 +186,6 @@ imagesHandler pool =
     ImagesHandle
         { ihGetPhoto = getPhotoFromDb pool
         , ihGetPhotoList = getPhotoListFromDb pool
-        --, ihParseRequestBody = liftIO . parseRequestBody lbsBackEnd
-        --, ihLogger = hLogger
         }
 
 data NewsAndCommentsHandle m =
@@ -305,10 +298,11 @@ data OperationsHandle m =
           --authorsHandle         :: AuthorsHandle m
         --, categoriesHandle      :: CategoriesHandle m
         --, draftsHandle          :: DraftsHandle m
-        { imagesHandle :: ImagesHandle m
+        { imagesHandle     :: ImagesHandle m
+        , categoriesHandle :: CategoriesHandle m
         --, newsAndCommentsHandle :: NewsAndCommentsHandle m
-        , tagsHandle   :: TagsHandle m
-        , usersHandle  :: UsersHandle m
+        , tagsHandle       :: TagsHandle m
+        , usersHandle      :: UsersHandle m
         }
 
 operationsHandler ::
@@ -317,12 +311,13 @@ operationsHandler ::
     -> Pool Connection
     -> TokenLifeTime
     -> OperationsHandle m
-operationsHandler hLogger pool tokenLifeTime =
+operationsHandler _ pool tokenLifeTime =
     OperationsHandle
           --authorsHandle = authorsHandler pool hLogger tokenLifeTime
         --, categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
         --, draftsHandle = draftsHandler pool hLogger tokenLifeTime
         { imagesHandle = imagesHandler pool
+        , categoriesHandle = categoriesHandler pool tokenLifeTime
         --, newsAndCommentsHandle =
         --      newsAndCommentsHandler pool hLogger tokenLifeTime
         , tagsHandle = tagsHandler pool tokenLifeTime

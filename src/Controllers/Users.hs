@@ -2,23 +2,22 @@
 
 module Controllers.Users where
 
-import           Answer                (answer'')
-import           Answers.Users         (deleteUserHandle, profileUserHandle,
-                                        registrationHandle, signInHandle)
-import           Control.Monad.Except  (ExceptT, MonadIO, runExceptT)
-import           Data.Aeson            (encode)
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy  as LBS
-import qualified Data.Text.Encoding    as E
-import           Logger                (LoggerHandle, logInfo)
-import           Network.Wai           (Request)
-import           OperationsHandle      (UsersHandle)
-import           Responses             (toResponseErrorMessage,
-                                        toResponseErrorMessage')
-import           Types.Other           (ResponseErrorMessage,
-                                        ResponseOkMessage (Created, OkJSON, OkMessage),
-                                        SomeError, Token (getToken))
-import           Types.Users           (Profile)
+import           Answer               (answer'')
+import           Answers.Users        (deleteUserHandle, profileUserHandle,
+                                       registrationHandle, signInHandle)
+import           Control.Monad.Except (ExceptT, MonadIO, runExceptT)
+import           Data.Aeson           (encode)
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text.Encoding   as E
+import           Logger               (LoggerHandle, logInfo)
+import           Network.Wai          (Request)
+import           OperationsHandle     (UsersHandle)
+import           Responses            (toResponseErrorMessage,
+                                       toResponseErrorMessage')
+import           Types.Other          (ResponseErrorMessage,
+                                       ResponseOkMessage (Created, OkJSON, OkMessage),
+                                       SomeError, Token (getToken))
+import           Types.Users          (Profile)
 
 signIn ::
        MonadIO m
@@ -84,7 +83,7 @@ deleteUserSendResult hLogger result = do
     case a of
         Left someError ->
             return $ Left $ toResponseErrorMessage "User not deleted." someError
-        Right token -> do
+        Right _ -> do
             logInfo hLogger "User deleted."
             return $ Right $ OkMessage "User deleted."
 
@@ -100,9 +99,9 @@ profileSendResult hLogger result = do
             return $
             Left $
             toResponseErrorMessage "Profile inforamtion not sended." someError
-        Right profile -> do
+        Right someProfile -> do
             logInfo hLogger "User information sended."
-            return $ Right $ OkJSON $ encode profile
+            return $ Right $ OkJSON $ encode someProfile
 
 {-registrationSendResult ::
        MonadWithError Token

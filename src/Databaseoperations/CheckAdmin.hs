@@ -4,16 +4,17 @@
 
 module Databaseoperations.CheckAdmin where
 
-import           Control.Exception
-import           Control.Monad.Except
+import           Control.Exception          (catch, try)
+import           Control.Monad.Except       (MonadError (throwError),
+                                             MonadIO (..))
 import           Data.Maybe                 (fromMaybe)
 import           Data.Pool                  (Pool)
 import qualified Data.Text                  as T
-import           Database.PostgreSQL.Simple (Connection, Only (fromOnly),
+import           Database.PostgreSQL.Simple (Connection, Only (Only, fromOnly),
                                              SqlError (sqlState))
 import           HelpFunction               (readByteStringToInt)
 import           Logger                     (LoggerHandle, logError)
-import           PostgreSqlWithPool         (queryWithPool)
+import           PostgreSqlWithPool         (queryWithPool, queryWithPoolNew)
 import           Types.Other                (SomeError (..), Token,
                                              TokenLifeTime)
 
@@ -101,3 +102,46 @@ checkAdmin'' pool tokenLifetime (Just token) = do
         let errState = sqlState sqlError
         let errStateInt = fromMaybe 0 (readByteStringToInt errState)
         throwError DatabaseError
+
+data AdminMark
+    = OldToken
+    | AdminToken
+    | NotAdminToken
+
+checkAdmin''' ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> TokenLifeTime
+    -> Maybe Token
+    -> m AdminMark
+checkAdmin''' _ _ Nothing = do
+    throwError $ OtherError "No token parameter"
+checkAdmin''' pool tokenLifetime (Just token) = do
+    rows <-
+        queryWithPoolNew
+            pool
+            "select admin_mark from users join tokens using (user_id) where token = ? and ((current_timestamp - tokens.creation_date) < make_interval(secs => ?))"
+            (token, tokenLifetime)
+    case rows of
+        []             -> throwError BadToken
+        (Only True:_)  -> return AdminToken
+        (Only False:_) -> return NotAdminToken
+
+checkAdmin'''' ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> TokenLifeTime
+    -> Maybe Token
+    -> m ()
+checkAdmin'''' _ _ Nothing = do
+    throwError $ OtherError "No token parameter"
+checkAdmin'''' pool tokenLifetime (Just token) = do
+    rows <-
+        queryWithPoolNew
+            pool
+            "select admin_mark from users join tokens using (user_id) where token = ? and ((current_timestamp - tokens.creation_date) < make_interval(secs => ?))"
+            (token, tokenLifetime)
+    case rows of
+        []             -> throwError BadToken
+        (Only True:_)  -> return ()
+        (Only False:_) -> throwError NotAdmin

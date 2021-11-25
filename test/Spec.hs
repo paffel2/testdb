@@ -1,5 +1,6 @@
 --import           AuthorsTests      (authorsTests)
---import           CategoriesTests   (categoriesTests)
+import           CategoriesTests   (categoriesTests)
+
 --import           CommentsTests     (commentsTests)
 --import           DraftsTests       (draftsTests)
 import           FromRequestTests  (fromRequestTests)
@@ -16,7 +17,7 @@ main = do
     fromRequestTests
     imagesTests
     --authorsTests
-    --categoriesTests
+    categoriesTests
     tagsTests
     usersTests
     --draftsTests

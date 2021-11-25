@@ -7,6 +7,7 @@
 module Databaseoperations.Users where
 
 import           Control.Exception             (catch)
+import           Control.Monad.Except          (MonadError (..), MonadIO (..))
 import qualified Data.ByteString.Char8         as BC
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
@@ -14,14 +15,12 @@ import qualified Data.Text.Encoding            as E
 import           Data.Time                     (UTCTime, getCurrentTime)
 import           Database.PostgreSQL.Simple    (Binary (fromBinary), Connection,
                                                 SqlError (sqlErrorMsg))
-
-import           Control.Monad.Except          (MonadError (..), MonadIO (..))
-import           Databaseoperations.CheckAdmin (checkAdmin'')
+import           Databaseoperations.CheckAdmin (checkAdmin'''')
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool,
                                                 executeWithPoolNew,
                                                 queryWithPoolNew)
-import           Types.Other                   (SomeError (BadToken, DatabaseError, NotAdmin, OtherError),
+import           Types.Other                   (SomeError (BadToken, DatabaseError, OtherError),
                                                 Token (Token), TokenLifeTime,
                                                 someErrorToInt)
 import           Types.Users                   (CreateUser (CreateUser, cuFirstName, cuLastName, cuUserLogin, cuUserPassword),
@@ -95,9 +94,6 @@ firstToken' pool (Just login) (Just password) = do
     q =
         "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
             \insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"
-    errorHandle sqlError = do
-        let err = E.decodeUtf8 $ sqlErrorMsg sqlError
-        throwError DatabaseError
 firstToken' _ _ _ = throwError $ OtherError "Bad login or password parameters"
 
 --------------------------------------------------------------------------------------------------------------------------
@@ -130,19 +126,11 @@ deleteUserFromDb ::
     -> m ()
 deleteUserFromDb _ _ _ Nothing = throwError $ OtherError "No login parameter"
 deleteUserFromDb pool tokenLifeTime token (Just login) = do
-    ch <- checkAdmin'' pool tokenLifeTime token
-    if ch
-        then do
-            n <-
-                executeWithPoolNew
-                    pool
-                    "delete from users where login = ?"
-                    [login]
-            if n > 0
-                then return ()
-                else throwError $ OtherError "User not exist"
-        else do
-            throwError NotAdmin
+    checkAdmin'''' pool tokenLifeTime token
+    n <- executeWithPoolNew pool "delete from users where login = ?" [login]
+    if n > 0
+        then return ()
+        else throwError $ OtherError "User not exist"
 
 profileOnDb ::
        (MonadIO m, MonadError SomeError m)
