@@ -12,6 +12,7 @@ import           Controllers.Drafts          (draftsRouter)
 import           Controllers.Images          (imagesRouter)
 import           Controllers.NewsAndComments (newsAndCommentsRouter)
 import           Controllers.Tags            (tagsRouter)
+import           Controllers.Users
 import qualified Data.ByteString.Char8       as BC
 import           Logger
 import           Network.Wai                 (Request (rawPathInfo), Response)
@@ -34,19 +35,18 @@ routes ::
 routes operations hLogger req =
     case pathHead
         --"news" -> newsAndCommentsRouter (newsAndCommentsHandle operations) req
-        --"login" -> answer' req (signInHandle $ usersHandle operations)
-        --"registration" --answer' req (registrationHandle' usersHandler' (Pool Connection) (LoggerHandle IO) TokenLifeTime )
-        -- -> answer' req (registrationHandle $ usersHandle operations)
-        --"deleteUser" -> answer' req (deleteUserHandle $ usersHandle operations)
+          of
+        "login"        -> signIn (usersHandle operations) hLogger req
+        "registration" -> registration (usersHandle operations) hLogger req
+        "deleteUser"   -> deleteUser (usersHandle operations) hLogger req
         --"categories" -> categoriesRouter (categoriesHandle operations) req
-        --"profile" -> answer' req (profileUserHandle $ usersHandle operations)
+        "profile"      -> profile (usersHandle operations) hLogger req
         --"drafts" -> draftsRouter (draftsHandle operations) req
         --"new_draft" -> answer req (createDraftHandle $ draftsHandle operations)
-          of
-        "tags"  -> tagsRouter (tagsHandle operations) hLogger req
-        "image" -> imagesRouter (imagesHandle operations) hLogger req
+        "tags"         -> tagsRouter (tagsHandle operations) hLogger req
+        "image"        -> imagesRouter (imagesHandle operations) hLogger req
         --"authors" -> authorsRouter (authorsHandle operations) req
-        _       -> return $ Left $ NotFound "Not Found"
+        _              -> return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path

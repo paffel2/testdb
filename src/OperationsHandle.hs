@@ -277,28 +277,27 @@ tagsHandler pool tokenLifeTime =
         , thParseRequestBody = liftIO . parseRequestBody lbsBackEnd
         }
 
-data UsersHandle m io =
+data UsersHandle m =
     UsersHandle
         { uhAuth             :: Maybe Login -> Maybe Password -> m Token
         , uhCreateUserInDb   :: CreateUser -> m Token
         , uhDeleteUserFromDb :: Maybe Token -> Maybe Login -> m ()
         , uhProfileOnDb      :: Maybe Token -> m Profile
-        , uhLogger           :: LoggerHandle io
+        , uhParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 usersHandler ::
        (MonadIO m, MonadError SomeError m)
     => Pool Connection
-    -> LoggerHandle IO
     -> TokenLifeTime
-    -> UsersHandle m IO
-usersHandler pool hLogger tokenLifeTime =
+    -> UsersHandle m
+usersHandler pool tokenLifeTime =
     UsersHandle
-        { uhCreateUserInDb = createUserInDb pool hLogger
-        , uhAuth = authentication pool hLogger
-        , uhDeleteUserFromDb = deleteUserFromDb pool tokenLifeTime hLogger
-        , uhProfileOnDb = profileOnDb pool tokenLifeTime hLogger
-        , uhLogger = hLogger
+        { uhAuth = authentication pool
+        , uhParseRequestBody = liftIO . parseRequestBody lbsBackEnd
+        , uhDeleteUserFromDb = deleteUserFromDb pool tokenLifeTime
+        , uhProfileOnDb = profileOnDb pool tokenLifeTime
+        , uhCreateUserInDb = createUserInDb pool
         }
 
 data OperationsHandle m =
@@ -309,7 +308,7 @@ data OperationsHandle m =
         { imagesHandle :: ImagesHandle m
         --, newsAndCommentsHandle :: NewsAndCommentsHandle m
         , tagsHandle   :: TagsHandle m
-        --, usersHandle  :: UsersHandle m io
+        , usersHandle  :: UsersHandle m
         }
 
 operationsHandler ::
@@ -327,5 +326,5 @@ operationsHandler hLogger pool tokenLifeTime =
         --, newsAndCommentsHandle =
         --      newsAndCommentsHandler pool hLogger tokenLifeTime
         , tagsHandle = tagsHandler pool tokenLifeTime
-        --, usersHandle = usersHandler pool hLogger tokenLifeTime
+        , usersHandle = usersHandler pool tokenLifeTime
         }

@@ -58,13 +58,6 @@ initMigration pool =
         runMigration $ MigrationContext MigrationInitialization False conn
 
 ----------------------------------------------------------------------
-{-executeWithPoolNew ::
-       (ToRow q, MonadIO m, MonadError SomeErrorNew  m)
-    => Pool Connection
-    -> Query
-    -> q
-    -> m Int64 -}
---executeWithPoolNew :: (MonadIO m, ToRow q) => Pool Connection -> Query -> q -> m b
 executeWithPoolNew ::
        (MonadIO m, ToRow q, MonadError SomeError m)
     => Pool Connection
@@ -72,7 +65,7 @@ executeWithPoolNew ::
     -> q
     -> m Int64
 executeWithPoolNew pool q inf = do
-    someAnswer <- liftIO $ try $ executeWithPool pool q inf
+    someAnswer <- liftIO $ try (withResource pool $ \conn -> execute conn q inf)
     case someAnswer of
         Left sqlError -> do
             let errStateInt =
@@ -86,7 +79,7 @@ query_WithPoolNew ::
     -> Query
     -> m [r]
 query_WithPoolNew pool q = do
-    someAnswer <- liftIO $ try $ query_WithPool pool q
+    someAnswer <- liftIO $ try (withResource pool $ \conn -> query_ conn q)
     case someAnswer of
         Left sqlError -> do
             let errStateInt =
@@ -101,7 +94,7 @@ queryWithPoolNew ::
     -> q
     -> m [r]
 queryWithPoolNew pool q inf = do
-    someAnswer <- liftIO $ try $ queryWithPool pool q inf
+    someAnswer <- liftIO $ try (withResource pool $ \conn -> query conn q inf) --  $ queryWithPool pool q inf
     case someAnswer of
         Left sqlError -> do
             let errStateInt =
@@ -110,13 +103,47 @@ queryWithPoolNew pool q inf = do
         Right ans -> return ans
 
 returningWithPoolNew ::
-       (ToRow q, FromRow r) => Pool Connection -> Query -> [q] -> IO [r]
-returningWithPoolNew pool q inf =
-    withResource pool $ \conn -> returning conn q inf
+       (MonadIO m, ToRow q, FromRow r, MonadError SomeError m)
+    => Pool Connection
+    -> Query
+    -> [q]
+    -> m [r]
+returningWithPoolNew pool q inf = do
+    someAnswer <-
+        liftIO $ try (withResource pool $ \conn -> returning conn q inf) --  $ queryWithPool pool q inf
+    case someAnswer of
+        Left sqlError -> do
+            let errStateInt =
+                    fromMaybe 0 (readByteStringToInt $ sqlState sqlError)
+            throwError $ DatabaseErrorNew errStateInt
+        Right ans -> return ans
 
-execute_WithPoolNew :: Pool Connection -> Query -> IO Int64
-execute_WithPoolNew pool q = withResource pool $ \conn -> execute_ conn q
+execute_WithPoolNew ::
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> Query
+    -> m Int64
+execute_WithPoolNew pool q = do
+    someAnswer <- liftIO $ try (withResource pool $ \conn -> execute_ conn q)
+    case someAnswer of
+        Left sqlError -> do
+            let errStateInt =
+                    fromMaybe 0 (readByteStringToInt $ sqlState sqlError)
+            throwError $ DatabaseErrorNew errStateInt
+        Right ans -> return ans
 
-executeManyWithPoolNew :: ToRow q => Pool Connection -> Query -> [q] -> IO Int64
-executeManyWithPoolNew pool q s =
-    withResource pool $ \conn -> executeMany conn q s
+executeManyWithPoolNew ::
+       (MonadIO m, MonadError SomeError m, ToRow q)
+    => Pool Connection
+    -> Query
+    -> [q]
+    -> m Int64
+executeManyWithPoolNew pool q s = do
+    someAnswer <-
+        liftIO $ try (withResource pool $ \conn -> executeMany conn q s)
+    case someAnswer of
+        Left sqlError -> do
+            let errStateInt =
+                    fromMaybe 0 (readByteStringToInt $ sqlState sqlError)
+            throwError $ DatabaseErrorNew errStateInt
+        Right ans -> return ans

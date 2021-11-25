@@ -8,8 +8,8 @@ import           ImagesTests       (imagesTests)
 
 --import           NewsTests         (newsTests)
 import           TagsTests         (tagsTests)
+import           UsersTests        (usersTests)
 
---import           UsersTests        (usersTests)
 main :: IO ()
 main = do
     functionsTests
@@ -18,7 +18,7 @@ main = do
     --authorsTests
     --categoriesTests
     tagsTests
-    --usersTests
+    usersTests
     --draftsTests
     --commentsTests
     --newsTests

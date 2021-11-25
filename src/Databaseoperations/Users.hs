@@ -6,26 +6,25 @@
 
 module Databaseoperations.Users where
 
-import           Control.Exception             (catch, try)
+import           Control.Exception             (catch)
 import qualified Data.ByteString.Char8         as BC
-import           Data.Maybe                    (fromMaybe)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as E
 import           Data.Time                     (UTCTime, getCurrentTime)
 import           Database.PostgreSQL.Simple    (Binary (fromBinary), Connection,
-                                                SqlError (sqlErrorMsg, sqlState))
+                                                SqlError (sqlErrorMsg))
 
 import           Control.Monad.Except          (MonadError (..), MonadIO (..))
-import           Databaseoperations.CheckAdmin (checkAdmin')
-import           HelpFunction                  (readByteStringToInt)
+import           Databaseoperations.CheckAdmin (checkAdmin'')
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool,
                                                 executeWithPoolNew,
-                                                queryWithPool, queryWithPoolNew)
-import           Types.Other                   (SomeError (..), Token (Token),
-                                                TokenLifeTime, someErrorToInt)
-import           Types.Users                   (CreateUser (..),
+                                                queryWithPoolNew)
+import           Types.Other                   (SomeError (BadToken, DatabaseError, NotAdmin, OtherError),
+                                                Token (Token), TokenLifeTime,
+                                                someErrorToInt)
+import           Types.Users                   (CreateUser (CreateUser, cuFirstName, cuLastName, cuUserLogin, cuUserPassword),
                                                 Login (getLogin), Password,
                                                 Profile,
                                                 TokenProfile (TokenProfile))
@@ -33,6 +32,14 @@ import           Types.Users                   (CreateUser (..),
 generateToken :: Login -> IO (Token, UTCTime)
 generateToken login = do
     now <- getCurrentTime
+    let token = T.pack $ Prelude.filter (`Prelude.notElem` filt) (show now)
+    return (Token (getLogin login <> token), now)
+  where
+    filt = " :.-UTC" :: String
+
+generateToken' :: MonadIO m => Login -> m (Token, UTCTime)
+generateToken' login = do
+    now <- liftIO getCurrentTime
     let token = T.pack $ Prelude.filter (`Prelude.notElem` filt) (show now)
     return (Token (getLogin login <> token), now)
   where
@@ -74,181 +81,106 @@ firstToken hLogger _ _ _ = do
 --------------------------------------------------------------------------------------------------------------------------------------
 firstToken' ::
        (MonadIO m, MonadError SomeError m)
-    => LoggerHandle IO
-    -> Pool Connection
+    => Pool Connection
     -> Maybe Login
     -> Maybe Password
     -> m Token
-firstToken' hLogger pool (Just login) (Just password) = do
-    liftIO $
-        logInfo hLogger $
-        T.concat ["Generate first token for user ", getLogin login]
-    (token, now) <- liftIO $ generateToken login
-    n <- liftIO $ try (executeWithPool pool q (login, password, token, now))
-    case n of
-        Left e -> errorHandle e
-        Right k ->
-            if k > 0
-                then do
-                    liftIO $
-                        logInfo hLogger $
-                        T.concat ["User with login ", getLogin login, " logged"]
-                    return token
-                else do
-                    liftIO $
-                        logError hLogger $
-                        T.concat
-                            ["User with login ", getLogin login, " cant logged"]
-                    throwError $ OtherError "Wrong login or password"
+firstToken' pool (Just login) (Just password) = do
+    (token, now) <- generateToken' login
+    n <- executeWithPoolNew pool q (login, password, token, now)
+    if n > 0
+        then return token
+        else throwError $ OtherError "Bad login or password"
   where
     q =
         "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
             \insert into tokens (user_id,token,creation_date) values ((select user_id from loging_user),?,?)"
     errorHandle sqlError = do
         let err = E.decodeUtf8 $ sqlErrorMsg sqlError
-        liftIO $ logError hLogger err
         throwError DatabaseError
-firstToken' hLogger _ _ _ = do
-    liftIO $ logError hLogger "Bad login or password parameters"
-    throwError $ OtherError "Bad login or password parameters"
+firstToken' _ _ _ = throwError $ OtherError "Bad login or password parameters"
 
 --------------------------------------------------------------------------------------------------------------------------
 authentication ::
        (MonadIO m, MonadError SomeError m)
     => Pool Connection
-    -> LoggerHandle IO
     -> Maybe Login
     -> Maybe Password
     -> m Token
-authentication _ hLogger _ Nothing = do
-    liftIO $ logError hLogger "No login parameter."
-    throwError $ OtherError "No login parameter."
-authentication _ hLogger Nothing _ = do
-    liftIO $ logError hLogger "No password parameter."
-    throwError $ OtherError "No password parameter."
-authentication pool hLogger (Just login) (Just password) = do
-    (token, now) <- liftIO $ generateToken login
-    n <- liftIO $ try (executeWithPool pool q (login, password, token, now))
-    case n of
-        Left e -> errorHandle e
-        Right k ->
-            if k > 0
-                then do
-                    liftIO $ logInfo hLogger "User's inforamtion sended"
-                    return token
-                else do
-                    liftIO $ logError hLogger "Bad authorization"
-                    throwError BadToken
+authentication _ _ Nothing = throwError $ OtherError "No login parameter."
+authentication _ Nothing _ = throwError $ OtherError "No password parameter."
+authentication pool (Just login) (Just password) = do
+    (token, now) <- generateToken' login
+    n <- executeWithPoolNew pool q (login, password, token, now)
+    if n > 0
+        then return token
+        else throwError $ OtherError "Wrong login or password."
   where
     q =
         "WITH loging_user as (select user_id from users where login = ? and user_password = (crypt(?,user_password))) \
          \update tokens set token = ?, creation_date = ? where user_id in (select user_id from loging_user)"
-    errorHandle sqlError = do
-        let errState = sqlState sqlError
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        liftIO $
-            logError hLogger $ "Database error " <> T.pack (show errStateInt)
-        throwError DatabaseError
 
 -------------------------------------------------------------------------------------------------------
 deleteUserFromDb ::
        (MonadIO m, MonadError SomeError m)
     => Pool Connection
     -> TokenLifeTime
-    -> LoggerHandle IO
     -> Maybe Token
     -> Maybe Login
     -> m ()
-deleteUserFromDb _ _ hLogger _ Nothing = do
-    liftIO $ logError hLogger "User not deleted. No login parameter"
-    throwError $ OtherError "No login parameter"
-deleteUserFromDb pool tokenLifeTime hLogger token (Just login) = do
-    ch <- checkAdmin' hLogger pool tokenLifeTime token
+deleteUserFromDb _ _ _ Nothing = throwError $ OtherError "No login parameter"
+deleteUserFromDb pool tokenLifeTime token (Just login) = do
+    ch <- checkAdmin'' pool tokenLifeTime token
     if ch
         then do
             n <-
-                liftIO $
-                try
-                    (executeWithPool
-                         pool
-                         "delete from users where login = ?"
-                         [login])
-            case n of
-                Left e -> errorHandle e
-                Right k ->
-                    if k > 0
-                        then do
-                            liftIO $ logInfo hLogger "User deleted"
-                            return ()
-                        else do
-                            liftIO $ logError hLogger "User not deleted"
-                            throwError $ OtherError "User not exist"
+                executeWithPoolNew
+                    pool
+                    "delete from users where login = ?"
+                    [login]
+            if n > 0
+                then return ()
+                else throwError $ OtherError "User not exist"
         else do
             throwError NotAdmin
-  where
-    errorHandle sqlError = do
-        let err = E.decodeUtf8 $ sqlErrorMsg sqlError
-        liftIO $ logError hLogger err
-        throwError DatabaseError
 
--------------------------
 profileOnDb ::
        (MonadIO m, MonadError SomeError m)
     => Pool Connection
     -> TokenLifeTime
-    -> LoggerHandle IO
     -> Maybe Token
     -> m Profile
-profileOnDb _ _ hLogger Nothing = do
-    liftIO $
-        logError hLogger "User's information not sended. No token parameter"
-    throwError $ OtherError "No token parameter"
-profileOnDb pool tokenLifeTime hLogger (Just token) = do
+profileOnDb _ _ Nothing = throwError $ OtherError "No token parameter"
+profileOnDb pool tokenLifeTime (Just token) = do
     rows <-
-        catchError
-            (queryWithPoolNew
-                 pool
-                 "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
-                 (TokenProfile token tokenLifeTime)) $ \e -> do
-            liftIO $
-                logError hLogger $
-                T.concat ["Database error ", T.pack $ show $ someErrorToInt e]
-            throwError DatabaseError
+        queryWithPoolNew
+            pool
+            "select first_name, last_name, avatar from users join tokens using (user_id) where token = ? and (now()- tokens.creation_date) < make_interval(secs => ?)"
+            (TokenProfile token tokenLifeTime)
     case rows of
         [] -> do
-            liftIO $
-                logError hLogger "User's information not sended. Bad token."
             throwError BadToken
         (profile:_) -> do
-            liftIO $ logInfo hLogger "User's information sended"
             return profile
 
------------------------------------------------------------------------------------------------
 createUserInDb ::
        (MonadIO m, MonadError SomeError m)
     => Pool Connection
-    -> LoggerHandle IO
     -> CreateUser
     -> m Token
-createUserInDb _ hLogger CreateUser {cuFirstName = Nothing} = do
-    liftIO $ logError hLogger "User not created. No first_name parameter"
+createUserInDb _ CreateUser {cuFirstName = Nothing} =
     throwError $ OtherError "User not created. No first_name parameter"
-createUserInDb _ hLogger CreateUser {cuLastName = Nothing} = do
-    liftIO $ logError hLogger "User not created. No last_name parameter"
+createUserInDb _ CreateUser {cuLastName = Nothing} =
     throwError $ OtherError "No last_name parameter"
-createUserInDb _ hLogger CreateUser {cuUserLogin = Nothing} = do
-    liftIO $ logError hLogger "User not created. No login parameter"
+createUserInDb _ CreateUser {cuUserLogin = Nothing} =
     throwError $ OtherError "No login parameter"
-createUserInDb _ hLogger CreateUser {cuUserPassword = Nothing} = do
-    liftIO $ logError hLogger "User not created. No password parameter"
+createUserInDb _ CreateUser {cuUserPassword = Nothing} =
     throwError $ OtherError "No password parameter"
-createUserInDb pool hLogger createUser@(CreateUser (Just avFileName) (Just avContent) (Just avContentType) (Just _) (Just _) (Just _) (Just _) _) = do
+createUserInDb pool createUser@(CreateUser (Just avFileName) (Just avContent) (Just avContentType) (Just _) (Just _) (Just _) (Just _) _) = do
     if avFileName == "" ||
        avContentType == "" ||
        fromBinary avContent == "" || BC.take 5 avContentType /= "image"
-        then do
-            liftIO $ logError hLogger "User not created. Bad image file"
-            throwError $ OtherError "Bad image file"
+        then throwError $ OtherError "Bad image file"
         else do
             n <-
                 catchError (executeWithPoolNew pool q createUser) $ \e ->
@@ -261,23 +193,18 @@ createUserInDb pool hLogger createUser@(CreateUser (Just avFileName) (Just avCon
                             OtherError "User with that login already exist"
                         _ -> throwError DatabaseError
             if n > 0
-                then do
-                    liftIO $ logInfo hLogger "New user registered."
-                    firstToken'
-                        hLogger
-                        pool
-                        (cuUserLogin createUser)
-                        (cuUserPassword createUser)
+                then firstToken'
+                         pool
+                         (cuUserLogin createUser)
+                         (cuUserPassword createUser)
                 else do
-                    liftIO $ logError hLogger "Registration failed"
                     throwError $ OtherError "Registration failed"
   where
     q =
         "with avatar_id as (insert into images (image_name,image_b,content_type) values (?,?,?) returning image_id) \
          \insert into users (first_name, last_name, avatar, login, user_password, creation_date, admin_mark) \
          \values (?,?,(select image_id from avatar_id),?,crypt(?,gen_salt('md5')),now(),?)"
-createUserInDb pool hLogger (CreateUser Nothing Nothing Nothing (Just firstName) (Just lastName) (Just login) (Just password) _) = do
-    liftIO $ logInfo hLogger "Registartion without avatar"
+createUserInDb pool (CreateUser Nothing Nothing Nothing (Just firstName) (Just lastName) (Just login) (Just password) _) = do
     n <-
         catchError
             (executeWithPoolNew
@@ -291,16 +218,11 @@ createUserInDb pool hLogger (CreateUser Nothing Nothing Nothing (Just firstName)
                     throwError $ OtherError "User with that login already exist"
                 _ -> throwError DatabaseError
     if n > 0
-        then do
-            liftIO $ logInfo hLogger "New user registered."
-            firstToken' hLogger pool (Just login) (Just password)
-        else do
-            liftIO $ logError hLogger "Registration failed"
-            throwError $ OtherError "Registration failed"
+        then firstToken' pool (Just login) (Just password)
+        else throwError $ OtherError "Registration failed"
   where
     q =
         "insert into users (first_name, last_name, login, user_password, creation_date, admin_mark) \
              \values (?,?,?,crypt(?,gen_salt('md5')),now(),?)"
-createUserInDb _ hLogger _ = do
-    liftIO $ logError hLogger "Unexpected error"
-    throwError $ OtherError "Unexpected error"
+createUserInDb _ _ = throwError $ OtherError "Unexpected error"
+-----------------------------------------------------------------------------------------------
