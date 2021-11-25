@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module CommentsTests where
-{-import           Data.Functor.Identity (Identity)
 
+import           Control.Monad.Except
+import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
                                         methodPut)
@@ -19,24 +21,26 @@ import           Types.Other           (ResponseErrorMessage (BadRequest, Forbid
                                         ResponseOkMessage (Created, OkJSON, OkMessage),
                                         SomeError (BadToken, DatabaseError, NotAdmin, OtherError))
 
+instance MonadIO Identity
+
 hLogger :: LoggerHandle Identity
 hLogger =
     LoggerHandle {priority = Debug, Logger.log = \prior message -> return ()}
 
-commentsHandler :: NewsAndCommentsHandle Identity
+commentsHandler :: NewsAndCommentsHandle (ExceptT SomeError Identity)
 commentsHandler =
     NewsAndCommentsHandle
         { nchAddCommentToDb =
-              \comment_information -> return $ Left $ OtherError "ErrorMessage"
+              \comment_information -> throwError $ OtherError "ErrorMessage"
         , nchDeleteCommentFromDb =
-              \token comment_id -> return $ Left $ OtherError "ErrorMessage"
+              \token comment_id -> throwError $ OtherError "ErrorMessage"
         , nchGetCommentsByNewsIdFromDb =
-              \news_id page -> return $ Left $ OtherError "ErrorMessage"
-        , nchLogger = hLogger
+              \news_id page -> throwError $ OtherError "ErrorMessage"
+        --, nchLogger = hLogger
         , nchParseRequestBody = \request -> return ([], [])
         }
 
-operationsHandler :: OperationsHandle Identity
+operationsHandler :: OperationsHandle (ExceptT SomeError Identity)
 operationsHandler = OperationsHandle {newsAndCommentsHandle = commentsHandler}
 
 tstGetCommentsListReq :: Request
@@ -63,7 +67,7 @@ commentsTests =
         describe "testing comments functions" $ do
             describe "testing nchGetCommentsByNewsIdFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetCommentsListReq `shouldBe`
+                    routes operationsHandler hLogger tstGetCommentsListReq `shouldBe`
                     return
                         (Left $
                          BadRequest "Commentaries not sended. ErrorMessage")
@@ -71,6 +75,7 @@ commentsTests =
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetCommentsListReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -79,6 +84,7 @@ commentsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetCommentsListReq
                              {rawPathInfo = "/news/1/commentsssss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -88,11 +94,10 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchGetCommentsByNewsIdFromDb =
-                                             \_ _ ->
-                                                 return $
-                                                 Right (CommentArray [])
+                                             \_ _ -> return (CommentArray [])
                                        }
                              })
+                        hLogger
                         tstGetCommentsListReq `shouldBe`
                     return (Right $ OkJSON "{\"comments\":[]}")
                 it
@@ -102,9 +107,10 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchGetCommentsByNewsIdFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetCommentsListReq `shouldBe`
                     return
                         (Left
@@ -115,13 +121,14 @@ commentsTests =
 -}
             describe "testing nchAddCommentToDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstPostCommentReq `shouldBe`
+                    routes operationsHandler hLogger tstPostCommentReq `shouldBe`
                     return
                         (Left $ BadRequest "Commentary not added. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostCommentReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -130,6 +137,7 @@ commentsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostCommentReq
                              {rawPathInfo = "/news/1/comments/add_comments"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -139,21 +147,21 @@ commentsTests =
                         (operationsHandler
                              { newsAndCommentsHandle =
                                    commentsHandler
-                                       { nchAddCommentToDb =
-                                             \_ -> return $ Right ()
-                                       }
+                                       {nchAddCommentToDb = \_ -> return ()}
                              })
+                        hLogger
                         tstPostCommentReq `shouldBe`
-                    return (Right (Created "Commentary added"))
+                    return (Right (Created "Commentary added."))
                 it "server should return error, because token is bad" $
                     routes
                         (operationsHandler
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchAddCommentToDb =
-                                             \_ -> return $ Left BadToken
+                                             \_ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstPostCommentReq `shouldBe`
                     return (Left (Forbidden "Commentary not added. Bad Token."))
                 it
@@ -163,9 +171,10 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchAddCommentToDb =
-                                             \_ -> return $ Left DatabaseError
+                                             \_ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstPostCommentReq `shouldBe`
                     return
                         (Left
@@ -176,7 +185,7 @@ commentsTests =
 -}
             describe "testing nchDeleteCommentFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstDeleteCommentReq `shouldBe`
+                    routes operationsHandler hLogger tstDeleteCommentReq `shouldBe`
                     return
                         (Left $
                          BadRequest "Commentary not deleted. ErrorMessage")
@@ -184,6 +193,7 @@ commentsTests =
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteCommentReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -192,6 +202,7 @@ commentsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteCommentReq
                              {rawPathInfo = "/news/1/comments/delete_comments"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -201,9 +212,10 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchDeleteCommentFromDb =
-                                             \_ _ -> return $ Right ()
+                                             \_ _ -> return ()
                                        }
                              })
+                        hLogger
                         tstDeleteCommentReq `shouldBe`
                     return (Right (OkMessage "Commentary deleted."))
                 it "server should return error, because token is not admin" $
@@ -212,9 +224,10 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchDeleteCommentFromDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstDeleteCommentReq `shouldBe`
                     return
                         (Left (Forbidden "Commentary not deleted. Not Admin."))
@@ -224,9 +237,10 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchDeleteCommentFromDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstDeleteCommentReq `shouldBe`
                     return
                         (Left (Forbidden "Commentary not deleted. Bad Token."))
@@ -237,12 +251,12 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchDeleteCommentFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstDeleteCommentReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
                                   "Commentary not deleted. Database Error."))
--}

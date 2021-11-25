@@ -78,7 +78,7 @@ toResponse (Right (OkMessage message)) = responseOk message
 toResponse (Right (OkImage image)) =
     responseOKImage (conType image) (fromBinary $ imageB image)
 
-toResponseErrorMessage :: LBS.ByteString -> SomeError -> ResponseErrorMessage
+{-toResponseErrorMessage :: LBS.ByteString -> SomeError -> ResponseErrorMessage
 toResponseErrorMessage prefix BadToken =
     Forbidden $ LBS.concat [prefix, " Bad Token."]
 toResponseErrorMessage prefix NotAdmin =
@@ -90,8 +90,7 @@ toResponseErrorMessage prefix DatabaseError =
 toResponseErrorMessage prefix (OtherError message) =
     BadRequest $ LBS.concat [prefix, " ", lbsMessage]
   where
-    lbsMessage = LBS.fromStrict $ BC.pack message
-
+    lbsMessage = LBS.fromStrict $ BC.pack message -}
 toResponseErrorMessage' ::
        Monad m
     => LoggerHandle m

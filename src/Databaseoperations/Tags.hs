@@ -8,7 +8,7 @@ module Databaseoperations.Tags where
 import           Control.Monad.Except          (MonadError (..), MonadIO)
 import           Data.Pool                     (Pool)
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly))
-import           Databaseoperations.CheckAdmin (checkAdmin'''')
+import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (pageToBS, toQuery)
 import           PostgreSqlWithPool            (executeWithPoolNew,
                                                 queryWithPoolNew,
@@ -31,7 +31,7 @@ createTagInDb ::
 createTagInDb _ _ _ Nothing = do
     throwError $ OtherError "No tag_name parameter"
 createTagInDb pool tokenLifeTime token (Just tagName) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     rows <-
         catchError
             (queryWithPoolNew
@@ -56,7 +56,7 @@ deleteTagFromDb ::
 deleteTagFromDb _ _ _ Nothing = do
     throwError $ OtherError "Tag not deleted. No tag_name parameter"
 deleteTagFromDb pool tokenLifeTime token (Just tagName) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     n <- executeWithPoolNew pool "delete from tags where tag_name = ?" [tagName]
     if n > 0
         then return ()
@@ -90,7 +90,7 @@ editTagInDb _ _ Nothing _ = do
     throwError $ OtherError "No token param"
 editTagInDb pool tokenLifetime token editTagParams =
     catchError
-        (do checkAdmin'''' pool tokenLifetime token
+        (do checkAdmin pool tokenLifetime token
             n <-
                 executeWithPoolNew
                     pool

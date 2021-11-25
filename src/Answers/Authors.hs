@@ -3,7 +3,7 @@
 
 module Answers.Authors where
 
-import           Answer                    (AnswerHandle'' (..))
+import           Answer                    (AnswerHandle (..))
 import           Control.Monad.Except      (MonadError (throwError), MonadIO)
 import           FromRequest               (takeToken, toAuthorLogin,
                                             toCreateAuthor, toEditAuthor,
@@ -38,11 +38,11 @@ authorsListDatabaseOperation = ahGetAuthorsList
 authorsListHandle ::
        (MonadIO m, MonadError SomeError m)
     => AuthorsHandle m
-    -> AnswerHandle'' m (Maybe Page) AuthorsList
+    -> AnswerHandle m (Maybe Page) AuthorsList
 authorsListHandle authorHandle =
-    AnswerHandle''
-        { parseInformation'' = authorsListParseInformation authorHandle
-        , databaseOperation'' = authorsListDatabaseOperation authorHandle
+    AnswerHandle
+        { parseInformation = authorsListParseInformation authorHandle
+        , databaseOperation = authorsListDatabaseOperation authorHandle
         }
 
 -----------------------------------------------------------------------------------------------------------------
@@ -71,11 +71,11 @@ updateAuthorDatabaseOperation authorHandle (token, editInfo) =
 updateAuthorHandle ::
        (MonadIO m, MonadError SomeError m)
     => AuthorsHandle m
-    -> AnswerHandle'' m (Maybe Token, EditAuthor) ()
+    -> AnswerHandle m (Maybe Token, EditAuthor) ()
 updateAuthorHandle authorHandle =
-    AnswerHandle''
-        { parseInformation'' = updateAuthorParseInformation authorHandle
-        , databaseOperation'' = updateAuthorDatabaseOperation authorHandle
+    AnswerHandle
+        { parseInformation = updateAuthorParseInformation authorHandle
+        , databaseOperation = updateAuthorDatabaseOperation authorHandle
         }
 
 ----------------------------------------------------------------------------------------------------
@@ -104,11 +104,11 @@ deleteAuthorDatabaseOperation authorHandle (token, authorLogin) =
 deleteAuthorHandle ::
        (MonadIO m, MonadError SomeError m)
     => AuthorsHandle m
-    -> AnswerHandle'' m (Maybe Token, Maybe AuthorLogin) ()
+    -> AnswerHandle m (Maybe Token, Maybe AuthorLogin) ()
 deleteAuthorHandle authorHandle =
-    AnswerHandle''
-        { parseInformation'' = deleteAuthorParseInformation authorHandle
-        , databaseOperation'' = deleteAuthorDatabaseOperation authorHandle
+    AnswerHandle
+        { parseInformation = deleteAuthorParseInformation authorHandle
+        , databaseOperation = deleteAuthorDatabaseOperation authorHandle
         }
 
 --------------------------------------------------------------------------------
@@ -137,9 +137,9 @@ createAuthorDatabaseOperation authorHandle (token, craeteInfo) =
 createAuthorHandle ::
        (MonadIO m, MonadError SomeError m)
     => AuthorsHandle m
-    -> AnswerHandle'' m (Maybe Token, CreateAuthor) SendId
+    -> AnswerHandle m (Maybe Token, CreateAuthor) SendId
 createAuthorHandle authorHandle =
-    AnswerHandle''
-        { parseInformation'' = createAuthorParseInformation authorHandle
-        , databaseOperation'' = createAuthorDatabaseOperation authorHandle
+    AnswerHandle
+        { parseInformation = createAuthorParseInformation authorHandle
+        , databaseOperation = createAuthorDatabaseOperation authorHandle
         }

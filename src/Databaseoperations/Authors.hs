@@ -7,7 +7,7 @@ module Databaseoperations.Authors where
 import           Control.Monad.Except          (MonadError (..), MonadIO)
 import           Data.Pool                     (Pool)
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly))
-import           Databaseoperations.CheckAdmin (checkAdmin'''')
+import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (pageToBS, toQuery)
 import           PostgreSqlWithPool            (executeWithPoolNew,
                                                 queryWithPoolNew,
@@ -48,7 +48,7 @@ editAuthorInDb _ _ _ EditAuthor {editAuthorId = Nothing} = do
 editAuthorInDb _ _ Nothing _ = do
     throwError $ OtherError "Author not edited. No token param"
 editAuthorInDb pool tokenLifeTime token editParams = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     n <- executeWithPoolNew pool q editParams
     if n > 0
         then return ()
@@ -69,7 +69,7 @@ deleteAuthorInDb _ _ _ Nothing =
     throwError $ OtherError "Author not deleted. No login field"
 deleteAuthorInDb pool token_lifetime token (Just authorLogin) =
     catchError
-        (do checkAdmin'''' pool token_lifetime token
+        (do checkAdmin pool token_lifetime token
             _ <- executeWithPoolNew pool q [authorLogin]
             return ()) $ \e ->
         case someErrorToInt e of
@@ -97,7 +97,7 @@ createAuthorInDb _ _ _ CreateAuthor {createAuthorDescription = Nothing} =
     throwError $ OtherError "Author not created.No description field"
 createAuthorInDb pool tokenLifetime token createAuthorParams =
     catchError
-        (do checkAdmin'''' pool tokenLifetime token
+        (do checkAdmin pool tokenLifetime token
             rows <- queryWithPoolNew pool q createAuthorParams
             if Prelude.null rows
                 then throwError $ OtherError "Author not created"

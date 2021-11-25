@@ -5,7 +5,7 @@ module Controllers.Images where
 
 import qualified Data.ByteString.Char8 as BC
 
-import           Answer                (answer'')
+import           Answer                (answer)
 import           Answers.Images        (getImageHandle, getImagesListHandle)
 import           Control.Monad.Except  (ExceptT, MonadIO, runExceptT)
 import           Data.Aeson            (encode)
@@ -27,9 +27,9 @@ imagesRouter ::
 imagesRouter operations hLogger req
     | pathElemsC == 1 =
         imagesListSendResult hLogger $
-        answer'' req (getImagesListHandle operations)
+        answer req (getImagesListHandle operations)
     | pathElemsC == 2 =
-        getImageSendResult hLogger $ answer'' req (getImageHandle operations)
+        getImageSendResult hLogger $ answer req (getImageHandle operations)
     | otherwise = return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

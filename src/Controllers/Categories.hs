@@ -2,7 +2,7 @@
 
 module Controllers.Categories where
 
-import           Answer                (answer'')
+import           Answer                (answer)
 import           Answers.Categories    (createCategoryHandle,
                                         deleteCategoryHandle,
                                         getCategoriesListHandle,
@@ -29,18 +29,18 @@ categoriesRouter ::
 categoriesRouter operations hLogger req
     | pathElemsC == 1 =
         getCategoriesListSendResult hLogger $
-        answer'' req (getCategoriesListHandle operations)
+        answer req (getCategoriesListHandle operations)
     | pathElemsC == 2 =
         case last pathElems of
             "delete_category" ->
                 deleteCategorySendResult hLogger $
-                answer'' req (deleteCategoryHandle operations)
+                answer req (deleteCategoryHandle operations)
             "create_category" ->
                 createCategorySendResult hLogger $
-                answer'' req (createCategoryHandle operations)
+                answer req (createCategoryHandle operations)
             "edit_category" ->
                 updateCategorySendResult hLogger $
-                answer'' req (updateCategoryHandle operations)
+                answer req (updateCategoryHandle operations)
             _ -> return $ Left $ NotFound "Not Found"
     | otherwise = return $ Left $ NotFound "Not Found"
   where

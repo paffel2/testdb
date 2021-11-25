@@ -313,7 +313,7 @@ updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
     dmi <- deleteMainImage ct mainImage
     l <- loadMainImage dmi mainImage pool
     di <- deleteOldImages l imagesList
-    loadImages di imagesList pool
+    _ <- loadImages di imagesList pool
     return ()
   where
     updateDraft = do

@@ -32,7 +32,7 @@ main = do
             (num_stripes poolParams)
             (idle_time poolParams)
             (max_resources poolParams)
-    let hOperations = operationsHandler hLogger pool token_lifetime
+    let hOperations = operationsHandler pool token_lifetime
     logInfo hLogger "Checking database"
     ch_db <- checkDb hLogger pool
     case ch_db of

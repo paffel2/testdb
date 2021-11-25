@@ -2,7 +2,7 @@
 
 module Controllers.Users where
 
-import           Answer               (answer'')
+import           Answer               (answer)
 import           Answers.Users        (deleteUserHandle, profileUserHandle,
                                        registrationHandle, signInHandle)
 import           Control.Monad.Except (ExceptT, MonadIO, runExceptT)
@@ -12,8 +12,7 @@ import qualified Data.Text.Encoding   as E
 import           Logger               (LoggerHandle, logInfo)
 import           Network.Wai          (Request)
 import           OperationsHandle     (UsersHandle)
-import           Responses            (toResponseErrorMessage,
-                                       toResponseErrorMessage')
+import           Responses            (toResponseErrorMessage')
 import           Types.Other          (ResponseErrorMessage,
                                        ResponseOkMessage (Created, OkJSON, OkMessage),
                                        SomeError, Token (getToken))
@@ -26,7 +25,7 @@ signIn ::
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 signIn operations hLogger req =
-    signInSendResult hLogger $ answer'' req (signInHandle operations)
+    signInSendResult hLogger $ answer req (signInHandle operations)
 
 deleteUser ::
        MonadIO m
@@ -35,7 +34,7 @@ deleteUser ::
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 deleteUser operations hLogger req =
-    deleteUserSendResult hLogger $ answer'' req (deleteUserHandle operations)
+    deleteUserSendResult hLogger $ answer req (deleteUserHandle operations)
 
 profile ::
        MonadIO m
@@ -44,7 +43,7 @@ profile ::
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 profile operations hLogger req =
-    profileSendResult hLogger $ answer'' req (profileUserHandle operations)
+    profileSendResult hLogger $ answer req (profileUserHandle operations)
 
 registration ::
        MonadIO m
@@ -53,8 +52,7 @@ registration ::
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 registration operations hLogger req =
-    registrationSendResult hLogger $
-    answer'' req (registrationHandle operations)
+    registrationSendResult hLogger $ answer req (registrationHandle operations)
 
 signInSendResult ::
        Monad m
@@ -82,7 +80,8 @@ deleteUserSendResult hLogger result = do
     a <- runExceptT result
     case a of
         Left someError ->
-            return $ Left $ toResponseErrorMessage "User not deleted." someError
+            Left <$>
+            toResponseErrorMessage' hLogger "User not deleted." someError
         Right _ -> do
             logInfo hLogger "User deleted."
             return $ Right $ OkMessage "User deleted."
@@ -96,9 +95,11 @@ profileSendResult hLogger result = do
     a <- runExceptT result
     case a of
         Left someError ->
-            return $
-            Left $
-            toResponseErrorMessage "Profile inforamtion not sended." someError
+            Left <$>
+            toResponseErrorMessage'
+                hLogger
+                "Profile inforamtion not sended."
+                someError
         Right someProfile -> do
             logInfo hLogger "User information sended."
             return $ Right $ OkJSON $ encode someProfile

@@ -2,7 +2,7 @@
 
 module Controllers.Drafts where
 
-import           Answer                (answer'')
+import           Answer                (answer)
 import           Answers.Drafts        (createDraftHandle, deleteDraftHandle,
                                         getDraftByIdHandle, getDraftsHandle,
                                         postNewsHandle, updateDraftHandle)
@@ -28,17 +28,17 @@ draftsRouter ::
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 draftsRouter operations hLogger req
     | pathElemsC == 1 =
-        getDraftsSendResult hLogger $ answer'' req (getDraftsHandle operations)
+        getDraftsSendResult hLogger $ answer req (getDraftsHandle operations)
     | pathElemsC == 2 =
         case readByteStringToId $ last pathElems of
             Just _ ->
                 getDraftByIdSendResult hLogger $
-                answer'' req (getDraftByIdHandle operations)
+                answer req (getDraftByIdHandle operations)
             Nothing ->
                 case last pathElems of
                     "delete_draft" ->
                         deleteDraftSendResult hLogger $
-                        answer'' req (deleteDraftHandle operations)
+                        answer req (deleteDraftHandle operations)
                     _ -> return $ Left $ NotFound "Not Found"
     | pathElemsC == 3 =
         case readByteStringToId $ head $ tail pathElems of
@@ -47,10 +47,10 @@ draftsRouter operations hLogger req
                 case last pathElems of
                     "update_draft" ->
                         updateDraftSendResult hLogger $
-                        answer'' req (updateDraftHandle operations)
+                        answer req (updateDraftHandle operations)
                     "public_news" ->
                         postNewsSendResult hLogger $
-                        answer'' req (postNewsHandle operations)
+                        answer req (postNewsHandle operations)
                     _ -> return $ Left $ NotFound "Not Found"
     | otherwise = return $ Left $ NotFound "Not Found"
   where
@@ -143,7 +143,7 @@ createDraft ::
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 createDraft operations hLogger req =
-    createDraftSendResult hLogger $ answer'' req (createDraftHandle operations)
+    createDraftSendResult hLogger $ answer req (createDraftHandle operations)
 
 updateDraftSendResult ::
        Monad m

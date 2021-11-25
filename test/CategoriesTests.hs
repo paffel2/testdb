@@ -7,14 +7,14 @@ module CategoriesTests where
 import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 
+import           Control.Monad.Except  (ExceptT, MonadError (throwError),
+                                        MonadIO)
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
                                         methodPut)
 import           Network.Wai           (Request (rawPathInfo, requestMethod),
                                         defaultRequest)
 import           OperationsHandle      (CategoriesHandle (..),
                                         OperationsHandle (..))
-
-import           Control.Monad.Except
 import           Router                (routes)
 import           Test.Hspec            (describe, hspec, it, shouldBe)
 import           Types.Categories      (ListOfCategories (ListOfCategories))

@@ -2,7 +2,7 @@
 
 module Controllers.Authors where
 
-import           Answer                (answer'')
+import           Answer                (answer)
 import           Answers.Authors       (authorsListHandle, createAuthorHandle,
                                         deleteAuthorHandle, updateAuthorHandle)
 import           Control.Monad.Except  (ExceptT, MonadIO, runExceptT)
@@ -26,18 +26,18 @@ authorsRouter ::
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 authorsRouter methods hLogger req
     | pathElemsC == 1 =
-        authorsListSendResult hLogger $ answer'' req (authorsListHandle methods)
+        authorsListSendResult hLogger $ answer req (authorsListHandle methods)
     | pathElemsC == 2 =
         case last pathElems of
             "delete_author" ->
                 deleteAuthorSendResult hLogger $
-                answer'' req (deleteAuthorHandle methods)
+                answer req (deleteAuthorHandle methods)
             "create_author" ->
                 createAuthorSendResult hLogger $
-                answer'' req (createAuthorHandle methods)
+                answer req (createAuthorHandle methods)
             "edit_author" ->
                 updateAuthorSendResult hLogger $
-                answer'' req (updateAuthorHandle methods)
+                answer req (updateAuthorHandle methods)
             _ -> return $ Left $ NotFound "Not Found"
     | otherwise = return $ Left $ NotFound "Not Found"
   where

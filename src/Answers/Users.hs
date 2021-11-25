@@ -3,7 +3,7 @@
 
 module Answers.Users where
 
-import           Answer                    (AnswerHandle'' (..))
+import           Answer                    (AnswerHandle (..))
 import           Control.Monad.Except      (MonadError (throwError), MonadIO)
 import           Data.Maybe                (fromMaybe)
 import qualified Data.Text.Encoding        as E
@@ -42,11 +42,11 @@ registrationDatabaseOperation = uhCreateUserInDb
 registrationHandle ::
        (MonadIO m, MonadError SomeError m)
     => UsersHandle m
-    -> AnswerHandle'' m CreateUser Token
+    -> AnswerHandle m CreateUser Token
 registrationHandle usersHandle =
-    AnswerHandle''
-        { parseInformation'' = registrationParseInformation usersHandle
-        , databaseOperation'' = registrationDatabaseOperation usersHandle
+    AnswerHandle
+        { parseInformation = registrationParseInformation usersHandle
+        , databaseOperation = registrationDatabaseOperation usersHandle
         }
 
 ----------------------------------------------------------------------------------------------
@@ -75,11 +75,11 @@ signInDatabaseOperation usersHandle (login, pass) =
 signInHandle ::
        (MonadIO m, MonadError SomeError m)
     => UsersHandle m
-    -> AnswerHandle'' m (Maybe Login, Maybe Password) Token
+    -> AnswerHandle m (Maybe Login, Maybe Password) Token
 signInHandle usersHandle =
-    AnswerHandle''
-        { parseInformation'' = signInParseInformation usersHandle
-        , databaseOperation'' = signInDatabaseOperation usersHandle
+    AnswerHandle
+        { parseInformation = signInParseInformation usersHandle
+        , databaseOperation = signInDatabaseOperation usersHandle
         }
 
 ------------------------------------------------------------------------------------------------------------
@@ -109,11 +109,11 @@ deleteUserDatabaseOperation usersHandle (token, login) =
 deleteUserHandle ::
        (MonadIO m, MonadError SomeError m)
     => UsersHandle m
-    -> AnswerHandle'' m (Maybe Token, Maybe Login) ()
+    -> AnswerHandle m (Maybe Token, Maybe Login) ()
 deleteUserHandle usersHandle =
-    AnswerHandle''
-        { parseInformation'' = deleteUserParseInformation usersHandle
-        , databaseOperation'' = deleteUserDatabaseOperation usersHandle
+    AnswerHandle
+        { parseInformation = deleteUserParseInformation usersHandle
+        , databaseOperation = deleteUserDatabaseOperation usersHandle
         }
 
 ---------------------------------------------------------------------------------
@@ -137,9 +137,9 @@ profileUserDatabaseOperation = uhProfileOnDb
 profileUserHandle ::
        (MonadIO m, MonadError SomeError m)
     => UsersHandle m
-    -> AnswerHandle'' m (Maybe Token) Profile
+    -> AnswerHandle m (Maybe Token) Profile
 profileUserHandle usersHandle =
-    AnswerHandle''
-        { parseInformation'' = profileUserParseInformation usersHandle
-        , databaseOperation'' = profileUserDatabaseOperation usersHandle
+    AnswerHandle
+        { parseInformation = profileUserParseInformation usersHandle
+        , databaseOperation = profileUserDatabaseOperation usersHandle
         }

@@ -2,30 +2,23 @@
 
 module Router where
 
-import           Answer
-import           Answers.Drafts
-import           Answers.Users
-import           Control.Monad.Except
+import           Control.Monad.Except        (ExceptT, MonadIO)
 import           Controllers.Authors         (authorsRouter)
 import           Controllers.Categories      (categoriesRouter)
-import           Controllers.Drafts
+import           Controllers.Drafts          (createDraft, draftsRouter)
 import           Controllers.Images          (imagesRouter)
 import           Controllers.NewsAndComments (newsAndCommentsRouter)
 import           Controllers.Tags            (tagsRouter)
-import           Controllers.Users
+import           Controllers.Users           (deleteUser, profile, registration,
+                                              signIn)
 import qualified Data.ByteString.Char8       as BC
-import           Logger
+import           Logger                      (LoggerHandle)
 import           Network.Wai                 (Request (rawPathInfo), Response)
-import           OperationsHandle
+import           OperationsHandle            (OperationsHandle (authorsHandle, categoriesHandle, draftsHandle, imagesHandle, newsAndCommentsHandle, tagsHandle, usersHandle))
 import           Responses                   (toResponse)
 import           Types.Other                 (ResponseErrorMessage (NotFound),
                                               ResponseOkMessage, SomeError)
 
-{-routes ::
-       Monad m
-    => OperationsHandle m
-    -> Request
-    -> m (Either ResponseErrorMessage ResponseOkMessage)-}
 routes ::
        MonadIO m
     => OperationsHandle (ExceptT SomeError m)
@@ -33,9 +26,9 @@ routes ::
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
 routes operations hLogger req =
-    case pathHead
-        --"news" -> newsAndCommentsRouter (newsAndCommentsHandle operations) req
-          of
+    case pathHead of
+        "news" ->
+            newsAndCommentsRouter (newsAndCommentsHandle operations) hLogger req
         "login" -> signIn (usersHandle operations) hLogger req
         "registration" -> registration (usersHandle operations) hLogger req
         "deleteUser" -> deleteUser (usersHandle operations) hLogger req

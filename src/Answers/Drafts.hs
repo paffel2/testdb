@@ -3,7 +3,7 @@
 
 module Answers.Drafts where
 
-import           Answer                    (AnswerHandle'' (..))
+import           Answer                    (AnswerHandle (..))
 import           Control.Monad.Except      (MonadError (throwError), MonadIO)
 import qualified Data.ByteString.Char8     as BC
 import           Data.Maybe                (fromJust, isNothing)
@@ -45,11 +45,11 @@ getDraftsDatabaseOperation = dhGetDraftsByAuthorToken
 getDraftsHandle ::
        (MonadIO m, MonadError SomeError m)
     => DraftsHandle m
-    -> AnswerHandle'' m (Maybe Token) DraftArray
+    -> AnswerHandle m (Maybe Token) DraftArray
 getDraftsHandle draftHandle =
-    AnswerHandle''
-        { parseInformation'' = getDraftsParseInformation draftHandle
-        , databaseOperation'' = getDraftsDatabaseOperation draftHandle
+    AnswerHandle
+        { parseInformation = getDraftsParseInformation draftHandle
+        , databaseOperation = getDraftsDatabaseOperation draftHandle
         }
 
 --------------------------------------------------------------------------------------------------------------------
@@ -80,11 +80,11 @@ getDraftByIdDatabaseOperation draftHandle (token, draftId) =
 getDraftByIdHandle ::
        (MonadIO m, MonadError SomeError m)
     => DraftsHandle m
-    -> AnswerHandle'' m (Maybe Token, Id) Draft
+    -> AnswerHandle m (Maybe Token, Id) Draft
 getDraftByIdHandle draftHandle =
-    AnswerHandle''
-        { parseInformation'' = getDraftByIdInformation draftHandle
-        , databaseOperation'' = getDraftByIdDatabaseOperation draftHandle
+    AnswerHandle
+        { parseInformation = getDraftByIdInformation draftHandle
+        , databaseOperation = getDraftByIdDatabaseOperation draftHandle
         }
 
 --------------------------------------------------------------------------------------------------------------------
@@ -112,11 +112,11 @@ deleteDraftDatabaseOperation draftHandle (token, draftId) =
 deleteDraftHandle ::
        (MonadIO m, MonadError SomeError m)
     => DraftsHandle m
-    -> AnswerHandle'' m (Maybe Token, Maybe Id) ()
+    -> AnswerHandle m (Maybe Token, Maybe Id) ()
 deleteDraftHandle draftHandle =
-    AnswerHandle''
-        { parseInformation'' = deleteDraftInformation draftHandle
-        , databaseOperation'' = deleteDraftDatabaseOperation draftHandle
+    AnswerHandle
+        { parseInformation = deleteDraftInformation draftHandle
+        , databaseOperation = deleteDraftDatabaseOperation draftHandle
         }
 
 --------------------------------------------------------------------------------------------------------------------
@@ -147,11 +147,11 @@ postNewsDatabaseOperation draftHandle (token, draftId) =
 postNewsHandle ::
        (MonadIO m, MonadError SomeError m)
     => DraftsHandle m
-    -> AnswerHandle'' m (Maybe Token, Id) SendId
+    -> AnswerHandle m (Maybe Token, Id) SendId
 postNewsHandle draftHandle =
-    AnswerHandle''
-        { parseInformation'' = postNewsParseInformation draftHandle
-        , databaseOperation'' = postNewsDatabaseOperation draftHandle
+    AnswerHandle
+        { parseInformation = postNewsParseInformation draftHandle
+        , databaseOperation = postNewsDatabaseOperation draftHandle
         }
 
 --------------------------------------------------------------------------------------------------------------------
@@ -192,11 +192,11 @@ createDraftDatabaseOperation draftHandle (draftInfUpdate, listOfTags, mainImage,
 createDraftHandle ::
        (MonadIO m, MonadError SomeError m)
     => DraftsHandle m
-    -> AnswerHandle'' m (DraftInf, Maybe DraftTags, Maybe Image, Maybe [Image]) SendId
+    -> AnswerHandle m (DraftInf, Maybe DraftTags, Maybe Image, Maybe [Image]) SendId
 createDraftHandle draftHandle =
-    AnswerHandle''
-        { parseInformation'' = createDraftParseInformation draftHandle
-        , databaseOperation'' = createDraftDatabaseOperation draftHandle
+    AnswerHandle
+        { parseInformation = createDraftParseInformation draftHandle
+        , databaseOperation = createDraftDatabaseOperation draftHandle
         }
 
 --------------------------------------------------------------------------------------------
@@ -252,13 +252,13 @@ updateDraftDatabaseOperation draftHandle (draftInfUpdate, listOfTags, mainImage,
 updateDraftHandle ::
        (MonadIO m, MonadError SomeError m)
     => DraftsHandle m
-    -> AnswerHandle'' m ( DraftInf
-                        , Maybe DraftTags
-                        , Maybe Image
-                        , Maybe [Image]
-                        , Id) ()
+    -> AnswerHandle m ( DraftInf
+                      , Maybe DraftTags
+                      , Maybe Image
+                      , Maybe [Image]
+                      , Id) ()
 updateDraftHandle draftHandle =
-    AnswerHandle''
-        { parseInformation'' = updateDraftParseInformation draftHandle
-        , databaseOperation'' = updateDraftDatabaseOperation draftHandle
+    AnswerHandle
+        { parseInformation = updateDraftParseInformation draftHandle
+        , databaseOperation = updateDraftDatabaseOperation draftHandle
         }

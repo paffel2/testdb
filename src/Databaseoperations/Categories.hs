@@ -8,7 +8,7 @@ import           Control.Monad.Except          (MonadError (..), MonadIO)
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly))
-import           Databaseoperations.CheckAdmin (checkAdmin'''')
+import           Databaseoperations.CheckAdmin (checkAdmin)
 import           HelpFunction                  (numOnlyHead, pageToBS, toQuery)
 import           PostgreSqlWithPool            (executeWithPoolNew,
                                                 queryWithPoolNew,
@@ -50,7 +50,7 @@ createCategoryOnDb _ _ _ CreateCategory {createCategroryName = Nothing} = do
 createCategoryOnDb _ _ _ CreateCategory {createCategroryMaternalCategory = Nothing} = do
     throwError $ OtherError "No maternal_category_name field"
 createCategoryOnDb pool tokenLifeTime token (CreateCategory (Just categoryName) (Just maternalName)) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     catchError
         (if getCategoryName maternalName == ""
              then createWithoutMaternal
@@ -93,7 +93,7 @@ deleteCategoryFromDb ::
 deleteCategoryFromDb _ _ _ Nothing = do
     throwError $ OtherError "Category not deleted.No category_name parametr"
 deleteCategoryFromDb pool tokenLifeTime token (Just categoryName) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     n <-
         executeWithPoolNew
             pool
@@ -115,7 +115,7 @@ editCategory _ _ _ EditCategory {editCategoryName = Nothing} =
 editCategory _ _ _ (EditCategory (Just (CategoryName "")) (Just _) (Just _)) =
     throwError $ OtherError "Empty old name parameter"
 editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just newName) (Just (CategoryName ""))) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     n <-
         executeWithPoolNew
             pool
@@ -125,7 +125,7 @@ editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just newName
         then return ()
         else throwError $ OtherError "Category not exist"
 editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just (CategoryName "")) (Just newMaternal)) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     maternalId <-
         queryWithPoolNew
             pool
@@ -140,7 +140,7 @@ editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just (Catego
         then return ()
         else throwError $ OtherError "Category not exist"
 editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just newName) (Just newMaternal)) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     maternalId <-
         queryWithPoolNew
             pool

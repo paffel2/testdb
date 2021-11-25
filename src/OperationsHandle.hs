@@ -2,7 +2,7 @@
 
 module OperationsHandle where
 
-import           Control.Monad.Except
+import           Control.Monad.Except               (MonadError, MonadIO (..))
 import qualified Data.ByteString.Lazy               as LBS
 import           Data.Pool                          (Pool)
 import           Database.PostgreSQL.Simple         (Connection)
@@ -41,8 +41,10 @@ import           Databaseoperations.Tags            (createTagInDb,
                                                      deleteTagFromDb,
                                                      editTagInDb,
                                                      getTagsListFromDb)
-import           Databaseoperations.Users
-import           Logger                             (LoggerHandle)
+import           Databaseoperations.Users           (authentication,
+                                                     createUserInDb,
+                                                     deleteUserFromDb,
+                                                     profileOnDb)
 import           Network.Wai                        (Request)
 import           Network.Wai.Parse                  (File, Param, lbsBackEnd,
                                                      parseRequestBody)
@@ -75,33 +77,6 @@ import           Types.Tags                         (EditTag, TagName, TagsList)
 import           Types.Users                        (CreateUser, Login,
                                                      Password, Profile)
 
-{-data OperationsHandle m =
-    OperationsHandle
-        { authorsHandle         :: AuthorsHandle m
-        , categoriesHandle      :: CategoriesHandle m
-        , draftsHandle          :: DraftsHandle m
-        , imagesHandle          :: ImagesHandle m
-        , newsAndCommentsHandle :: NewsAndCommentsHandle m
-        , tagsHandle            :: TagsHandle m
-        , usersHandle           :: UsersHandle m
-        }
-
-operationsHandler ::
-       LoggerHandle IO
-    -> Pool Connection
-    -> TokenLifeTime
-    -> OperationsHandle IO
-operationsHandler hLogger pool tokenLifeTime =
-    OperationsHandle
-        { authorsHandle = authorsHandler pool hLogger tokenLifeTime
-        , categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
-        , draftsHandle = draftsHandler pool hLogger tokenLifeTime
-        , imagesHandle = imagesHandler pool hLogger
-        , newsAndCommentsHandle =
-              newsAndCommentsHandler pool hLogger tokenLifeTime
-        , tagsHandle = tagsHandler pool hLogger tokenLifeTime
-        , usersHandle = usersHandler pool hLogger tokenLifeTime
-        } -}
 data AuthorsHandle m =
     AuthorsHandle
         { ahGetAuthorsList   :: Maybe Page -> m AuthorsList
@@ -191,59 +166,51 @@ imagesHandler pool =
 
 data NewsAndCommentsHandle m =
     NewsAndCommentsHandle
-        { nchAddCommentToDb :: CommentWithoutTokenLifeTime -> m (Either SomeError ())
-        , nchDeleteCommentFromDb :: Maybe Token -> Maybe Id -> m (Either SomeError ())
-        , nchGetCommentsByNewsIdFromDb :: Maybe Id -> Maybe Page -> m (Either SomeError CommentArray)
-        , nchGetNewsByIdFromDb :: Maybe Id -> m (Either SomeError GetNews)
-        , nchGetNewsFilterByTagInFromDb :: Maybe TagInFilterParam -> Maybe Page -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByCategoryIdFromDb :: Maybe CategoryFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByTitleFromDb :: Maybe TitleFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetgetNewsFilterByAuthorNameFromDb :: Maybe AuthorFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByDateFromDb :: Maybe DateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByTagAllFromDb :: Maybe TagAllFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByContentFromDb :: Maybe ContentFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByAfterDateFromDb :: Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByBeforeDateFromDb :: Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFilterByTagIdFromDb :: Maybe TagFilterParam -> Maybe Page -> Sort -> m (Either SomeError NewsArray)
-        , nchGetNewsFromDb :: Sort -> Maybe Page -> m (Either SomeError NewsArray)
-        , nchLogger :: LoggerHandle m
+        { nchAddCommentToDb :: CommentWithoutTokenLifeTime -> m ()
+        , nchDeleteCommentFromDb :: Maybe Token -> Maybe Id -> m ()
+        , nchGetCommentsByNewsIdFromDb :: Maybe Id -> Maybe Page -> m CommentArray
+        , nchGetNewsByIdFromDb :: Maybe Id -> m GetNews
+        , nchGetNewsFilterByTagInFromDb :: Maybe TagInFilterParam -> Maybe Page -> m NewsArray
+        , nchGetNewsFilterByCategoryIdFromDb :: Maybe CategoryFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFilterByTitleFromDb :: Maybe TitleFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetgetNewsFilterByAuthorNameFromDb :: Maybe AuthorFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFilterByDateFromDb :: Maybe DateFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFilterByTagAllFromDb :: Maybe TagAllFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFilterByContentFromDb :: Maybe ContentFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFilterByAfterDateFromDb :: Maybe AfterDateFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFilterByBeforeDateFromDb :: Maybe BeforeDateFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFilterByTagIdFromDb :: Maybe TagFilterParam -> Maybe Page -> Sort -> m NewsArray
+        , nchGetNewsFromDb :: Sort -> Maybe Page -> m NewsArray
         , nchParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 newsAndCommentsHandler ::
-       Pool Connection
-    -> LoggerHandle IO
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
     -> TokenLifeTime
-    -> NewsAndCommentsHandle IO
-newsAndCommentsHandler pool hLogger tokenLifeTime =
+    -> NewsAndCommentsHandle m
+newsAndCommentsHandler pool tokenLifeTime =
     NewsAndCommentsHandle
-        { nchAddCommentToDb = addCommentToDb pool tokenLifeTime hLogger
-        , nchDeleteCommentFromDb =
-              deleteCommentFromDb pool tokenLifeTime hLogger
-        , nchGetCommentsByNewsIdFromDb = getCommentsByNewsIdFromDb pool hLogger
-        , nchGetNewsByIdFromDb = getNewsByIdFromDb pool hLogger
-        , nchGetNewsFilterByTagInFromDb =
-              getNewsFilterByTagInFromDb pool hLogger
+        { nchAddCommentToDb = addCommentToDb pool tokenLifeTime
+        , nchDeleteCommentFromDb = deleteCommentFromDb pool tokenLifeTime
+        , nchGetCommentsByNewsIdFromDb = getCommentsByNewsIdFromDb pool
+        , nchGetNewsByIdFromDb = getNewsByIdFromDb pool
+        , nchGetNewsFilterByTagInFromDb = getNewsFilterByTagInFromDb pool
         , nchGetNewsFilterByCategoryIdFromDb =
-              getNewsFilterByCategoryIdFromDb pool hLogger
-        , nchGetNewsFilterByTitleFromDb =
-              getNewsFilterByTitleFromDb pool hLogger
+              getNewsFilterByCategoryIdFromDb pool
+        , nchGetNewsFilterByTitleFromDb = getNewsFilterByTitleFromDb pool
         , nchGetgetNewsFilterByAuthorNameFromDb =
-              getNewsFilterByAuthorNameFromDb pool hLogger
-        , nchGetNewsFilterByDateFromDb = getNewsFilterByDateFromDb pool hLogger
-        , nchGetNewsFilterByTagAllFromDb =
-              getNewsFilterByTagAllFromDb pool hLogger
-        , nchGetNewsFilterByContentFromDb =
-              getNewsFilterByContentFromDb pool hLogger
+              getNewsFilterByAuthorNameFromDb pool
+        , nchGetNewsFilterByDateFromDb = getNewsFilterByDateFromDb pool
+        , nchGetNewsFilterByTagAllFromDb = getNewsFilterByTagAllFromDb pool
+        , nchGetNewsFilterByContentFromDb = getNewsFilterByContentFromDb pool
         , nchGetNewsFilterByAfterDateFromDb =
-              getNewsFilterByAfterDateFromDb pool hLogger
+              getNewsFilterByAfterDateFromDb pool
         , nchGetNewsFilterByBeforeDateFromDb =
-              getNewsFilterByBeforeDateFromDb pool hLogger
-        , nchGetNewsFilterByTagIdFromDb =
-              getNewsFilterByTagIdFromDb pool hLogger
-        , nchGetNewsFromDb = getNewsFromDb pool hLogger
-        , nchLogger = hLogger
-        , nchParseRequestBody = parseRequestBody lbsBackEnd
+              getNewsFilterByBeforeDateFromDb pool
+        , nchGetNewsFilterByTagIdFromDb = getNewsFilterByTagIdFromDb pool
+        , nchGetNewsFromDb = getNewsFromDb pool
+        , nchParseRequestBody = liftIO . parseRequestBody lbsBackEnd
         }
 
 data TagsHandle m =
@@ -294,33 +261,27 @@ usersHandler pool tokenLifeTime =
 
 data OperationsHandle m =
     OperationsHandle
-          --authorsHandle         :: AuthorsHandle m
-        --, categoriesHandle      :: CategoriesHandle m
-        --, draftsHandle          :: DraftsHandle m
-        { imagesHandle     :: ImagesHandle m
-        , categoriesHandle :: CategoriesHandle m
-        , authorsHandle    :: AuthorsHandle m
-        , tagsHandle       :: TagsHandle m
-        , usersHandle      :: UsersHandle m
-        , draftsHandle     :: DraftsHandle m
+        { imagesHandle          :: ImagesHandle m
+        , categoriesHandle      :: CategoriesHandle m
+        , authorsHandle         :: AuthorsHandle m
+        , tagsHandle            :: TagsHandle m
+        , usersHandle           :: UsersHandle m
+        , draftsHandle          :: DraftsHandle m
+        , newsAndCommentsHandle :: NewsAndCommentsHandle m
         }
 
 operationsHandler ::
        (MonadIO m, MonadError SomeError m)
-    => LoggerHandle IO
-    -> Pool Connection
+    => Pool Connection
     -> TokenLifeTime
     -> OperationsHandle m
-operationsHandler _ pool tokenLifeTime =
+operationsHandler pool tokenLifeTime =
     OperationsHandle
-        --, categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
-        --, draftsHandle = draftsHandler pool hLogger tokenLifeTime
         { imagesHandle = imagesHandler pool
         , categoriesHandle = categoriesHandler pool tokenLifeTime
         , authorsHandle = authorsHandler pool tokenLifeTime
         , draftsHandle = draftsHandler pool tokenLifeTime
-        --, newsAndCommentsHandle =
-        --      newsAndCommentsHandler pool hLogger tokenLifeTime
+        , newsAndCommentsHandle = newsAndCommentsHandler pool tokenLifeTime
         , tagsHandle = tagsHandler pool tokenLifeTime
         , usersHandle = usersHandler pool tokenLifeTime
         }

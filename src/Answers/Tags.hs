@@ -3,7 +3,7 @@
 
 module Answers.Tags where
 
-import           Answer                    (AnswerHandle'' (..))
+import           Answer                    (AnswerHandle (..))
 import           Control.Monad.Except      (MonadError (throwError), MonadIO)
 import           FromRequest               (takeToken, toEditTag, toPage,
                                             toTagName)
@@ -40,11 +40,11 @@ createTagDatabaseOperation tagHandle (token, tagNameParam) =
 createTagHandle ::
        (MonadIO m, MonadError SomeError m)
     => TagsHandle m
-    -> AnswerHandle'' m (Maybe Token, Maybe TagName) SendId
+    -> AnswerHandle m (Maybe Token, Maybe TagName) SendId
 createTagHandle tagHandle =
-    AnswerHandle''
-        { parseInformation'' = createTagParseInformation tagHandle
-        , databaseOperation'' = createTagDatabaseOperation tagHandle
+    AnswerHandle
+        { parseInformation = createTagParseInformation tagHandle
+        , databaseOperation = createTagDatabaseOperation tagHandle
         }
 
 deleteTagParseInformation ::
@@ -71,11 +71,11 @@ deleteTagDatabaseOperation tagHandle (token, tagNameParam) =
 deleteTagHandle ::
        (MonadIO m, MonadError SomeError m)
     => TagsHandle m
-    -> AnswerHandle'' m (Maybe Token, Maybe TagName) ()
+    -> AnswerHandle m (Maybe Token, Maybe TagName) ()
 deleteTagHandle tagHandle =
-    AnswerHandle''
-        { parseInformation'' = deleteTagParseInformation tagHandle
-        , databaseOperation'' = deleteTagDatabaseOperation tagHandle
+    AnswerHandle
+        { parseInformation = deleteTagParseInformation tagHandle
+        , databaseOperation = deleteTagDatabaseOperation tagHandle
         }
 
 ---------------------------------------------------------------------------
@@ -99,11 +99,11 @@ getTagsListDatabaseOperation = thGetTagsListFromDb
 getTagsListHandle ::
        (MonadIO m, MonadError SomeError m)
     => TagsHandle m
-    -> AnswerHandle'' m (Maybe Page) TagsList
+    -> AnswerHandle m (Maybe Page) TagsList
 getTagsListHandle tagHandle =
-    AnswerHandle''
-        { parseInformation'' = getTagsListParseInformation tagHandle
-        , databaseOperation'' = getTagsListDatabaseOperation tagHandle
+    AnswerHandle
+        { parseInformation = getTagsListParseInformation tagHandle
+        , databaseOperation = getTagsListDatabaseOperation tagHandle
         }
 
 ---------------------------------------------------------------------------
@@ -132,9 +132,9 @@ updateTagDatabaseOperation tagHandle (token, tagEditParams) =
 updateTagHandle ::
        (MonadIO m, MonadError SomeError m)
     => TagsHandle m
-    -> AnswerHandle'' m (Maybe Token, EditTag) ()
+    -> AnswerHandle m (Maybe Token, EditTag) ()
 updateTagHandle tagHandle =
-    AnswerHandle''
-        { parseInformation'' = updateTagParseInformation tagHandle
-        , databaseOperation'' = updateTagDatabaseOperation tagHandle
+    AnswerHandle
+        { parseInformation = updateTagParseInformation tagHandle
+        , databaseOperation = updateTagDatabaseOperation tagHandle
         }

@@ -3,7 +3,7 @@
 
 module Answers.Images where
 
-import           Answer                    (AnswerHandle'' (..))
+import           Answer                    (AnswerHandle (..))
 import           Control.Monad.Except      (MonadError (throwError), MonadIO)
 import qualified Data.ByteString.Char8     as BC
 import           FromRequest               (toPage)
@@ -36,11 +36,11 @@ imagesListDatabaseOperation = ihGetPhotoList
 getImagesListHandle ::
        (MonadIO m, MonadError SomeError m)
     => ImagesHandle m
-    -> AnswerHandle'' m (Maybe Page) ImageArray
+    -> AnswerHandle m (Maybe Page) ImageArray
 getImagesListHandle imagesHandle =
-    AnswerHandle''
-        { parseInformation'' = imagesListParseInformation imagesHandle
-        , databaseOperation'' = imagesListDatabaseOperation imagesHandle
+    AnswerHandle
+        { parseInformation = imagesListParseInformation imagesHandle
+        , databaseOperation = imagesListDatabaseOperation imagesHandle
         }
 
 -----------------------------------------------------------------------------------------
@@ -63,9 +63,9 @@ getImageDatabaseOperation = ihGetPhoto
 getImageHandle ::
        (MonadIO m, MonadError SomeError m)
     => ImagesHandle m
-    -> AnswerHandle'' m Id ImageB
+    -> AnswerHandle m Id ImageB
 getImageHandle imagesHandle =
-    AnswerHandle''
-        { parseInformation'' = getImageParseInformation imagesHandle
-        , databaseOperation'' = getImageDatabaseOperation imagesHandle
+    AnswerHandle
+        { parseInformation = getImageParseInformation imagesHandle
+        , databaseOperation = getImageDatabaseOperation imagesHandle
         }

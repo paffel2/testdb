@@ -15,7 +15,7 @@ import qualified Data.Text.Encoding            as E
 import           Data.Time                     (UTCTime, getCurrentTime)
 import           Database.PostgreSQL.Simple    (Binary (fromBinary), Connection,
                                                 SqlError (sqlErrorMsg))
-import           Databaseoperations.CheckAdmin (checkAdmin'''')
+import           Databaseoperations.CheckAdmin (checkAdmin)
 import           Logger                        (LoggerHandle, logError, logInfo)
 import           PostgreSqlWithPool            (executeWithPool,
                                                 executeWithPoolNew,
@@ -126,7 +126,7 @@ deleteUserFromDb ::
     -> m ()
 deleteUserFromDb _ _ _ Nothing = throwError $ OtherError "No login parameter"
 deleteUserFromDb pool tokenLifeTime token (Just login) = do
-    checkAdmin'''' pool tokenLifeTime token
+    checkAdmin pool tokenLifeTime token
     n <- executeWithPoolNew pool "delete from users where login = ?" [login]
     if n > 0
         then return ()

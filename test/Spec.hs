@@ -1,13 +1,11 @@
 import           AuthorsTests      (authorsTests)
 import           CategoriesTests   (categoriesTests)
-
---import           CommentsTests     (commentsTests)
+import           CommentsTests     (commentsTests)
 import           DraftsTests       (draftsTests)
 import           FromRequestTests  (fromRequestTests)
 import           HelpFunctionTests (functionsTests)
 import           ImagesTests       (imagesTests)
-
---import           NewsTests         (newsTests)
+import           NewsTests         (newsTests)
 import           TagsTests         (tagsTests)
 import           UsersTests        (usersTests)
 
@@ -21,5 +19,5 @@ main = do
     tagsTests
     usersTests
     draftsTests
-    --commentsTests
-    --newsTests
+    commentsTests
+    newsTests

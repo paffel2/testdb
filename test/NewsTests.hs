@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module NewsTests where
-{-import           Data.Functor.Identity            (Identity)
+
+import           Data.Functor.Identity            (Identity)
 import           Data.Time                        (Day)
 import           Logger                           (LoggerHandle (..),
                                                    Priority (Debug))
@@ -15,6 +17,7 @@ import           Router                           (routes)
 import           Test.Hspec                       (describe, hspec, it,
                                                    shouldBe)
 
+import           Control.Monad.Except
 import           Database.PostgreSQL.Simple.Types (PGArray (PGArray))
 import           Types.NewsAndComments            (GetNews (..),
                                                    NewsArray (NewsArray))
@@ -22,52 +25,54 @@ import           Types.Other                      (ResponseErrorMessage (BadRequ
                                                    ResponseOkMessage (OkJSON),
                                                    SomeError (DatabaseError, OtherError))
 
+instance MonadIO Identity
+
 hLogger :: LoggerHandle Identity
 hLogger =
     LoggerHandle {priority = Debug, Logger.log = \prior message -> return ()}
 
-newsHandler :: NewsAndCommentsHandle Identity
+newsHandler :: NewsAndCommentsHandle (ExceptT SomeError Identity)
 newsHandler =
     NewsAndCommentsHandle
         { nchGetNewsByIdFromDb =
-              \news_id -> return $ Left $ OtherError "ErrorMessage"
+              \news_id -> throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByTagInFromDb =
               \tag_in_filter_param page ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByCategoryIdFromDb =
               \category_id_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByTitleFromDb =
               \title_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetgetNewsFilterByAuthorNameFromDb =
               \author_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByDateFromDb =
               \date_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByTagAllFromDb =
               \tag_all_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByContentFromDb =
               \content_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByAfterDateFromDb =
               \after_date_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByBeforeDateFromDb =
               \before_date_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFilterByTagIdFromDb =
               \tag_filter_param page sort ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , nchGetNewsFromDb =
-              \sort page -> return $ Left $ OtherError "ErrorMessage"
-        , nchLogger = hLogger
+              \sort page -> throwError $ OtherError "ErrorMessage"
+        --, nchLogger = hLogger
         , nchParseRequestBody = \request -> return ([], [])
         }
 
-operationsHandler :: OperationsHandle Identity
+operationsHandler :: OperationsHandle (ExceptT SomeError Identity)
 operationsHandler = OperationsHandle {newsAndCommentsHandle = newsHandler}
 
 tstGetNewsListReq :: Request
@@ -178,12 +183,13 @@ newsTests =
         describe "testing news functions" $ do
             describe "testing nchGetNewsFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsListReq `shouldBe`
+                    routes operationsHandler hLogger tstGetNewsListReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsListReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -191,6 +197,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsListReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -199,10 +206,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFromDb =
-                                             \_ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsListReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -212,9 +219,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsListReq `shouldBe`
                     return
                         (Left
@@ -225,12 +233,13 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByTagIdFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByTagIdReq `shouldBe`
+                    routes operationsHandler hLogger tstGetNewsFilterdByTagIdReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTagIdReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -238,6 +247,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTagIdReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -246,10 +256,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagIdFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTagIdReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -259,10 +269,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagIdFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTagIdReq `shouldBe`
                     return
                         (Left
@@ -273,12 +283,13 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByTagInFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByTagInReq `shouldBe`
+                    routes operationsHandler hLogger tstGetNewsFilterdByTagInReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTagInReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -286,6 +297,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTagInReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -294,10 +306,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagInFromDb =
-                                             \_ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTagInReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -307,9 +319,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagInFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTagInReq `shouldBe`
                     return
                         (Left
@@ -320,12 +333,13 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByCategoryIdFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByCatIdReq `shouldBe`
+                    routes operationsHandler hLogger tstGetNewsFilterdByCatIdReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByCatIdReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -333,6 +347,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByCatIdReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -341,10 +356,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByCategoryIdFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByCatIdReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -354,10 +369,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByCategoryIdFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByCatIdReq `shouldBe`
                     return
                         (Left
@@ -368,12 +383,13 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByTitleFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByTitleReq `shouldBe`
+                    routes operationsHandler hLogger tstGetNewsFilterdByTitleReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTitleReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -381,6 +397,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTitleReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -389,10 +406,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTitleFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTitleReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -402,10 +419,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTitleFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTitleReq `shouldBe`
                     return
                         (Left
@@ -416,12 +433,16 @@ newsTests =
 -}
             describe "testing nchGetgetNewsFilterByAuthorNameFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByAuthorReq `shouldBe`
+                    routes
+                        operationsHandler
+                        hLogger
+                        tstGetNewsFilterdByAuthorReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByAuthorReq
                              {requestMethod = methodPut}) `shouldBe`
                     return
@@ -430,6 +451,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByAuthorReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -438,10 +460,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetgetNewsFilterByAuthorNameFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByAuthorReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -451,10 +473,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetgetNewsFilterByAuthorNameFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByAuthorReq `shouldBe`
                     return
                         (Left
@@ -465,12 +487,13 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByDateFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByDateReq `shouldBe`
+                    routes operationsHandler hLogger tstGetNewsFilterdByDateReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByDateReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -478,6 +501,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByDateReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -486,10 +510,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByDateFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByDateReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -499,10 +523,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByDateFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByDateReq `shouldBe`
                     return
                         (Left
@@ -513,12 +537,16 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByTagAllFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByTagAllReq `shouldBe`
+                    routes
+                        operationsHandler
+                        hLogger
+                        tstGetNewsFilterdByTagAllReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTagAllReq
                              {requestMethod = methodPut}) `shouldBe`
                     return
@@ -527,6 +555,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByTagAllReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -535,10 +564,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagAllFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTagAllReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -548,10 +577,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagAllFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByTagAllReq `shouldBe`
                     return
                         (Left
@@ -562,12 +591,16 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByContentFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByContentReq `shouldBe`
+                    routes
+                        operationsHandler
+                        hLogger
+                        tstGetNewsFilterdByContentReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByContentReq
                              {requestMethod = methodPut}) `shouldBe`
                     return
@@ -576,6 +609,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByContentReq {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of news, because all is good" $
@@ -584,10 +618,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByContentFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByContentReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -597,10 +631,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByContentFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByContentReq `shouldBe`
                     return
                         (Left
@@ -611,12 +645,16 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByAfterDateFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByAfterDateReq `shouldBe`
+                    routes
+                        operationsHandler
+                        hLogger
+                        tstGetNewsFilterdByAfterDateReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByAfterDateReq
                              {requestMethod = methodPut}) `shouldBe`
                     return
@@ -625,6 +663,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByAfterDateReq
                              {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -634,10 +673,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByAfterDateFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByAfterDateReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -647,10 +686,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByAfterDateFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByAfterDateReq `shouldBe`
                     return
                         (Left
@@ -661,12 +700,16 @@ newsTests =
 -}
             describe "testing nchGetNewsFilterByBeforeDateFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsFilterdByBeforeDateReq `shouldBe`
+                    routes
+                        operationsHandler
+                        hLogger
+                        tstGetNewsFilterdByBeforeDateReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByBeforeDateReq
                              {requestMethod = methodPut}) `shouldBe`
                     return
@@ -675,6 +718,7 @@ newsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsFilterdByBeforeDateReq
                              {rawPathInfo = "/newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -684,10 +728,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByBeforeDateFromDb =
-                                             \_ _ _ ->
-                                                 return $ Right (NewsArray [])
+                                             \_ _ _ -> return (NewsArray [])
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByBeforeDateReq `shouldBe`
                     return (Right $ OkJSON "{\"news\":[]}")
                 it
@@ -697,10 +741,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByBeforeDateFromDb =
-                                             \_ _ _ ->
-                                                 return $ Left DatabaseError
+                                             \_ _ _ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsFilterdByBeforeDateReq `shouldBe`
                     return
                         (Left
@@ -711,12 +755,13 @@ newsTests =
 -}
             describe "testing nchGetNewsByIdFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetNewsByIdReq `shouldBe`
+                    routes operationsHandler hLogger tstGetNewsByIdReq `shouldBe`
                     return (Left $ BadRequest "News not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetNewsByIdReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -727,9 +772,10 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsByIdFromDb =
-                                             \_ -> return $ Right tstNews
+                                             \_ -> return tstNews
                                        }
                              })
+                        hLogger
                         tstGetNewsByIdReq `shouldBe`
                     return
                         (Right $
@@ -742,12 +788,12 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsByIdFromDb =
-                                             \_ -> return $ Left DatabaseError
+                                             \_ -> throwError DatabaseError
                                        }
                              })
+                        hLogger
                         tstGetNewsByIdReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
                                   "News not sended. Database Error."))
--}

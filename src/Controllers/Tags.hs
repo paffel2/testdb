@@ -2,7 +2,7 @@
 
 module Controllers.Tags where
 
-import           Answer                (answer'')
+import           Answer                (answer)
 import           Answers.Tags          (createTagHandle, deleteTagHandle,
                                         getTagsListHandle, updateTagHandle)
 import           Control.Monad.Except  (ExceptT, MonadIO, runExceptT)
@@ -27,18 +27,18 @@ tagsRouter ::
 tagsRouter operations hLogger req
     | pathElemsC == 1 =
         getTagsListSendResult hLogger $
-        answer'' req (getTagsListHandle operations)
+        answer req (getTagsListHandle operations)
     | pathElemsC == 2 =
         case last pathElems of
             "create_tag" ->
                 createTagSendResult hLogger $
-                answer'' req (createTagHandle operations)
+                answer req (createTagHandle operations)
             "delete_tag" ->
                 deleteTagSendResult hLogger $
-                answer'' req (deleteTagHandle operations)
+                answer req (deleteTagHandle operations)
             "edit_tag" ->
                 updateTagSendResult hLogger $
-                answer'' req (updateTagHandle operations)
+                answer req (updateTagHandle operations)
             _ -> return $ Left $ NotFound "Not Found"
     | otherwise = return $ Left $ NotFound "Not Found"
   where

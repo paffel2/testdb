@@ -2,24 +2,26 @@
 
 module PostgreSqlWithPool where
 
-import           Control.Exception
-import           Control.Monad.Except
+import           Control.Exception                    (try)
+import           Control.Monad.Except                 (MonadError (throwError),
+                                                       MonadIO (..))
 import           Data.Int                             (Int64)
-import           Data.Maybe
+import           Data.Maybe                           (fromMaybe)
 import           Data.Pool                            (Pool, withResource)
 import           Database.PostgreSQL.Simple           (Connection, FromRow,
-                                                       Query, SqlError, ToRow,
-                                                       execute, executeMany,
-                                                       execute_, query, query_,
-                                                       returning, sqlState,
+                                                       Query,
+                                                       SqlError (sqlState),
+                                                       ToRow, execute,
+                                                       executeMany, execute_,
+                                                       query, query_, returning,
                                                        withTransaction)
 import           Database.PostgreSQL.Simple.Migration (MigrationCommand (MigrationDirectory, MigrationInitialization),
                                                        MigrationContext (MigrationContext),
                                                        MigrationResult,
                                                        runMigration)
 import           Database.PostgreSQL.Simple.Util      (existsTable)
-import           HelpFunction
-import           Types.Other
+import           HelpFunction                         (readByteStringToInt)
+import           Types.Other                          (SomeError (DatabaseErrorNew))
 
 executeWithPool :: ToRow q => Pool Connection -> Query -> q -> IO Int64
 executeWithPool pool q inf = withResource pool $ \conn -> execute conn q inf
