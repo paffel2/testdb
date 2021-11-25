@@ -104,24 +104,25 @@ operationsHandler hLogger pool tokenLifeTime =
         } -}
 data AuthorsHandle m =
     AuthorsHandle
-        { ahCreateAuthorInDb :: Maybe Token -> CreateAuthor -> m (Either SomeError SendId)
-        , ahDeleteAuthorInDb :: Maybe Token -> Maybe AuthorLogin -> m (Either SomeError ())
-        , ahGetAuthorsList :: Maybe Page -> m (Either SomeError AuthorsList)
-        , ahEditAuthorInDb :: Maybe Token -> EditAuthor -> m (Either SomeError ())
-        , ahLogger :: LoggerHandle m
+        { ahGetAuthorsList   :: Maybe Page -> m AuthorsList
+        , ahEditAuthorInDb   :: Maybe Token -> EditAuthor -> m ()
+        , ahDeleteAuthorInDb :: Maybe Token -> Maybe AuthorLogin -> m ()
+        , ahCreateAuthorInDb :: Maybe Token -> CreateAuthor -> m SendId
         , ahParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 authorsHandler ::
-       Pool Connection -> LoggerHandle IO -> TokenLifeTime -> AuthorsHandle IO
-authorsHandler pool hLogger tokenLifeTime =
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> TokenLifeTime
+    -> AuthorsHandle m
+authorsHandler pool tokenLifeTime =
     AuthorsHandle
-        { ahCreateAuthorInDb = createAuthorInDb pool tokenLifeTime hLogger
-        , ahDeleteAuthorInDb = deleteAuthorInDb pool tokenLifeTime hLogger
-        , ahGetAuthorsList = getAuthorsList pool hLogger
-        , ahEditAuthorInDb = editAuthorInDb pool tokenLifeTime hLogger
-        , ahLogger = hLogger
-        , ahParseRequestBody = parseRequestBody lbsBackEnd
+        { ahGetAuthorsList = getAuthorsList pool
+        , ahEditAuthorInDb = editAuthorInDb pool tokenLifeTime
+        , ahDeleteAuthorInDb = deleteAuthorInDb pool tokenLifeTime
+        , ahCreateAuthorInDb = createAuthorInDb pool tokenLifeTime
+        , ahParseRequestBody = liftIO . parseRequestBody lbsBackEnd
         }
 
 data CategoriesHandle m =
@@ -251,7 +252,6 @@ data TagsHandle m =
         , thDeleteTagFromDb   :: Maybe Token -> Maybe TagName -> m ()
         , thGetTagsListFromDb :: Maybe Page -> m TagsList
         , thEditTagInDb       :: Maybe Token -> EditTag -> m ()
-        --, thLogger            :: LoggerHandle io
         , thParseRequestBody  :: Request -> m ([Param], [File LBS.ByteString])
         }
 
@@ -266,7 +266,6 @@ tagsHandler pool tokenLifeTime =
         , thDeleteTagFromDb = deleteTagFromDb pool tokenLifeTime
         , thGetTagsListFromDb = getTagsListFromDb pool
         , thEditTagInDb = editTagInDb pool tokenLifeTime
-        --, thLogger = hLogger
         , thParseRequestBody = liftIO . parseRequestBody lbsBackEnd
         }
 
@@ -300,7 +299,7 @@ data OperationsHandle m =
         --, draftsHandle          :: DraftsHandle m
         { imagesHandle     :: ImagesHandle m
         , categoriesHandle :: CategoriesHandle m
-        --, newsAndCommentsHandle :: NewsAndCommentsHandle m
+        , authorsHandle    :: AuthorsHandle m
         , tagsHandle       :: TagsHandle m
         , usersHandle      :: UsersHandle m
         }
@@ -313,11 +312,11 @@ operationsHandler ::
     -> OperationsHandle m
 operationsHandler _ pool tokenLifeTime =
     OperationsHandle
-          --authorsHandle = authorsHandler pool hLogger tokenLifeTime
         --, categoriesHandle = categoriesHandler pool hLogger tokenLifeTime
         --, draftsHandle = draftsHandler pool hLogger tokenLifeTime
         { imagesHandle = imagesHandler pool
         , categoriesHandle = categoriesHandler pool tokenLifeTime
+        , authorsHandle = authorsHandler pool tokenLifeTime
         --, newsAndCommentsHandle =
         --      newsAndCommentsHandler pool hLogger tokenLifeTime
         , tagsHandle = tagsHandler pool tokenLifeTime

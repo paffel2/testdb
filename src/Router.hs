@@ -46,7 +46,7 @@ routes operations hLogger req =
         --"new_draft" -> answer req (createDraftHandle $ draftsHandle operations)
         "tags" -> tagsRouter (tagsHandle operations) hLogger req
         "image" -> imagesRouter (imagesHandle operations) hLogger req
-        --"authors" -> authorsRouter (authorsHandle operations) req
+        "authors" -> authorsRouter (authorsHandle operations) hLogger req
         _ -> return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req

@@ -1,4 +1,4 @@
---import           AuthorsTests      (authorsTests)
+import           AuthorsTests      (authorsTests)
 import           CategoriesTests   (categoriesTests)
 
 --import           CommentsTests     (commentsTests)
@@ -16,7 +16,7 @@ main = do
     functionsTests
     fromRequestTests
     imagesTests
-    --authorsTests
+    authorsTests
     categoriesTests
     tagsTests
     usersTests
