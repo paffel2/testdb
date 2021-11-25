@@ -150,29 +150,29 @@ categoriesHandler pool tokenLifeTime =
 
 data DraftsHandle m =
     DraftsHandle
-        { dhGetDraftsByAuthorToken :: Maybe Token -> m (Either SomeError DraftArray)
-        , dhDeleteDraftFromDb :: Maybe Token -> Maybe Id -> m (Either SomeError ())
-        , dhGetDraftByIdFromDb :: Maybe Token -> Id -> m (Either SomeError Draft)
-        , dhCreateDraftOnDb :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m (Either SomeError SendId)
-        , dhUpdateDraftInDb :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m (Either SomeError ())
-        , dhPublicNewsOnDb :: Maybe Token -> Id -> m (Either SomeError SendId)
-        , dhLogger :: LoggerHandle m
+        { dhGetDraftsByAuthorToken :: Maybe Token -> m DraftArray
+        , dhDeleteDraftFromDb :: Maybe Token -> Maybe Id -> m ()
+        , dhGetDraftByIdFromDb :: Maybe Token -> Id -> m Draft
+        , dhCreateDraftOnDb :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> m SendId
+        , dhUpdateDraftInDb :: DraftInf -> Maybe DraftTags -> Maybe Image -> Maybe [Image] -> Id -> m ()
+        , dhPublicNewsOnDb :: Maybe Token -> Id -> m SendId
         , dhParseRequestBody :: Request -> m ([Param], [File LBS.ByteString])
         }
 
 draftsHandler ::
-       Pool Connection -> LoggerHandle IO -> TokenLifeTime -> DraftsHandle IO
-draftsHandler pool hLogger tokenLifeTime =
+       (MonadIO m, MonadError SomeError m)
+    => Pool Connection
+    -> TokenLifeTime
+    -> DraftsHandle m
+draftsHandler pool tokenLifeTime =
     DraftsHandle
-        { dhGetDraftsByAuthorToken =
-              getDraftsByAuthorToken pool tokenLifeTime hLogger
-        , dhDeleteDraftFromDb = deleteDraftFromDb pool tokenLifeTime hLogger
-        , dhGetDraftByIdFromDb = getDraftByIdFromDb pool tokenLifeTime hLogger
-        , dhCreateDraftOnDb = createDraftOnDb pool tokenLifeTime hLogger
-        , dhUpdateDraftInDb = updateDraftInDb pool tokenLifeTime hLogger
-        , dhPublicNewsOnDb = publicNewsOnDb pool tokenLifeTime hLogger
-        , dhLogger = hLogger
-        , dhParseRequestBody = parseRequestBody lbsBackEnd
+        { dhGetDraftsByAuthorToken = getDraftsByAuthorToken pool tokenLifeTime
+        , dhDeleteDraftFromDb = deleteDraftFromDb pool tokenLifeTime
+        , dhGetDraftByIdFromDb = getDraftByIdFromDb pool tokenLifeTime
+        , dhCreateDraftOnDb = createDraftOnDb pool tokenLifeTime
+        , dhUpdateDraftInDb = updateDraftInDb pool tokenLifeTime
+        , dhPublicNewsOnDb = publicNewsOnDb pool tokenLifeTime
+        , dhParseRequestBody = liftIO . parseRequestBody lbsBackEnd
         }
 
 data ImagesHandle m =
@@ -302,6 +302,7 @@ data OperationsHandle m =
         , authorsHandle    :: AuthorsHandle m
         , tagsHandle       :: TagsHandle m
         , usersHandle      :: UsersHandle m
+        , draftsHandle     :: DraftsHandle m
         }
 
 operationsHandler ::
@@ -317,6 +318,7 @@ operationsHandler _ pool tokenLifeTime =
         { imagesHandle = imagesHandler pool
         , categoriesHandle = categoriesHandler pool tokenLifeTime
         , authorsHandle = authorsHandler pool tokenLifeTime
+        , draftsHandle = draftsHandler pool tokenLifeTime
         --, newsAndCommentsHandle =
         --      newsAndCommentsHandler pool hLogger tokenLifeTime
         , tagsHandle = tagsHandler pool tokenLifeTime

@@ -4,7 +4,8 @@
 
 module UsersTests where
 
-import           Control.Monad.Except
+import           Control.Monad.Except  (ExceptT, MonadError (throwError),
+                                        MonadIO)
 import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,

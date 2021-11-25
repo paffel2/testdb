@@ -2,7 +2,7 @@ import           AuthorsTests      (authorsTests)
 import           CategoriesTests   (categoriesTests)
 
 --import           CommentsTests     (commentsTests)
---import           DraftsTests       (draftsTests)
+import           DraftsTests       (draftsTests)
 import           FromRequestTests  (fromRequestTests)
 import           HelpFunctionTests (functionsTests)
 import           ImagesTests       (imagesTests)
@@ -20,6 +20,6 @@ main = do
     categoriesTests
     tagsTests
     usersTests
-    --draftsTests
+    draftsTests
     --commentsTests
     --newsTests

@@ -8,7 +8,7 @@ import           Answers.Users
 import           Control.Monad.Except
 import           Controllers.Authors         (authorsRouter)
 import           Controllers.Categories      (categoriesRouter)
-import           Controllers.Drafts          (draftsRouter)
+import           Controllers.Drafts
 import           Controllers.Images          (imagesRouter)
 import           Controllers.NewsAndComments (newsAndCommentsRouter)
 import           Controllers.Tags            (tagsRouter)
@@ -42,8 +42,8 @@ routes operations hLogger req =
         "categories" ->
             categoriesRouter (categoriesHandle operations) hLogger req
         "profile" -> profile (usersHandle operations) hLogger req
-        --"drafts" -> draftsRouter (draftsHandle operations) req
-        --"new_draft" -> answer req (createDraftHandle $ draftsHandle operations)
+        "drafts" -> draftsRouter (draftsHandle operations) hLogger req
+        "new_draft" -> createDraft (draftsHandle operations) hLogger req
         "tags" -> tagsRouter (tagsHandle operations) hLogger req
         "image" -> imagesRouter (imagesHandle operations) hLogger req
         "authors" -> authorsRouter (authorsHandle operations) hLogger req
@@ -57,8 +57,6 @@ responder ::
        Monad m => Either ResponseErrorMessage ResponseOkMessage -> m Response
 responder something = return $ toResponse something
 
-{-application ::
-       Monad m => OperationsHandle m -> Request -> (Response -> m b) -> m b-}
 application ::
        MonadIO m
     => OperationsHandle (ExceptT SomeError m)
