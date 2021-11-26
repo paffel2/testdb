@@ -4,29 +4,26 @@
 
 module Databaseoperations.Authors where
 
-import           Control.Monad.Except          (MonadError (..), MonadIO)
+import           Control.Monad.Except          (MonadError (catchError, throwError))
 import           Data.Pool                     (Pool)
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (pageToBS, toQuery)
-import           PostgreSqlWithPool            (executeWithPoolNew,
-                                                queryWithPoolNew,
-                                                query_WithPoolNew)
+import           HelpFunction                  (pageToBS, someErrorToInt,
+                                                toQuery)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool)
 import           Types.Authors                 (AuthorLogin,
                                                 AuthorsList (AuthorsList),
                                                 CreateAuthor (..),
                                                 EditAuthor (..))
-import           Types.Other                   (Page, SendId,
+import           Types.Other                   (MonadIOWithError, Page, SendId,
                                                 SomeError (OtherError), Token,
-                                                TokenLifeTime, someErrorToInt)
+                                                TokenLifeTime)
 
 getAuthorsList ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> Maybe Page
-    -> m AuthorsList
+       MonadIOWithError m => Pool Connection -> Maybe Page -> m AuthorsList
 getAuthorsList pool page = do
-    rows <- query_WithPoolNew pool q
+    rows <- query_WithPool pool q
     return $ AuthorsList rows
   where
     q =
@@ -35,7 +32,7 @@ getAuthorsList pool page = do
         pageToBS page
 
 editAuthorInDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -49,7 +46,7 @@ editAuthorInDb _ _ Nothing _ = do
     throwError $ OtherError "Author not edited. No token param"
 editAuthorInDb pool tokenLifeTime token editParams = do
     checkAdmin pool tokenLifeTime token
-    n <- executeWithPoolNew pool q editParams
+    n <- executeWithPool pool q editParams
     if n > 0
         then return ()
         else throwError $ OtherError "Author not edited"
@@ -57,7 +54,7 @@ editAuthorInDb pool tokenLifeTime token editParams = do
     q = "update authors set description = ? where author_id = ?"
 
 deleteAuthorInDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -70,7 +67,7 @@ deleteAuthorInDb _ _ _ Nothing =
 deleteAuthorInDb pool token_lifetime token (Just authorLogin) =
     catchError
         (do checkAdmin pool token_lifetime token
-            _ <- executeWithPoolNew pool q [authorLogin]
+            _ <- executeWithPool pool q [authorLogin]
             return ()) $ \e ->
         case someErrorToInt e of
             23505 ->
@@ -83,7 +80,7 @@ deleteAuthorInDb pool token_lifetime token (Just authorLogin) =
              \delete from authors where user_id = (select * from u_id)"
 
 createAuthorInDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -98,7 +95,7 @@ createAuthorInDb _ _ _ CreateAuthor {createAuthorDescription = Nothing} =
 createAuthorInDb pool tokenLifetime token createAuthorParams =
     catchError
         (do checkAdmin pool tokenLifetime token
-            rows <- queryWithPoolNew pool q createAuthorParams
+            rows <- queryWithPool pool q createAuthorParams
             if Prelude.null rows
                 then throwError $ OtherError "Author not created"
                 else return $ fromOnly $ Prelude.head rows) $ \e ->

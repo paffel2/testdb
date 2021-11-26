@@ -3,20 +3,19 @@
 
 module Databaseoperations.Images where
 
-import           Control.Monad.Except       (MonadError (throwError), MonadIO)
+import           Control.Monad.Except       (MonadError (throwError))
 import           Data.Pool                  (Pool)
 import           Database.PostgreSQL.Simple (Connection)
 import           HelpFunction               (pageToBS, toQuery)
-import           PostgreSqlWithPool         (queryWithPoolNew,
-                                             query_WithPoolNew)
+import           PostgreSqlWithPool         (queryWithPool, query_WithPool)
 import           Types.Images               (ImageArray (ImageArray), ImageB)
-import           Types.Other                (Id, Page, SomeError (OtherError))
+import           Types.Other                (Id, MonadIOWithError, Page,
+                                             SomeError (OtherError))
 
 --------------------------------------------------------------------------------
-getPhotoFromDb ::
-       (MonadIO m, MonadError SomeError m) => Pool Connection -> Id -> m ImageB
+getPhotoFromDb :: MonadIOWithError m => Pool Connection -> Id -> m ImageB
 getPhotoFromDb pool imageId = do
-    rows <- queryWithPoolNew pool q [imageId]
+    rows <- queryWithPool pool q [imageId]
     if Prelude.null rows
         then throwError $ OtherError "Image not exist"
         else return $ head rows
@@ -25,12 +24,9 @@ getPhotoFromDb pool imageId = do
 
 --------------------------------------------------------------------------------
 getPhotoListFromDb ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> Maybe Page
-    -> m ImageArray
+       MonadIOWithError m => Pool Connection -> Maybe Page -> m ImageArray
 getPhotoListFromDb pool pageParam = do
-    rows <- query_WithPoolNew pool q
+    rows <- query_WithPool pool q
     return (ImageArray rows)
   where
     q =

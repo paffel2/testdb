@@ -4,7 +4,7 @@
 module Answers.Categories where
 
 import           Answer                    (AnswerHandle (..))
-import           Control.Monad.Except      (MonadError (throwError), MonadIO)
+import           Control.Monad.Except      (MonadError (throwError))
 import           FromRequest               (takeToken, toCategoryName,
                                             toCreateCategory, toEditCategory,
                                             toPage)
@@ -14,28 +14,25 @@ import           Network.Wai               (Request (requestMethod))
 import           OperationsHandle          (CategoriesHandle (chCreateCategoryOnDb, chDeleteCategoryFromDb, chEditCategoryOnDb, chGetCategoriesListFromDb, chParseRequestBody))
 import           Types.Categories          (CategoryName, CreateCategory,
                                             EditCategory, ListOfCategories)
-import           Types.Other               (Page, SendId, SomeError (BadMethod),
-                                            Token)
+import           Types.Other               (MonadIOWithError, Page, SendId,
+                                            SomeError (BadMethod), Token)
 
 getCategoriesListParseInformation ::
-       (MonadIO m, MonadError SomeError m)
-    => CategoriesHandle m
-    -> Request
-    -> m (Maybe Page)
+       MonadIOWithError m => CategoriesHandle m -> Request -> m (Maybe Page)
 getCategoriesListParseInformation _ request =
     if requestMethod request == methodGet
         then return $ toPage request
         else throwError BadMethod
 
 getCategoriesListDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> Maybe Page
     -> m ListOfCategories
 getCategoriesListDatabaseOperation = chGetCategoriesListFromDb
 
 getCategoriesListHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> AnswerHandle m (Maybe Page) ListOfCategories
 getCategoriesListHandle authorHandle =
@@ -46,7 +43,7 @@ getCategoriesListHandle authorHandle =
 
 ----------------------------------------------------------------------------------
 createCategoryParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> Request
     -> m (Maybe Token, CreateCategory)
@@ -60,7 +57,7 @@ createCategoryParseInformation handler request =
             return (token, createCategoryParams)
 
 createCategoryDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> (Maybe Token, CreateCategory)
     -> m SendId
@@ -68,7 +65,7 @@ createCategoryDatabaseOperation categoryHandle (token, createCategoryParams) =
     chCreateCategoryOnDb categoryHandle token createCategoryParams
 
 createCategoryHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> AnswerHandle m (Maybe Token, CreateCategory) SendId
 createCategoryHandle authorHandle =
@@ -78,7 +75,7 @@ createCategoryHandle authorHandle =
         }
 
 deleteCategoryParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> Request
     -> m (Maybe Token, Maybe CategoryName)
@@ -92,7 +89,7 @@ deleteCategoryParseInformation handler request =
             return (token, categoryName)
 
 deleteCategoryDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> (Maybe Token, Maybe CategoryName)
     -> m ()
@@ -100,7 +97,7 @@ deleteCategoryDatabaseOperation categoryHandle (token, categoryName) =
     chDeleteCategoryFromDb categoryHandle token categoryName
 
 deleteCategoryHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> AnswerHandle m (Maybe Token, Maybe CategoryName) ()
 deleteCategoryHandle authorHandle =
@@ -111,7 +108,7 @@ deleteCategoryHandle authorHandle =
 
 ---------------------------------------------------------------------------------------
 updateCategoryParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> Request
     -> m (Maybe Token, EditCategory)
@@ -125,7 +122,7 @@ updateCategoryParseInformation handler request =
             return (token, editCategoryParameters)
 
 updateCategoryDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> (Maybe Token, EditCategory)
     -> m ()
@@ -133,7 +130,7 @@ updateCategoryDatabaseOperation categoryHandle (token, editInfo) =
     chEditCategoryOnDb categoryHandle token editInfo
 
 updateCategoryHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => CategoriesHandle m
     -> AnswerHandle m (Maybe Token, EditCategory) ()
 updateCategoryHandle authorHandle =

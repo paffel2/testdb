@@ -1,41 +1,87 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Databaseoperations.Migrations where
 
-import           Control.Exception                    (catch)
-import           Data.Maybe                           (fromMaybe)
-import           Data.Pool                            (Pool)
-import qualified Data.Text                            as T
-import           Database.PostgreSQL.Simple           (Connection, Only,
-                                                       SqlError (sqlState))
-import           Database.PostgreSQL.Simple.Migration (MigrationResult (MigrationError, MigrationSuccess))
-import           Databaseoperations.Users             (firstToken)
-import           HelpFunction                         (getMaybeLine,
-                                                       readByteStringToInt)
-import           Logger                               (LoggerHandle, logError,
-                                                       logInfo)
-import           PostgreSqlWithPool                   (executeWithPool,
-                                                       existSchemaMigrationWithPool,
-                                                       initMigration,
-                                                       query_WithPool,
-                                                       runMigrationWithPool)
-import           Types.Other                          (SomeError (DatabaseError),
-                                                       Token (getToken))
-import           Types.Users                          (AdminData (AdminData, adminFirstName, adminLastName, adminLogin, adminMark, adminPassword),
-                                                       Login (Login),
-                                                       Password (Password))
+import           Control.Monad.Except       (MonadError (..), MonadIO (..),
+                                             when)
+import           Data.Maybe                 (isNothing)
+import           Data.Pool                  (Pool)
+import           Database.PostgreSQL.Simple (Connection, Only)
+import           Databaseoperations.Users   (firstToken)
+import           HelpFunction               (getMaybeLine)
+import           Logger                     (LoggerHandle, logError, logInfo)
+import           PostgreSqlWithPool         (executeWithPool,
+                                             existSchemaMigrationWithPool,
+                                             initMigration, query_WithPool,
+                                             runMigrationWithPool)
+import           Types.Other                (MonadIOWithError,
+                                             SomeError (OtherError),
+                                             Token (getToken))
+import           Types.Users                (AdminData (AdminData, adminFirstName, adminLastName, adminLogin, adminMark, adminPassword),
+                                             Login (Login), Password (Password))
 
-createAdmin :: LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
+---------------------------------------------------------------------------------------------------------------------
+checkDbExist :: MonadIOWithError m => LoggerHandle IO -> Pool Connection -> m ()
+checkDbExist hLogger pool =
+    catchError
+        (do n <- query_WithPool pool "select 1"
+            when (null (n :: [Only Int])) $ do
+                liftIO $ logError hLogger "Database not exist or unavailable"
+                throwError $ OtherError "Database not exist or unavailable") $ \e -> do
+        liftIO $ logError hLogger "Database not exist or unavailable"
+        throwError e
+
+initMigrations ::
+       MonadIOWithError m => LoggerHandle IO -> Pool Connection -> m ()
+initMigrations hLogger pool = do
+    liftIO $ logInfo hLogger "Initialization"
+    initMigration pool
+    liftIO $ logInfo hLogger "Adding another migrations"
+    runMigrationWithPool pool "sql/fill_Db"
+
+anotherMigration :: MonadIOWithError m => Pool Connection -> m ()
+anotherMigration pool = runMigrationWithPool pool "sql/fill_Db"
+
+migrations :: MonadIOWithError m => LoggerHandle IO -> Pool Connection -> m ()
+migrations hLogger pool = do
+    check_migrations <- existSchemaMigrationWithPool pool
+    if check_migrations
+        then do
+            liftIO $
+                logInfo
+                    hLogger
+                    "Database already exist. Adding another migrations."
+            anotherMigration pool
+        else do
+            liftIO $ logInfo hLogger "Database not exist."
+            initMigrations hLogger pool
+
+checkAdminInDb ::
+       MonadIOWithError m => LoggerHandle IO -> Pool Connection -> m ()
+checkAdminInDb hLogger pool = do
+    n <-
+        query_WithPool
+            pool
+            "select admin_mark from users where admin_mark = True"
+    if null (n :: [Only Bool])
+        then createAdmin hLogger pool
+        else do
+            liftIO $ logInfo hLogger "Admin already exist."
+            return ()
+
+createAdmin :: MonadIOWithError m => LoggerHandle IO -> Pool Connection -> m ()
 createAdmin hLogger pool = do
-    logInfo hLogger "Input new admin login"
-    newAdminLogin <- getMaybeLine
-    logInfo hLogger "Input new admin password"
-    newAdminPassword <- getMaybeLine
-    logInfo hLogger "Input new admin first name"
-    newAdminFirstName <- getMaybeLine
-    logInfo hLogger "Input new admin last name"
-    newAdminLastName <- getMaybeLine
+    liftIO $ logInfo hLogger "Admin not exist. Creating admin."
+    liftIO $ logInfo hLogger "Input new admin login"
+    newAdminLogin <- liftIO getMaybeLine
+    liftIO $ logInfo hLogger "Input new admin password"
+    newAdminPassword <- liftIO getMaybeLine
+    liftIO $ logInfo hLogger "Input new admin first name"
+    newAdminFirstName <- liftIO getMaybeLine
+    liftIO $ logInfo hLogger "Input new admin last name"
+    newAdminLastName <- liftIO getMaybeLine
     let adminInformation =
             AdminData
                 { adminLogin = Login <$> newAdminLogin
@@ -44,133 +90,31 @@ createAdmin hLogger pool = do
                 , adminLastName = newAdminLastName
                 , adminMark = True
                 }
-    n <-
-        executeWithPool
-            pool
-            "insert into users (login,user_password,first_name,last_name,admin_mark,creation_date) values (?,crypt(?,gen_salt('md5')),?,?,?,now())"
-            adminInformation
-    if n > 0
+    if isNothing newAdminLogin || isNothing newAdminPassword
         then do
-            token <-
-                firstToken
-                    hLogger
-                    pool
-                    (adminLogin adminInformation)
-                    (adminPassword adminInformation)
-            case token of
-                Left se -> return $ Left se
-                Right to -> do
-                    logInfo hLogger $ T.concat ["admin token ", getToken to]
-                    return $ Right ()
+            liftIO $ logError hLogger "Bad login or password"
+            throwError $ OtherError "Bad login or password"
         else do
-            logError hLogger "Registration failed"
-            return $ Left DatabaseError
-
-------------------------------------------------------
-checkDbExist :: LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
-checkDbExist hLogger pool =
-    catch
-        (do n <- query_WithPool pool "select 1" :: IO [Only Int]
-            if null n
-                then do
-                    logError hLogger "Database not exist or unavailable"
-                    return $ Left DatabaseError
-                else do
-                    return $ Right ()) $ \e -> do
-        let errState = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            "Database cheking error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
-
-migrations ::
-       LoggerHandle IO
-    -> Pool Connection
-    -> Either SomeError ()
-    -> IO (Either SomeError ())
-migrations _ _ (Left message) = return (Left message)
-migrations hLogger pool (Right _) =
-    catch
-        (do check_migrations <- existSchemaMigrationWithPool pool
-            if check_migrations
-                then anotherMigration hLogger pool
-                else initMigrations hLogger pool) $ \e -> do
-        let errState = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            "Database filling error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
-
-initMigrations :: LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
-initMigrations hLogger pool =
-    catch
-        (do initDb <- initMigration pool
-            case initDb of
-                MigrationError _ -> return $ Left DatabaseError
-                MigrationSuccess -> do
-                    let dir = "sql/fill_Db"
-                    result <- runMigrationWithPool pool dir
-                    case result of
-                        MigrationError _ -> do
-                            logError hLogger "Database not filled"
-                            return $ Left DatabaseError
-                        MigrationSuccess -> do
-                            logInfo hLogger "Database filled"
-                            return $ Right ()) $ \e -> do
-        let errState = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            "Database init filling error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
-
-anotherMigration ::
-       LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
-anotherMigration hLogger pool =
-    catch
-        (do let dir = "sql/fill_Db"
-            result <- runMigrationWithPool pool dir
-            case result of
-                MigrationError _ -> do
-                    logError hLogger "Database not filled"
-                    return $ Left DatabaseError
-                MigrationSuccess -> do
-                    logInfo hLogger "Database filled"
-                    return $ Right ()) $ \e -> do
-        let errState = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            "Database another filling error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
-
-checkAdminInDb ::
-       LoggerHandle IO
-    -> Pool Connection
-    -> Either SomeError ()
-    -> IO (Either SomeError ())
-checkAdminInDb _ _ (Left message) = return (Left message)
-checkAdminInDb hLogger pool (Right _) =
-    catch
-        (do logInfo hLogger "Cheking Admin user"
             n <-
-                query_WithPool
+                executeWithPool
                     pool
-                    "select admin_mark from users where admin_mark = True" :: IO [Only Bool]
-            if null n
+                    "insert into users (login,user_password,first_name,last_name,admin_mark,creation_date) values (?,crypt(?,gen_salt('md5')),?,?,?,now())"
+                    adminInformation
+            if n > 0
                 then do
-                    logInfo
-                        hLogger
-                        "Admin user not exist.Start creating Admin user."
-                    createAdmin hLogger pool
+                    token <-
+                        firstToken
+                            pool
+                            (adminLogin adminInformation)
+                            (adminPassword adminInformation)
+                    liftIO $ logInfo hLogger $ "Admin token " <> getToken token
+                    return ()
                 else do
-                    logInfo hLogger "Admin user already exist."
-                    return $ Right ()) $ \e -> do
-        let errState = sqlState e
-        let errStateInt = fromMaybe 0 (readByteStringToInt errState)
-        logError hLogger $
-            "Database cheking admin error " <> T.pack (show errStateInt)
-        return $ Left DatabaseError
+                    liftIO $ logError hLogger "Registration failed"
+                    throwError $ OtherError "Registration failed"
 
-checkDb :: LoggerHandle IO -> Pool Connection -> IO (Either SomeError ())
-checkDb hLogger pool =
-    checkDbExist hLogger pool >>= migrations hLogger pool >>=
+checkDb :: MonadIOWithError m => LoggerHandle IO -> Pool Connection -> m ()
+checkDb hLogger pool = do
+    checkDbExist hLogger pool
+    migrations hLogger pool
     checkAdminInDb hLogger pool

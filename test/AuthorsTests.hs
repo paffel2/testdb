@@ -108,7 +108,7 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahGetAuthorsList =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -116,7 +116,7 @@ authorsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "List of authors not sended. Database Error."))
+                                  "List of authors not sended. Database Error 0."))
 {-
                                 CREATE AUTHOR TESTS
 -}
@@ -182,7 +182,8 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahCreateAuthorInDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -190,7 +191,7 @@ authorsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Author not created. Database Error."))
+                                  "Author not created. Database Error 0."))
 {-
                                 DELETE AUTHOR TESTS
 -}
@@ -257,7 +258,8 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahDeleteAuthorInDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -265,7 +267,7 @@ authorsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Author not deleted. Database Error."))
+                                  "Author not deleted. Database Error 0."))
 {-
                                 EDIT AUTHOR TESTS
 -}
@@ -331,7 +333,8 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahEditAuthorInDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -339,4 +342,4 @@ authorsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Author not edited. Database Error."))
+                                  "Author not edited. Database Error 0."))

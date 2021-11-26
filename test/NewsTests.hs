@@ -219,7 +219,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -227,7 +228,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY TAG TESTS
 -}
@@ -269,7 +270,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagIdFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -277,7 +279,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY TAG_IN TESTS
 -}
@@ -319,7 +321,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagInFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -327,7 +330,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY CATEGORY ID TESTS
 -}
@@ -369,7 +372,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByCategoryIdFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -377,7 +381,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY TITLE TESTS
 -}
@@ -419,7 +423,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTitleFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -427,7 +432,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY AUTHOR TESTS
 -}
@@ -473,7 +478,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetgetNewsFilterByAuthorNameFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -481,7 +487,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY DATE TESTS
 -}
@@ -523,7 +529,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByDateFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -531,7 +538,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY TAG_ALL TESTS
 -}
@@ -577,7 +584,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByTagAllFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -585,7 +593,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY TAG_ALL TESTS
 -}
@@ -631,7 +639,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByContentFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -639,7 +648,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY AFTER_DATE TESTS
 -}
@@ -686,7 +695,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByAfterDateFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -694,7 +704,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS FILTERED BY BEFORE_DATE TESTS
 -}
@@ -741,7 +751,8 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsFilterByBeforeDateFromDb =
-                                             \_ _ _ -> throwError DatabaseError
+                                             \_ _ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -749,7 +760,7 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))
 {-
                     GET NEWS BY ID TESTS
 -}
@@ -788,7 +799,7 @@ newsTests =
                              { newsAndCommentsHandle =
                                    newsHandler
                                        { nchGetNewsByIdFromDb =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -796,4 +807,4 @@ newsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not sended. Database Error."))
+                                  "News not sended. Database Error 0."))

@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia   #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Types.Other where
 
@@ -7,7 +9,7 @@ import qualified Data.ByteString.Lazy               as LBS
 import qualified Data.Text                          as T
 import           Database.PostgreSQL.Simple.ToField (ToField (..))
 import           Types.Images                       (ImageB)
-import Control.Monad.Except ( ExceptT )
+import Control.Monad.Except
 
 newtype TokenLifeTime =
     TokenLifeTime
@@ -39,14 +41,10 @@ newtype Id =
 data SomeError
     = BadToken
     | NotAdmin
-    | DatabaseError
+    | DatabaseError Int
     | BadMethod
     | OtherError String
-    | DatabaseErrorNew Int
 
-someErrorToInt :: SomeError -> Int
-someErrorToInt (DatabaseErrorNew n) = n
-someErrorToInt _ = 0
 
 data ResponseErrorMessage
     = Forbidden LBS.ByteString
@@ -65,14 +63,4 @@ data ResponseOkMessage
 
 type SendId = Int
 
-
-type MonadWithError = ExceptT SomeError IO
-
-
-
-{-data SomeErrorNew
-    = BadTokenNew
-    | NotAdminNew
-    | DatabaseErrorNew Int
-    | BadMethodNew
-    | OtherErrorNew String -}
+type MonadIOWithError m = (MonadIO m,MonadError SomeError m)

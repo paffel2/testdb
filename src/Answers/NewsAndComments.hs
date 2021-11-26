@@ -4,7 +4,7 @@
 module Answers.NewsAndComments where
 
 import           Answer                    (AnswerHandle (..))
-import           Control.Monad.Except      (MonadError (throwError), MonadIO)
+import           Control.Monad.Except      (MonadError (throwError))
 import qualified Data.ByteString.Char8     as BC
 import           FromRequest               (takeToken, toCommentId,
                                             toCommentText, toFilterParams,
@@ -17,13 +17,13 @@ import           Types.NewsAndComments     (CommentArray,
                                             CommentWithoutTokenLifeTime (..),
                                             FilterParams (..), GetNews,
                                             NewsArray, Sort)
-import           Types.Other               (Id, Page,
+import           Types.Other               (Id, MonadIOWithError, Page,
                                             SomeError (BadMethod, OtherError),
                                             Token)
 
 -------------------------------------------------------------------------------------------------------------------- -}
 postCommentParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> Request
     -> m CommentWithoutTokenLifeTime
@@ -45,14 +45,14 @@ postCommentParseInformation handler request =
     pathElems = BC.split '/' path
 
 postCommentDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> CommentWithoutTokenLifeTime
     -> m ()
 postCommentDatabaseOperation = nchAddCommentToDb
 
 postCommentHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> AnswerHandle m CommentWithoutTokenLifeTime ()
 postCommentHandle commentsHandle =
@@ -63,10 +63,7 @@ postCommentHandle commentsHandle =
 
 ------------------------------------------------------------------
 getNewsByIdParseInformation ::
-       (MonadIO m, MonadError SomeError m)
-    => NewsAndCommentsHandle m
-    -> Request
-    -> m (Maybe Id)
+       MonadIOWithError m => NewsAndCommentsHandle m -> Request -> m (Maybe Id)
 getNewsByIdParseInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
@@ -76,14 +73,11 @@ getNewsByIdParseInformation _ request =
     pathElems = BC.split '/' path
 
 getNewsByIdDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
-    => NewsAndCommentsHandle m
-    -> Maybe Id
-    -> m GetNews
+       MonadIOWithError m => NewsAndCommentsHandle m -> Maybe Id -> m GetNews
 getNewsByIdDatabaseOperation = nchGetNewsByIdFromDb
 
 getNewsByIdHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> AnswerHandle m (Maybe Id) GetNews
 getNewsByIdHandle newsHandle =
@@ -95,7 +89,7 @@ getNewsByIdHandle newsHandle =
 ----------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------------------
 getNewsParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> Request
     -> m (FilterParams, Maybe Page, Sort)
@@ -105,7 +99,7 @@ getNewsParseInformation _ request =
         else return (toFilterParams request, toPage request, toSort request)
 
 getNewsDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> (FilterParams, Maybe Page, Sort)
     -> m NewsArray
@@ -142,7 +136,7 @@ getNewsDatabaseOperation newsHandle (filters, page, sort) =
         BadFilter -> throwError $ OtherError "Bad filter param"
 
 getNewsHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> AnswerHandle m (FilterParams, Maybe Page, Sort) NewsArray
 getNewsHandle newsHandle =
@@ -153,7 +147,7 @@ getNewsHandle newsHandle =
 
 ------------------------------------------------------------------------------------
 deleteCommentParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> Request
     -> m (Maybe Token, Maybe Id)
@@ -163,7 +157,7 @@ deleteCommentParseInformation _ request =
         else return (takeToken request, toCommentId request)
 
 deleteCommentDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> (Maybe Token, Maybe Id)
     -> m ()
@@ -171,7 +165,7 @@ deleteCommentDatabaseOperation commentsHandle (token, commentId) =
     nchDeleteCommentFromDb commentsHandle token commentId
 
 deleteCommentHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> AnswerHandle m (Maybe Token, Maybe Id) ()
 deleteCommentHandle commentsHandle =
@@ -182,7 +176,7 @@ deleteCommentHandle commentsHandle =
 
 --------------------------------------------------------------------------------------------------------------------
 sendCommentsParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> Request
     -> m (Maybe Page, Maybe Id)
@@ -196,7 +190,7 @@ sendCommentsParseInformation _ request =
     pathElems = BC.split '/' path
 
 sendCommentsDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> (Maybe Page, Maybe Id)
     -> m CommentArray
@@ -204,7 +198,7 @@ sendCommentsDatabaseOperation commentsHandle (page, newsId) =
     nchGetCommentsByNewsIdFromDb commentsHandle newsId page
 
 sendCommentsHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => NewsAndCommentsHandle m
     -> AnswerHandle m (Maybe Page, Maybe Id) CommentArray
 sendCommentsHandle commentsHandle =

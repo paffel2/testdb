@@ -106,7 +106,7 @@ tagsTests =
                              { tagsHandle =
                                    tagsHandler
                                        { thGetTagsListFromDb =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -114,7 +114,7 @@ tagsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "List of tags not sended. Database Error."))
+                                  "List of tags not sended. Database Error 0."))
 {-
                                 CREATE TAG TESTS
 -}
@@ -178,7 +178,8 @@ tagsTests =
                              { tagsHandle =
                                    tagsHandler
                                        { thCreateTagInDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -186,7 +187,7 @@ tagsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Tag not created. Database Error."))
+                                  "Tag not created. Database Error 0."))
 {-
                                 DELETE TAG TESTS
 -}
@@ -250,7 +251,8 @@ tagsTests =
                              { tagsHandle =
                                    tagsHandler
                                        { thDeleteTagFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -258,7 +260,7 @@ tagsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Tag not deleted. Database Error."))
+                                  "Tag not deleted. Database Error 0."))
 {-
                                 EDIT AUTHOR TESTS
 -}
@@ -322,7 +324,8 @@ tagsTests =
                              { tagsHandle =
                                    tagsHandler
                                        { thEditTagInDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -330,4 +333,4 @@ tagsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Tag not edited. Database Error."))
+                                  "Tag not edited. Database Error 0."))

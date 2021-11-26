@@ -98,7 +98,8 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhAuth =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -106,7 +107,7 @@ usersTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Bad authorization. Database Error."))
+                                  "Bad authorization. Database Error 0."))
 {-
                                 REGISTRATION TESTS
 -}
@@ -151,7 +152,7 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhCreateUserInDb =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -159,7 +160,7 @@ usersTests =
                     return
                         (Left
                              (InternalServerError
-                                  "User not registered. Database Error."))
+                                  "User not registered. Database Error 0."))
 {-
                                 DELETE USER TESTS
 -}
@@ -224,7 +225,8 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhDeleteUserFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -232,7 +234,7 @@ usersTests =
                     return
                         (Left
                              (InternalServerError
-                                  "User not deleted. Database Error."))
+                                  "User not deleted. Database Error 0."))
 {-
                                 PROFILE TESTS
 -}
@@ -301,7 +303,7 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhProfileOnDb =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -309,4 +311,4 @@ usersTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Profile inforamtion not sended. Database Error."))
+                                  "Profile inforamtion not sended. Database Error 0."))

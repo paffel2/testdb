@@ -15,7 +15,8 @@ import           Network.Wai.Parse                (FileInfo)
 import           System.Directory                 (getDirectoryContents)
 import           Text.Read                        (readMaybe)
 import           Types.NewsAndComments            (Sort (getSort))
-import           Types.Other                      (Id (Id), Page (..))
+import           Types.Other                      (Id (Id), Page (getPage),
+                                                   SomeError (DatabaseError))
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -111,3 +112,7 @@ pageToBS pageParam =
 numOnlyHead :: Num a => [Only a] -> Only a
 numOnlyHead []    = Only (-1)
 numOnlyHead (x:_) = x
+
+someErrorToInt :: SomeError -> Int
+someErrorToInt (DatabaseError n) = n
+someErrorToInt _                 = 0

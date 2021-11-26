@@ -4,17 +4,17 @@
 
 module Databaseoperations.NewsAndComments where
 
-import           Control.Monad.Except          (MonadError (..), MonadIO)
+import           Control.Monad.Except          (MonadError (catchError, throwError))
 import qualified Data.ByteString.Char8         as BC
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, In (In),
                                                 Only (Only))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (pageToBS, sortToBS, toQuery)
-import           PostgreSqlWithPool            (executeWithPoolNew,
-                                                queryWithPoolNew,
-                                                query_WithPoolNew)
+import           HelpFunction                  (pageToBS, someErrorToInt,
+                                                sortToBS, toQuery)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool)
 import           Types.NewsAndComments         (AfterDateFilterParam,
                                                 AuthorFilterParam (getAuthorFp),
                                                 BeforeDateFilterParam,
@@ -29,14 +29,14 @@ import           Types.NewsAndComments         (AfterDateFilterParam,
                                                 TagInFilterParam (getTagInFp),
                                                 TitleFilterParam (getTitleFp),
                                                 toComment)
-import           Types.Other                   (Id (getId), Page,
-                                                SomeError (BadToken, DatabaseError, OtherError),
-                                                Token, TokenLifeTime,
-                                                someErrorToInt)
+import           Types.Other                   (Id (getId), MonadIOWithError,
+                                                Page,
+                                                SomeError (BadToken, OtherError),
+                                                Token, TokenLifeTime)
 
 -----------------------------------------------------------------------
 addCommentToDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> CommentWithoutTokenLifeTime
@@ -49,26 +49,23 @@ addCommentToDb _ _ CommentWithoutTokenLifeTime {commentWTLToken = Nothing} =
     throwError $ OtherError "Commentary not added. No token parameter"
 addCommentToDb pool tokenLifeTime com =
     catchError
-        (do result <- executeWithPoolNew pool q (toComment tokenLifeTime com)
+        (do result <- executeWithPool pool q (toComment tokenLifeTime com)
             if result > 0
                 then return ()
                 else throwError $ OtherError "Commentary not added") $ \e ->
         case someErrorToInt e of
             23503 -> throwError $ OtherError "News not exist"
             23502 -> throwError BadToken
-            _     -> throwError DatabaseError
+            _     -> throwError e
   where
     q =
         "insert into users_comments (user_id, comment_text,news_id,comment_time) values (check_token(?,?),?,?,now())"
 
 getNewsByIdFromDb ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> Maybe Id
-    -> m GetNews
+       MonadIOWithError m => Pool Connection -> Maybe Id -> m GetNews
 getNewsByIdFromDb _ Nothing = throwError $ OtherError "Bad news_id parameter"
 getNewsByIdFromDb pool (Just newsId) = do
-    rows <- query_WithPoolNew pool q
+    rows <- query_WithPool pool q
     if Prelude.null rows
         then throwError $ OtherError "News not exist"
         else return $ Prelude.head rows
@@ -87,7 +84,7 @@ getNewsByIdFromDb pool (Just newsId) = do
 
 --------------------------------------------------------------------------------------
 getNewsFilterByTagInFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe TagInFilterParam
     -> Maybe Page
@@ -95,7 +92,7 @@ getNewsFilterByTagInFromDb ::
 getNewsFilterByTagInFromDb _ Nothing _ =
     throwError $ OtherError "No tag parameter"
 getNewsFilterByTagInFromDb pool (Just tagList) page =
-    NewsArray <$> queryWithPoolNew pool q (Only (In (getTagInFp tagList)))
+    NewsArray <$> queryWithPool pool q (Only (In (getTagInFp tagList)))
   where
     q =
         toQuery $
@@ -106,7 +103,7 @@ getNewsFilterByTagInFromDb pool (Just tagList) page =
         pageToBS page
 
 getNewsFilterByCategoryIdFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe CategoryFilterParam
     -> Maybe Page
@@ -115,7 +112,7 @@ getNewsFilterByCategoryIdFromDb ::
 getNewsFilterByCategoryIdFromDb _ Nothing _ _ =
     throwError $ OtherError "No category parameter"
 getNewsFilterByCategoryIdFromDb pool (Just categoruId) page sortParam =
-    NewsArray <$> queryWithPoolNew pool q [getCategoryFp categoruId]
+    NewsArray <$> queryWithPool pool q [getCategoryFp categoruId]
   where
     q =
         toQuery $
@@ -125,7 +122,7 @@ getNewsFilterByCategoryIdFromDb pool (Just categoruId) page sortParam =
         sortToBS sortParam <> pageToBS page
 
 getNewsFilterByTitleFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe TitleFilterParam
     -> Maybe Page
@@ -134,7 +131,7 @@ getNewsFilterByTitleFromDb ::
 getNewsFilterByTitleFromDb _ Nothing _ _ =
     throwError $ OtherError "No title parameter"
 getNewsFilterByTitleFromDb pool (Just titleName) page sortParam =
-    NewsArray <$> queryWithPoolNew pool q [getTitleFp titleName]
+    NewsArray <$> queryWithPool pool q [getTitleFp titleName]
   where
     q =
         toQuery $
@@ -144,7 +141,7 @@ getNewsFilterByTitleFromDb pool (Just titleName) page sortParam =
         sortToBS sortParam <> pageToBS page
 
 getNewsFilterByAuthorNameFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe AuthorFilterParam
     -> Maybe Page
@@ -153,7 +150,7 @@ getNewsFilterByAuthorNameFromDb ::
 getNewsFilterByAuthorNameFromDb _ Nothing _ _ =
     throwError $ OtherError "No author_name parameter"
 getNewsFilterByAuthorNameFromDb pool (Just authorName) page sortParam =
-    NewsArray <$> queryWithPoolNew pool q [getAuthorFp authorName]
+    NewsArray <$> queryWithPool pool q [getAuthorFp authorName]
   where
     q =
         toQuery $
@@ -163,7 +160,7 @@ getNewsFilterByAuthorNameFromDb pool (Just authorName) page sortParam =
         sortToBS sortParam <> pageToBS page
 
 getNewsFilterByDateFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe DateFilterParam
     -> Maybe Page
@@ -172,7 +169,7 @@ getNewsFilterByDateFromDb ::
 getNewsFilterByDateFromDb _ Nothing _ _ =
     throwError $ OtherError "No date parameter"
 getNewsFilterByDateFromDb pool (Just date) page sortParam =
-    NewsArray <$> queryWithPoolNew pool q [date]
+    NewsArray <$> queryWithPool pool q [date]
   where
     q =
         toQuery $
@@ -182,7 +179,7 @@ getNewsFilterByDateFromDb pool (Just date) page sortParam =
         sortToBS sortParam <> pageToBS page
 
 getNewsFilterByTagAllFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe TagAllFilterParam
     -> Maybe Page
@@ -200,10 +197,10 @@ getNewsFilterByTagAllFromDb pool (Just tagList) page sortParam = do
                         \join users using (user_id) join news_tags using (news_id) where tag_id in ? \
                         \group by news_id,author_name having count(*) > " <>
             countNum <> " " <> sortToBS sortParam <> pageToBS page
-    NewsArray <$> queryWithPoolNew pool q (Only (In tagIdsList))
+    NewsArray <$> queryWithPool pool q (Only (In tagIdsList))
 
 getNewsFilterByContentFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe ContentFilterParam
     -> Maybe Page
@@ -213,10 +210,7 @@ getNewsFilterByContentFromDb _ Nothing _ _ =
     throwError $ OtherError "No content parameter"
 getNewsFilterByContentFromDb pool (Just contentFilter) page sortParam = do
     NewsArray <$>
-        queryWithPoolNew
-            pool
-            q
-            [T.concat ["%", getContentFp contentFilter, "%"]]
+        queryWithPool pool q [T.concat ["%", getContentFp contentFilter, "%"]]
   where
     q =
         toQuery $
@@ -226,7 +220,7 @@ getNewsFilterByContentFromDb pool (Just contentFilter) page sortParam = do
         sortToBS sortParam <> pageToBS page
 
 getNewsFilterByAfterDateFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe AfterDateFilterParam
     -> Maybe Page
@@ -235,7 +229,7 @@ getNewsFilterByAfterDateFromDb ::
 getNewsFilterByAfterDateFromDb _ Nothing _ _ =
     throwError $ OtherError "No date parameter"
 getNewsFilterByAfterDateFromDb pool (Just date) page sortParam =
-    NewsArray <$> queryWithPoolNew pool q [date]
+    NewsArray <$> queryWithPool pool q [date]
   where
     q =
         toQuery $
@@ -245,7 +239,7 @@ getNewsFilterByAfterDateFromDb pool (Just date) page sortParam =
         sortToBS sortParam <> pageToBS page
 
 getNewsFilterByBeforeDateFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe BeforeDateFilterParam
     -> Maybe Page
@@ -254,7 +248,7 @@ getNewsFilterByBeforeDateFromDb ::
 getNewsFilterByBeforeDateFromDb _ Nothing _ _ =
     throwError $ OtherError "No date parameter"
 getNewsFilterByBeforeDateFromDb pool (Just date) page sortParam =
-    NewsArray <$> queryWithPoolNew pool q [date]
+    NewsArray <$> queryWithPool pool q [date]
   where
     q =
         toQuery $
@@ -264,7 +258,7 @@ getNewsFilterByBeforeDateFromDb pool (Just date) page sortParam =
         sortToBS sortParam <> pageToBS page
 
 getNewsFilterByTagIdFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe TagFilterParam
     -> Maybe Page
@@ -273,7 +267,7 @@ getNewsFilterByTagIdFromDb ::
 getNewsFilterByTagIdFromDb _ Nothing _ _ =
     throwError $ OtherError "No tag parameter"
 getNewsFilterByTagIdFromDb pool (Just tagId) page sortParam =
-    NewsArray <$> queryWithPoolNew pool q [tagId]
+    NewsArray <$> queryWithPool pool q [tagId]
   where
     q =
         toQuery $
@@ -283,12 +277,12 @@ getNewsFilterByTagIdFromDb pool (Just tagId) page sortParam =
         sortToBS sortParam <> pageToBS page
 
 getNewsFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Sort
     -> Maybe Page
     -> m NewsArray
-getNewsFromDb pool sortParam pageParam = NewsArray <$> query_WithPoolNew pool q
+getNewsFromDb pool sortParam pageParam = NewsArray <$> query_WithPool pool q
   where
     q =
         toQuery $
@@ -298,7 +292,7 @@ getNewsFromDb pool sortParam pageParam = NewsArray <$> query_WithPoolNew pool q
 
 -----------------------------------------------------------------------
 deleteCommentFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -309,7 +303,7 @@ deleteCommentFromDb _ _ _ Nothing =
 deleteCommentFromDb pool tokenLifeTime token (Just commentId) = do
     checkAdmin pool tokenLifeTime token
     n <-
-        executeWithPoolNew
+        executeWithPool
             pool
             "delete from users_comments where comment_id = ?"
             [commentId]
@@ -319,7 +313,7 @@ deleteCommentFromDb pool tokenLifeTime token (Just commentId) = do
 
 ------------------------------------------------------------------------------------
 getCommentsByNewsIdFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> Maybe Id
     -> Maybe Page
@@ -327,7 +321,7 @@ getCommentsByNewsIdFromDb ::
 getCommentsByNewsIdFromDb _ Nothing _ =
     throwError $ OtherError "No news parameter"
 getCommentsByNewsIdFromDb pool (Just newsId) page =
-    catchError (CommentArray <$> queryWithPoolNew pool q [newsId]) $ \e ->
+    catchError (CommentArray <$> queryWithPool pool q [newsId]) $ \e ->
         case someErrorToInt e of
             23503 -> throwError $ OtherError "News not exist"
             23502 -> throwError BadToken

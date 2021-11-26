@@ -114,7 +114,7 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chGetCategoriesListFromDb =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -122,7 +122,7 @@ categoriesTests =
                     return
                         (Left
                              (InternalServerError
-                                  "List of categories not sended. Database Error."))
+                                  "List of categories not sended. Database Error 0."))
 {-
                                 CREATE CATEGORIES TESTS
 -}
@@ -191,7 +191,8 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chCreateCategoryOnDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -199,7 +200,7 @@ categoriesTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Category not created. Database Error."))
+                                  "Category not created. Database Error 0."))
 {-
                                 DELETE CATEGORY TESTS
 -}
@@ -268,7 +269,8 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chDeleteCategoryFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -276,7 +278,7 @@ categoriesTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Category not deleted. Database Error."))
+                                  "Category not deleted. Database Error 0."))
 {-
                                 EDIT CATEGORY TESTS
 -}
@@ -343,7 +345,8 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chEditCategoryOnDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -351,4 +354,4 @@ categoriesTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Category not edited. Database Error."))
+                                  "Category not edited. Database Error 0."))

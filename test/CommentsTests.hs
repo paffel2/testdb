@@ -107,7 +107,8 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchGetCommentsByNewsIdFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -115,7 +116,7 @@ commentsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Commentaries not sended. Database Error."))
+                                  "Commentaries not sended. Database Error 0."))
 {-
                                 CREATE COMMENT TESTS
 -}
@@ -171,7 +172,7 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchAddCommentToDb =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -179,7 +180,7 @@ commentsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Commentary not added. Database Error."))
+                                  "Commentary not added. Database Error 0."))
 {-
                                 DELETE COMMENT TESTS
 -}
@@ -251,7 +252,8 @@ commentsTests =
                              { newsAndCommentsHandle =
                                    commentsHandler
                                        { nchDeleteCommentFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -259,4 +261,4 @@ commentsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Commentary not deleted. Database Error."))
+                                  "Commentary not deleted. Database Error 0."))

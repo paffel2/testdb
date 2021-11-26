@@ -4,15 +4,16 @@
 
 module Databaseoperations.CheckAdmin where
 
-import           Control.Monad.Except       (MonadError (throwError), MonadIO)
+import           Control.Monad.Except       (MonadError (throwError))
 import           Data.Pool                  (Pool)
 import           Database.PostgreSQL.Simple (Connection, Only (Only))
-import           PostgreSqlWithPool         (queryWithPoolNew)
-import           Types.Other                (SomeError (BadToken, NotAdmin, OtherError),
+import           PostgreSqlWithPool         (queryWithPool)
+import           Types.Other                (MonadIOWithError,
+                                             SomeError (BadToken, NotAdmin, OtherError),
                                              Token, TokenLifeTime)
 
 checkAdmin ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -21,7 +22,7 @@ checkAdmin _ _ Nothing = do
     throwError $ OtherError "No token parameter"
 checkAdmin pool tokenLifetime (Just token) = do
     rows <-
-        queryWithPoolNew
+        queryWithPool
             pool
             "select admin_mark from users join tokens using (user_id) where token = ? and ((current_timestamp - tokens.creation_date) < make_interval(secs => ?))"
             (token, tokenLifetime)

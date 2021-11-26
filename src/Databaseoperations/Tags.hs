@@ -5,24 +5,23 @@
 
 module Databaseoperations.Tags where
 
-import           Control.Monad.Except          (MonadError (..), MonadIO)
+import           Control.Monad.Except          (MonadError (catchError, throwError))
 import           Data.Pool                     (Pool)
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (pageToBS, toQuery)
-import           PostgreSqlWithPool            (executeWithPoolNew,
-                                                queryWithPoolNew,
-                                                query_WithPoolNew)
-import           Types.Other                   (Page,
-                                                SomeError (DatabaseError, OtherError),
-                                                Token, TokenLifeTime,
-                                                someErrorToInt)
+import           HelpFunction                  (pageToBS, someErrorToInt,
+                                                toQuery)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool)
+import           Types.Other                   (MonadIOWithError, Page,
+                                                SomeError (OtherError), Token,
+                                                TokenLifeTime)
 import           Types.Tags                    (EditTag (..), TagName,
                                                 TagsList (TagsList))
 
 -----------------------------------------------------------------------------------------------------
 createTagInDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -34,20 +33,20 @@ createTagInDb pool tokenLifeTime token (Just tagName) = do
     checkAdmin pool tokenLifeTime token
     rows <-
         catchError
-            (queryWithPoolNew
+            (queryWithPool
                  pool
                  "insert into tags (tag_name) values (?) returning tag_id"
                  [tagName]) $ \e ->
             case someErrorToInt e of
                 23505 -> throwError $ OtherError "Tag already exist"
-                _     -> throwError DatabaseError
+                _     -> throwError e
     if Prelude.null rows
         then throwError $ OtherError "Tag not created."
         else return $ fromOnly $ Prelude.head rows
 
 ----------------------------------------------------------------------------
 deleteTagFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -57,26 +56,23 @@ deleteTagFromDb _ _ _ Nothing = do
     throwError $ OtherError "Tag not deleted. No tag_name parameter"
 deleteTagFromDb pool tokenLifeTime token (Just tagName) = do
     checkAdmin pool tokenLifeTime token
-    n <- executeWithPoolNew pool "delete from tags where tag_name = ?" [tagName]
+    n <- executeWithPool pool "delete from tags where tag_name = ?" [tagName]
     if n > 0
         then return ()
         else throwError $ OtherError "Tag not deleted"
 
 -----------------------------------------------------------------------------
 getTagsListFromDb ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> Maybe Page
-    -> m TagsList
+       MonadIOWithError m => Pool Connection -> Maybe Page -> m TagsList
 getTagsListFromDb pool page = do
-    rows <- query_WithPoolNew pool q
+    rows <- query_WithPool pool q
     return $ TagsList rows
   where
     q = toQuery $ "select tag_name from tags order by tag_name" <> pageToBS page
 
 ---------------------------------------------------------------------------------
 editTagInDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -92,7 +88,7 @@ editTagInDb pool tokenLifetime token editTagParams =
     catchError
         (do checkAdmin pool tokenLifetime token
             n <-
-                executeWithPoolNew
+                executeWithPool
                     pool
                     "update tags set tag_name = ? where tag_name = ?"
                     editTagParams
@@ -101,4 +97,4 @@ editTagInDb pool tokenLifetime token editTagParams =
                 else throwError $ OtherError "Tag not exist") $ \e ->
         case someErrorToInt e of
             23505 -> throwError $ OtherError "Tag already exist"
-            _     -> throwError DatabaseError
+            _     -> throwError e

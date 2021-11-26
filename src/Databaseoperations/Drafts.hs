@@ -5,36 +5,35 @@
 
 module Databaseoperations.Drafts where
 
-import           Control.Monad.Except       (MonadError (..), MonadIO)
+import           Control.Monad.Except       (MonadError (catchError, throwError))
 import qualified Data.ByteString.Char8      as BC
 import           Data.Pool                  (Pool)
 import           Database.PostgreSQL.Simple (Connection, In (In),
                                              Only (Only, fromOnly))
-import           HelpFunction               (toQuery)
-import           PostgreSqlWithPool         (executeManyWithPoolNew,
-                                             executeWithPoolNew,
-                                             execute_WithPoolNew,
-                                             queryWithPoolNew)
+import           HelpFunction               (someErrorToInt, toQuery)
+import           PostgreSqlWithPool         (executeManyWithPool,
+                                             executeWithPool, execute_WithPool,
+                                             queryWithPool)
 import           Types.Drafts               (Draft, DraftArray (DraftArray),
                                              DraftInf (..),
                                              DraftTags (getDraftTags))
 import           Types.Images               (Image)
-import           Types.Other                (Id (getId), SendId,
+import           Types.Other                (Id (getId), MonadIOWithError,
+                                             SendId,
                                              SomeError (BadToken, OtherError),
-                                             Token, TokenLifeTime,
-                                             someErrorToInt)
+                                             Token, TokenLifeTime)
 import           Types.Users                (TokenProfile (TokenProfile))
 
 -----------------------------------------------------------------------------------------------------
 checkAuthor ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
     -> m SendId
 checkAuthor _ _ Nothing = throwError $ OtherError "No token parameter"
 checkAuthor pool tokenLifeTime (Just token) = do
-    rows <- queryWithPoolNew pool q [token]
+    rows <- queryWithPool pool q [token]
     if Prelude.null rows
         then do
             throwError BadToken
@@ -47,7 +46,7 @@ checkAuthor pool tokenLifeTime (Just token) = do
         BC.pack (show tokenLifeTime) <> ")"
 
 getDraftsByAuthorToken ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -55,7 +54,7 @@ getDraftsByAuthorToken ::
 getDraftsByAuthorToken _ _ Nothing = do
     throwError $ OtherError "No token parameter"
 getDraftsByAuthorToken pool tokenLifeTime (Just token) = do
-    rows <- queryWithPoolNew pool q (TokenProfile token tokenLifeTime)
+    rows <- queryWithPool pool q (TokenProfile token tokenLifeTime)
     if Prelude.null rows
         then throwError $ OtherError "You are not author or don't have drafts "
         else return $ DraftArray rows
@@ -67,7 +66,7 @@ getDraftsByAuthorToken pool tokenLifeTime (Just token) = do
              \where token = ? and (now() - tokens.creation_date) < make_interval(secs => ?) group by draft_id"
 
 getDraftByIdFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -77,7 +76,7 @@ getDraftByIdFromDb _ _ Nothing _ =
     throwError $ OtherError "Draft not sended. No token parameter"
 getDraftByIdFromDb pool tokenLifeTime token draftId = do
     chAuthor <- checkAuthor pool tokenLifeTime token
-    rows <- queryWithPoolNew pool q [chAuthor]
+    rows <- queryWithPool pool q [chAuthor]
     if Prelude.null rows
         then throwError $ OtherError "Wrong draft id or draft not exist"
         else return $ Prelude.head rows
@@ -95,7 +94,7 @@ getDraftByIdFromDb pool tokenLifeTime token draftId = do
         (BC.pack . show . getId $ draftId)
 
 deleteDraftFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -106,7 +105,7 @@ deleteDraftFromDb _ _ _ Nothing = do
 deleteDraftFromDb pool tokenLifeTime token (Just draftId) = do
     authorId <- checkAuthor pool tokenLifeTime token
     n <-
-        executeWithPoolNew
+        executeWithPool
             pool
             "delete from drafts where draft_id = ? and author_id = ?"
             (draftId, authorId)
@@ -115,7 +114,7 @@ deleteDraftFromDb pool tokenLifeTime token (Just draftId) = do
         else throwError $ OtherError "Draft not exist or bad draft_id parameter"
 
 publicNewsOnDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -138,7 +137,7 @@ publicNewsOnDb pool tokenLifeTime token draftId = do
                             \(select category_id from dus), \
                             \(select draft_text from dus), \
                             \(select main_image from dus)) returning news_id"
-        rows <- queryWithPoolNew pool q (authorId, draftId)
+        rows <- queryWithPool pool q (authorId, draftId)
         if Prelude.null rows
             then throwError $ OtherError "News not published"
             else return $ fromOnly $ Prelude.head rows
@@ -152,7 +151,7 @@ publicNewsOnDb pool tokenLifeTime token draftId = do
                 BC.pack (show newsId) <>
                 " as news_id, tag_id from tags_ids) " <>
                 "insert into news_tags (news_id, tag_id) select * from tag_n"
-        _ <- execute_WithPoolNew pool q
+        _ <- execute_WithPool pool q
         return newsId
     insertImages newsId = do
         let q =
@@ -164,11 +163,11 @@ publicNewsOnDb pool tokenLifeTime token draftId = do
                 BC.pack (show newsId) <>
                 " as news_id, image_id from images_ids) " <>
                 "insert into news_images (news_id, image_id) select * from image_n"
-        _ <- execute_WithPoolNew pool q
+        _ <- execute_WithPool pool q
         return newsId
 
 createDraftOnDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> DraftInf
@@ -192,7 +191,7 @@ createDraftOnDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
     loadImages l imagesList pool
 
 newDraft ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => TokenLifeTime
     -> Pool Connection
     -> DraftInf
@@ -208,7 +207,7 @@ newDraft tokenLifeTime pool draftUpd =
                     "insert into drafts (author_id,short_title,date_of_changes,category_id,draft_text) values ((select author_id from get_a)," <>
                     " ? ,now(),(select category_id from get_c)," <>
                     " ?) returning draft_id"
-            rows <- queryWithPoolNew pool q draftUpd
+            rows <- queryWithPool pool q draftUpd
             if Prelude.null rows
                 then throwError $ OtherError "Draft not created"
                 else return $ fromOnly $ Prelude.head rows) $ \e ->
@@ -216,43 +215,31 @@ newDraft tokenLifeTime pool draftUpd =
             23502 -> throwError BadToken
             _     -> throwError e
 
-getTagsIds ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> BC.ByteString
-    -> m [Int]
+getTagsIds :: MonadIOWithError m => Pool Connection -> BC.ByteString -> m [Int]
 getTagsIds pool tagsBs = do
     let n = Prelude.length $ BC.split ' ' tagsBs
     let l = BC.split ' ' tagsBs
     let q = toQuery $ BC.concat ["select tag_id from tags where tag_name in ?"]
-    rows <- queryWithPoolNew pool q (Only (In l))
+    rows <- queryWithPool pool q (Only (In l))
     if Prelude.length rows < n
         then throwError $ OtherError "Someone tags not exist"
         else do
             return $ fromOnly <$> rows
 
 createTagConnections ::
-       (MonadIO m, MonadError SomeError m)
-    => Int
-    -> Pool Connection
-    -> DraftTags
-    -> m Int
+       MonadIOWithError m => Int -> Pool Connection -> DraftTags -> m Int
 createTagConnections draftId pool tagsList = do
     tagIds <- getTagsIds pool (getDraftTags tagsList)
     let q = toQuery "insert into draft_tags (draft_id,tag_id) values (?,?)"
     let a = Prelude.map (draftId, ) tagIds
     let nt = Prelude.length tagIds
-    n <- executeManyWithPoolNew pool q a
+    n <- executeManyWithPool pool q a
     if fromIntegral n < nt
         then throwError $ OtherError "Some tags not added"
         else return draftId
 
 loadMainImage ::
-       (MonadIO m, MonadError SomeError m)
-    => Int
-    -> Maybe Image
-    -> Pool Connection
-    -> m Int
+       MonadIOWithError m => Int -> Maybe Image -> Pool Connection -> m Int
 loadMainImage draftId Nothing _ = return draftId
 loadMainImage draftId (Just image) pool = do
     let q =
@@ -260,18 +247,14 @@ loadMainImage draftId (Just image) pool = do
             "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) " <>
             "update drafts set main_image = (select * from m_id) where draft_id = " <>
             BC.pack (show draftId)
-    n <- executeWithPoolNew pool q image
+    n <- executeWithPool pool q image
     if n < 1
         then do
             throwError $ OtherError "Image not loaded"
         else return draftId
 
 loadImages ::
-       (MonadIO m, MonadError SomeError m)
-    => Int
-    -> Maybe [Image]
-    -> Pool Connection
-    -> m SendId
+       MonadIOWithError m => Int -> Maybe [Image] -> Pool Connection -> m SendId
 loadImages draftId Nothing _ = return draftId
 loadImages draftId (Just images) pool = do
     let q =
@@ -281,14 +264,14 @@ loadImages draftId (Just images) pool = do
             BC.pack (show draftId) <>
             " as draft_id, image_id from m_id) " <>
             "insert into drafts_images (draft_id,image_id) select * from d_i"
-    n <- executeManyWithPoolNew pool q images
+    n <- executeManyWithPool pool q images
     if fromIntegral n < Prelude.length images
         then throwError $ OtherError "Images not loaded"
         else return draftId
 
 --------------------------------------------------------------------------------------------------------------------------
 updateDraftInDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> DraftInf
@@ -326,7 +309,7 @@ updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
                 "update drafts set short_title = ?, date_of_changes = now(), category_id = (select * from get_c), " <>
                 "draft_text = ? where draft_id = " <>
                 BC.pack (show $ getId draftId)
-        n <- executeWithPoolNew pool q draftUpd
+        n <- executeWithPool pool q draftUpd
         if n < 1
             then do
                 throwError $ OtherError "Draft not updated"
@@ -336,7 +319,7 @@ updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
                 toQuery $
                 "delete from draft_tags where draft_id = " <>
                 BC.pack (show $ getId draftId)
-        n <- execute_WithPoolNew pool q
+        n <- execute_WithPool pool q
         if n < 1
             then throwError $ OtherError "Draft tags not updated"
             else return mess
@@ -348,7 +331,7 @@ updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
                 BC.pack (show $ getId draftId) <>
                 ") " <>
                 "delete from images where image_id = (select * from m_id)"
-        _ <- execute_WithPoolNew pool q
+        _ <- execute_WithPool pool q
         return mess
     deleteOldImages mess Nothing = return mess
     deleteOldImages mess (Just _) = do
@@ -356,5 +339,5 @@ updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
                 toQuery $
                 "delete from images where image_id in (select image_id from drafts_images where draft_id = " <>
                 BC.pack (show $ getId draftId) <> ")"
-        _ <- execute_WithPoolNew pool q
+        _ <- execute_WithPool pool q
         return mess

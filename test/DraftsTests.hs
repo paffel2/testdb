@@ -142,7 +142,7 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftsByAuthorToken =
-                                             \_ -> throwError DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -150,7 +150,7 @@ draftsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "List of drafts not sended. Database Error."))
+                                  "List of drafts not sended. Database Error 0."))
                 it "server should return error, because using bad token" $
                     routes
                         (operationsHandler
@@ -210,7 +210,8 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftByIdFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -218,7 +219,7 @@ draftsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not sended. Database Error."))
+                                  "Draft not sended. Database Error 0."))
                 it "server should return error, because using bad token" $
                     routes
                         (operationsHandler
@@ -286,7 +287,7 @@ draftsTests =
                                    draftsHandler
                                        { dhCreateDraftOnDb =
                                              \_ _ _ _ ->
-                                                 throwError DatabaseError
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -294,7 +295,7 @@ draftsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not created. Database Error."))
+                                  "Draft not created. Database Error 0."))
                 it "server should return error, because using bad image file" $
                     routes
                         (operationsHandler
@@ -368,7 +369,7 @@ draftsTests =
                                    draftsHandler
                                        { dhUpdateDraftInDb =
                                              \_ _ _ _ _ ->
-                                                 throwError DatabaseError
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -376,7 +377,7 @@ draftsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not updated. Database Error."))
+                                  "Draft not updated. Database Error 0."))
                 it "server should return error, because using bad image file" $
                     routes
                         (operationsHandler
@@ -454,7 +455,8 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhDeleteDraftFromDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -462,7 +464,7 @@ draftsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not deleted. Database Error."))
+                                  "Draft not deleted. Database Error 0."))
 {-
                                 PUBLIC NEWS TESTS
 -}
@@ -515,7 +517,8 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhPublicNewsOnDb =
-                                             \_ _ -> throwError DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
                         hLogger
@@ -523,4 +526,4 @@ draftsTests =
                     return
                         (Left
                              (InternalServerError
-                                  "News not created. Database Error."))
+                                  "News not created. Database Error 0."))

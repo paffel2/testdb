@@ -113,11 +113,6 @@ toResponseErrorMessage' hLogger prefix BadMethod = do
         MethodNotAllowed $
         LBS.concat
             [LBS.fromStrict $ E.encodeUtf8 prefix, " Bad method request."]
-toResponseErrorMessage' hLogger prefix DatabaseError = do
-    logError hLogger $ prefix <> " Database Error."
-    return $
-        InternalServerError $
-        LBS.concat [LBS.fromStrict $ E.encodeUtf8 prefix, " Database Error."]
 toResponseErrorMessage' hLogger prefix (OtherError message) = do
     logError hLogger $ prefix <> T.pack message
     return $
@@ -127,12 +122,13 @@ toResponseErrorMessage' hLogger prefix (OtherError message) = do
             , " "
             , LBS.fromStrict $ BC.pack message
             ]
-toResponseErrorMessage' hLogger prefix (DatabaseErrorNew code) = do
+toResponseErrorMessage' hLogger prefix (DatabaseError code) = do
     logError hLogger $ prefix <> T.pack (show code)
     return $
         InternalServerError $
         LBS.concat
             [ LBS.fromStrict $ E.encodeUtf8 prefix
-            , " DatabaseError "
+            , " Database Error "
             , LBS.fromStrict $ BC.pack (show code)
+            , "."
             ]

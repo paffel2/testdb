@@ -4,7 +4,7 @@
 module Answers.Images where
 
 import           Answer                    (AnswerHandle (..))
-import           Control.Monad.Except      (MonadError (throwError), MonadIO)
+import           Control.Monad.Except      (MonadError (throwError))
 import qualified Data.ByteString.Char8     as BC
 import           FromRequest               (toPage)
 import           HelpFunction              (readByteStringToId)
@@ -12,29 +12,23 @@ import           Network.HTTP.Types.Method (methodGet)
 import           Network.Wai               (Request (rawPathInfo, requestMethod))
 import           OperationsHandle          (ImagesHandle (ihGetPhoto, ihGetPhotoList))
 import           Types.Images              (ImageArray, ImageB)
-import           Types.Other               (Id, Page,
+import           Types.Other               (Id, MonadIOWithError, Page,
                                             SomeError (BadMethod, OtherError))
 
 -------------------------------------------------------------------------------------------------
 imagesListParseInformation ::
-       (MonadIO m, MonadError SomeError m)
-    => ImagesHandle m
-    -> Request
-    -> m (Maybe Page)
+       MonadIOWithError m => ImagesHandle m -> Request -> m (Maybe Page)
 imagesListParseInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
         else return $ toPage request
 
 imagesListDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
-    => ImagesHandle m
-    -> Maybe Page
-    -> m ImageArray
+       MonadIOWithError m => ImagesHandle m -> Maybe Page -> m ImageArray
 imagesListDatabaseOperation = ihGetPhotoList
 
 getImagesListHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => ImagesHandle m
     -> AnswerHandle m (Maybe Page) ImageArray
 getImagesListHandle imagesHandle =
@@ -45,7 +39,7 @@ getImagesListHandle imagesHandle =
 
 -----------------------------------------------------------------------------------------
 getImageParseInformation ::
-       (MonadIO m, MonadError SomeError m) => ImagesHandle m -> Request -> m Id
+       MonadIOWithError m => ImagesHandle m -> Request -> m Id
 getImageParseInformation _ request = do
     if requestMethod request /= methodGet
         then throwError BadMethod
@@ -57,13 +51,11 @@ getImageParseInformation _ request = do
     pathElems = BC.split '/' path
 
 getImageDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m) => ImagesHandle m -> Id -> m ImageB
+       MonadIOWithError m => ImagesHandle m -> Id -> m ImageB
 getImageDatabaseOperation = ihGetPhoto
 
 getImageHandle ::
-       (MonadIO m, MonadError SomeError m)
-    => ImagesHandle m
-    -> AnswerHandle m Id ImageB
+       MonadIOWithError m => ImagesHandle m -> AnswerHandle m Id ImageB
 getImageHandle imagesHandle =
     AnswerHandle
         { parseInformation = getImageParseInformation imagesHandle

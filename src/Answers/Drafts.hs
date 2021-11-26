@@ -4,7 +4,7 @@
 module Answers.Drafts where
 
 import           Answer                    (AnswerHandle (..))
-import           Control.Monad.Except      (MonadError (throwError), MonadIO)
+import           Control.Monad.Except      (MonadError (throwError))
 import qualified Data.ByteString.Char8     as BC
 import           Data.Maybe                (fromJust, isNothing)
 import           FromRequest               (checkNotImageMaybe, checkNotImages,
@@ -20,30 +20,24 @@ import           OperationsHandle          (DraftsHandle (dhCreateDraftOnDb, dhD
 import           Types.Drafts              (Draft, DraftArray, DraftInf,
                                             DraftTags)
 import           Types.Images              (Image)
-import           Types.Other               (Id, SendId,
+import           Types.Other               (Id, MonadIOWithError, SendId,
                                             SomeError (BadMethod, OtherError),
                                             Token)
 
 --------------------------------------------------------------------------------------------------------------------
 getDraftsParseInformation ::
-       (MonadIO m, MonadError SomeError m)
-    => DraftsHandle m
-    -> Request
-    -> m (Maybe Token)
+       MonadIOWithError m => DraftsHandle m -> Request -> m (Maybe Token)
 getDraftsParseInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
         else return $ takeToken request
 
 getDraftsDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
-    => DraftsHandle m
-    -> Maybe Token
-    -> m DraftArray
+       MonadIOWithError m => DraftsHandle m -> Maybe Token -> m DraftArray
 getDraftsDatabaseOperation = dhGetDraftsByAuthorToken
 
 getDraftsHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> AnswerHandle m (Maybe Token) DraftArray
 getDraftsHandle draftHandle =
@@ -54,10 +48,7 @@ getDraftsHandle draftHandle =
 
 --------------------------------------------------------------------------------------------------------------------
 getDraftByIdInformation ::
-       (MonadIO m, MonadError SomeError m)
-    => DraftsHandle m
-    -> Request
-    -> m (Maybe Token, Id)
+       MonadIOWithError m => DraftsHandle m -> Request -> m (Maybe Token, Id)
 getDraftByIdInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
@@ -70,15 +61,12 @@ getDraftByIdInformation _ request =
     pathElems = BC.split '/' path
 
 getDraftByIdDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
-    => DraftsHandle m
-    -> (Maybe Token, Id)
-    -> m Draft
+       MonadIOWithError m => DraftsHandle m -> (Maybe Token, Id) -> m Draft
 getDraftByIdDatabaseOperation draftHandle (token, draftId) =
     dhGetDraftByIdFromDb draftHandle token draftId
 
 getDraftByIdHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> AnswerHandle m (Maybe Token, Id) Draft
 getDraftByIdHandle draftHandle =
@@ -89,7 +77,7 @@ getDraftByIdHandle draftHandle =
 
 --------------------------------------------------------------------------------------------------------------------
 deleteDraftInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> Request
     -> m (Maybe Token, Maybe Id)
@@ -102,15 +90,12 @@ deleteDraftInformation _ request =
             return (token, draftId)
 
 deleteDraftDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
-    => DraftsHandle m
-    -> (Maybe Token, Maybe Id)
-    -> m ()
+       MonadIOWithError m => DraftsHandle m -> (Maybe Token, Maybe Id) -> m ()
 deleteDraftDatabaseOperation draftHandle (token, draftId) =
     dhDeleteDraftFromDb draftHandle token draftId
 
 deleteDraftHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> AnswerHandle m (Maybe Token, Maybe Id) ()
 deleteDraftHandle draftHandle =
@@ -121,33 +106,35 @@ deleteDraftHandle draftHandle =
 
 --------------------------------------------------------------------------------------------------------------------
 postNewsParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> Request
-    -> m (Maybe Token, Id)
+    -> m (Maybe Token, Maybe Id)
 postNewsParseInformation _ request =
     if requestMethod request /= methodPut
         then throwError BadMethod
         else do
             let token = takeToken request
-            let draftId = fromJust $ readByteStringToId $ last pathElems
+            let draftId = readByteStringToId $ last $ init pathElems
             return (token, draftId)
   where
     path = BC.tail $ rawPathInfo request
     pathElems = BC.split '/' path
 
 postNewsDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
-    -> (Maybe Token, Id)
+    -> (Maybe Token, Maybe Id)
     -> m SendId
-postNewsDatabaseOperation draftHandle (token, draftId) =
+postNewsDatabaseOperation draftHandle (token, Just draftId) =
     dhPublicNewsOnDb draftHandle token draftId
+postNewsDatabaseOperation _ (_, Nothing) =
+    throwError $ OtherError "Bad draft id."
 
 postNewsHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
-    -> AnswerHandle m (Maybe Token, Id) SendId
+    -> AnswerHandle m (Maybe Token, Maybe Id) SendId
 postNewsHandle draftHandle =
     AnswerHandle
         { parseInformation = postNewsParseInformation draftHandle
@@ -156,7 +143,7 @@ postNewsHandle draftHandle =
 
 --------------------------------------------------------------------------------------------------------------------
 createDraftParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> Request
     -> m (DraftInf, Maybe DraftTags, Maybe Image, Maybe [Image])
@@ -182,7 +169,7 @@ createDraftParseInformation handler request =
                 else return (draftInf, listOfTags, mainImage, imagesList)
 
 createDraftDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> (DraftInf, Maybe DraftTags, Maybe Image, Maybe [Image])
     -> m SendId
@@ -190,7 +177,7 @@ createDraftDatabaseOperation draftHandle (draftInfUpdate, listOfTags, mainImage,
     dhCreateDraftOnDb draftHandle draftInfUpdate listOfTags mainImage imagesList
 
 createDraftHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> AnswerHandle m (DraftInf, Maybe DraftTags, Maybe Image, Maybe [Image]) SendId
 createDraftHandle draftHandle =
@@ -201,7 +188,7 @@ createDraftHandle draftHandle =
 
 --------------------------------------------------------------------------------------------
 updateDraftParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> Request
     -> m (DraftInf, Maybe DraftTags, Maybe Image, Maybe [Image], Id)
@@ -214,7 +201,7 @@ updateDraftParseInformation handler request =
             let listOfTags = toDraftTags i
             let mainImageInfo = foundParametr "main_image" f
             let imagesInfo = foundParametr "images" f
-            let draftId = fromJust $ readByteStringToId $ last pathElems
+            let draftId = fromJust $ readByteStringToId $ last $ init pathElems
             let mainImage =
                     if isNothing $ fileContent <$> saveHead mainImageInfo
                         then Nothing
@@ -236,7 +223,7 @@ updateDraftParseInformation handler request =
     pathElems = BC.split '/' path
 
 updateDraftDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> (DraftInf, Maybe DraftTags, Maybe Image, Maybe [Image], Id)
     -> m ()
@@ -250,7 +237,7 @@ updateDraftDatabaseOperation draftHandle (draftInfUpdate, listOfTags, mainImage,
         draftId
 
 updateDraftHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => DraftsHandle m
     -> AnswerHandle m ( DraftInf
                       , Maybe DraftTags

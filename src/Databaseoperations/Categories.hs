@@ -4,32 +4,29 @@
 
 module Databaseoperations.Categories where
 
-import           Control.Monad.Except          (MonadError (..), MonadIO)
+import           Control.Monad.Except          (MonadError (catchError, throwError))
 import           Data.Pool                     (Pool)
 import qualified Data.Text                     as T
 import           Database.PostgreSQL.Simple    (Connection, Only (fromOnly))
 import           Databaseoperations.CheckAdmin (checkAdmin)
-import           HelpFunction                  (numOnlyHead, pageToBS, toQuery)
-import           PostgreSqlWithPool            (executeWithPoolNew,
-                                                queryWithPoolNew,
-                                                query_WithPoolNew,
-                                                returningWithPoolNew)
+import           HelpFunction                  (numOnlyHead, pageToBS,
+                                                someErrorToInt, toQuery)
+import           PostgreSqlWithPool            (executeWithPool, queryWithPool,
+                                                query_WithPool,
+                                                returningWithPool)
 import           Types.Categories              (CategoryName (..),
                                                 CreateCategory (..),
                                                 EditCategory (EditCategory, editCategoryName),
                                                 ListOfCategories (ListOfCategories))
-import           Types.Other                   (Page, SendId,
+import           Types.Other                   (MonadIOWithError, Page, SendId,
                                                 SomeError (OtherError), Token,
-                                                TokenLifeTime, someErrorToInt)
+                                                TokenLifeTime)
 
 -----------------------------------------------------------------------------------------
 getCategoriesListFromDb ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> Maybe Page
-    -> m ListOfCategories
+       MonadIOWithError m => Pool Connection -> Maybe Page -> m ListOfCategories
 getCategoriesListFromDb pool pageParam = do
-    rows <- query_WithPoolNew pool q
+    rows <- query_WithPool pool q
     return (ListOfCategories rows)
   where
     q =
@@ -39,7 +36,7 @@ getCategoriesListFromDb pool pageParam = do
 
 ----------------------------------------------------------------------------------------
 createCategoryOnDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -66,25 +63,22 @@ createCategoryOnDb pool tokenLifeTime token (CreateCategory (Just categoryName) 
     checkMaternal = "select category_id from categories where category_name = ?"
     createWithoutMaternal = do
         rows <-
-            returningWithPoolNew
-                pool
-                q
-                [(categoryName, Nothing :: Maybe T.Text)]
+            returningWithPool pool q [(categoryName, Nothing :: Maybe T.Text)]
         return (fromOnly $ Prelude.head rows)
     createWithMaternal = do
-        catId <- queryWithPoolNew pool checkMaternal [maternalName]
+        catId <- queryWithPool pool checkMaternal [maternalName]
         if Prelude.null (catId :: [Only SendId])
             then throwError $ OtherError "Maternal category not exist"
             else do
                 rows <-
-                    returningWithPoolNew
+                    returningWithPool
                         pool
                         q
                         [(categoryName, fromOnly $ Prelude.head catId)]
                 return (fromOnly $ Prelude.head rows)
 
 deleteCategoryFromDb ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -95,7 +89,7 @@ deleteCategoryFromDb _ _ _ Nothing = do
 deleteCategoryFromDb pool tokenLifeTime token (Just categoryName) = do
     checkAdmin pool tokenLifeTime token
     n <-
-        executeWithPoolNew
+        executeWithPool
             pool
             "delete from categories where category_name = ?"
             [categoryName]
@@ -104,7 +98,7 @@ deleteCategoryFromDb pool tokenLifeTime token (Just categoryName) = do
         else throwError $ OtherError "Category not exist"
 
 editCategory ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token
@@ -117,7 +111,7 @@ editCategory _ _ _ (EditCategory (Just (CategoryName "")) (Just _) (Just _)) =
 editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just newName) (Just (CategoryName ""))) = do
     checkAdmin pool tokenLifeTime token
     n <-
-        executeWithPoolNew
+        executeWithPool
             pool
             "update categories set category_name = ? where category_name = ?"
             (newName, oldName)
@@ -127,12 +121,12 @@ editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just newName
 editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just (CategoryName "")) (Just newMaternal)) = do
     checkAdmin pool tokenLifeTime token
     maternalId <-
-        queryWithPoolNew
+        queryWithPool
             pool
             "select category_id from categories where category_name = ?"
             [newMaternal]
     n <-
-        executeWithPoolNew
+        executeWithPool
             pool
             "update categories set maternal_category = ? where category_name = ?"
             (fromOnly $ numOnlyHead (maternalId :: [Only Int]), oldName)
@@ -142,12 +136,12 @@ editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just (Catego
 editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just newName) (Just newMaternal)) = do
     checkAdmin pool tokenLifeTime token
     maternalId <-
-        queryWithPoolNew
+        queryWithPool
             pool
             "select category_id from categories where category_name = ?"
             [newMaternal]
     n <-
-        executeWithPoolNew
+        executeWithPool
             pool
             "update categories set category_name = ?, maternal_category = ? where category_name = ?"
             ( newName
@@ -159,7 +153,7 @@ editCategory pool tokenLifeTime token (EditCategory (Just oldName) (Just newName
 editCategory _ _ _ _ = throwError $ OtherError "No update parameters"
 
 editCategoryOnDb ::
-       (MonadError SomeError m, MonadIO m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> Maybe Token

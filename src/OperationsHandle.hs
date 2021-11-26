@@ -2,7 +2,7 @@
 
 module OperationsHandle where
 
-import           Control.Monad.Except               (MonadError, MonadIO (..))
+import           Control.Monad.Except               (MonadIO (liftIO))
 import qualified Data.ByteString.Lazy               as LBS
 import           Data.Pool                          (Pool)
 import           Database.PostgreSQL.Simple         (Connection)
@@ -70,8 +70,8 @@ import           Types.NewsAndComments              (AfterDateFilterParam,
                                                      TagFilterParam,
                                                      TagInFilterParam,
                                                      TitleFilterParam)
-import           Types.Other                        (Id, Page, SendId,
-                                                     SomeError, Token,
+import           Types.Other                        (Id, MonadIOWithError, Page,
+                                                     SendId, Token,
                                                      TokenLifeTime)
 import           Types.Tags                         (EditTag, TagName, TagsList)
 import           Types.Users                        (CreateUser, Login,
@@ -87,10 +87,7 @@ data AuthorsHandle m =
         }
 
 authorsHandler ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> TokenLifeTime
-    -> AuthorsHandle m
+       MonadIOWithError m => Pool Connection -> TokenLifeTime -> AuthorsHandle m
 authorsHandler pool tokenLifeTime =
     AuthorsHandle
         { ahGetAuthorsList = getAuthorsList pool
@@ -110,7 +107,7 @@ data CategoriesHandle m =
         }
 
 categoriesHandler ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> CategoriesHandle m
@@ -135,10 +132,7 @@ data DraftsHandle m =
         }
 
 draftsHandler ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> TokenLifeTime
-    -> DraftsHandle m
+       MonadIOWithError m => Pool Connection -> TokenLifeTime -> DraftsHandle m
 draftsHandler pool tokenLifeTime =
     DraftsHandle
         { dhGetDraftsByAuthorToken = getDraftsByAuthorToken pool tokenLifeTime
@@ -156,8 +150,7 @@ data ImagesHandle m =
         , ihGetPhotoList :: Maybe Page -> m ImageArray
         }
 
-imagesHandler ::
-       (MonadIO m, MonadError SomeError m) => Pool Connection -> ImagesHandle m
+imagesHandler :: MonadIOWithError m => Pool Connection -> ImagesHandle m
 imagesHandler pool =
     ImagesHandle
         { ihGetPhoto = getPhotoFromDb pool
@@ -185,7 +178,7 @@ data NewsAndCommentsHandle m =
         }
 
 newsAndCommentsHandler ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> NewsAndCommentsHandle m
@@ -223,10 +216,7 @@ data TagsHandle m =
         }
 
 tagsHandler ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> TokenLifeTime
-    -> TagsHandle m
+       MonadIOWithError m => Pool Connection -> TokenLifeTime -> TagsHandle m
 tagsHandler pool tokenLifeTime =
     TagsHandle
         { thCreateTagInDb = createTagInDb pool tokenLifeTime
@@ -246,10 +236,7 @@ data UsersHandle m =
         }
 
 usersHandler ::
-       (MonadIO m, MonadError SomeError m)
-    => Pool Connection
-    -> TokenLifeTime
-    -> UsersHandle m
+       MonadIOWithError m => Pool Connection -> TokenLifeTime -> UsersHandle m
 usersHandler pool tokenLifeTime =
     UsersHandle
         { uhAuth = authentication pool
@@ -271,7 +258,7 @@ data OperationsHandle m =
         }
 
 operationsHandler ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => Pool Connection
     -> TokenLifeTime
     -> OperationsHandle m

@@ -4,7 +4,7 @@
 module Answers.Authors where
 
 import           Answer                    (AnswerHandle (..))
-import           Control.Monad.Except      (MonadError (throwError), MonadIO)
+import           Control.Monad.Except      (MonadError (throwError))
 import           FromRequest               (takeToken, toAuthorLogin,
                                             toCreateAuthor, toEditAuthor,
                                             toPage)
@@ -14,29 +14,23 @@ import           Network.Wai               (Request (requestMethod))
 import           OperationsHandle          (AuthorsHandle (ahCreateAuthorInDb, ahDeleteAuthorInDb, ahEditAuthorInDb, ahGetAuthorsList, ahParseRequestBody))
 import           Types.Authors             (AuthorLogin, AuthorsList,
                                             CreateAuthor, EditAuthor)
-import           Types.Other               (Page, SendId, SomeError (BadMethod),
-                                            Token)
+import           Types.Other               (MonadIOWithError, Page, SendId,
+                                            SomeError (BadMethod), Token)
 
 -----------------------------------------------------------------------------------------------------------------------
 authorsListParseInformation ::
-       (MonadIO m, MonadError SomeError m)
-    => AuthorsHandle m
-    -> Request
-    -> m (Maybe Page)
+       MonadIOWithError m => AuthorsHandle m -> Request -> m (Maybe Page)
 authorsListParseInformation _ request =
     if requestMethod request /= methodGet
         then throwError BadMethod
         else return (toPage request)
 
 authorsListDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
-    => AuthorsHandle m
-    -> Maybe Page
-    -> m AuthorsList
+       MonadIOWithError m => AuthorsHandle m -> Maybe Page -> m AuthorsList
 authorsListDatabaseOperation = ahGetAuthorsList
 
 authorsListHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> AnswerHandle m (Maybe Page) AuthorsList
 authorsListHandle authorHandle =
@@ -47,7 +41,7 @@ authorsListHandle authorHandle =
 
 -----------------------------------------------------------------------------------------------------------------
 updateAuthorParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> Request
     -> m (Maybe Token, EditAuthor)
@@ -61,7 +55,7 @@ updateAuthorParseInformation handler request =
             return (token, editInfo)
 
 updateAuthorDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> (Maybe Token, EditAuthor)
     -> m ()
@@ -69,7 +63,7 @@ updateAuthorDatabaseOperation authorHandle (token, editInfo) =
     ahEditAuthorInDb authorHandle token editInfo
 
 updateAuthorHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> AnswerHandle m (Maybe Token, EditAuthor) ()
 updateAuthorHandle authorHandle =
@@ -80,7 +74,7 @@ updateAuthorHandle authorHandle =
 
 ----------------------------------------------------------------------------------------------------
 deleteAuthorParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> Request
     -> m (Maybe Token, Maybe AuthorLogin)
@@ -94,7 +88,7 @@ deleteAuthorParseInformation handler request =
             return (token, authorLogin)
 
 deleteAuthorDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> (Maybe Token, Maybe AuthorLogin)
     -> m ()
@@ -102,7 +96,7 @@ deleteAuthorDatabaseOperation authorHandle (token, authorLogin) =
     ahDeleteAuthorInDb authorHandle token authorLogin
 
 deleteAuthorHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> AnswerHandle m (Maybe Token, Maybe AuthorLogin) ()
 deleteAuthorHandle authorHandle =
@@ -113,7 +107,7 @@ deleteAuthorHandle authorHandle =
 
 --------------------------------------------------------------------------------
 createAuthorParseInformation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> Request
     -> m (Maybe Token, CreateAuthor)
@@ -127,7 +121,7 @@ createAuthorParseInformation handler request =
             return (token, createAuthorParams)
 
 createAuthorDatabaseOperation ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> (Maybe Token, CreateAuthor)
     -> m SendId
@@ -135,7 +129,7 @@ createAuthorDatabaseOperation authorHandle (token, craeteInfo) =
     ahCreateAuthorInDb authorHandle token craeteInfo
 
 createAuthorHandle ::
-       (MonadIO m, MonadError SomeError m)
+       MonadIOWithError m
     => AuthorsHandle m
     -> AnswerHandle m (Maybe Token, CreateAuthor) SendId
 createAuthorHandle authorHandle =
