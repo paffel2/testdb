@@ -64,7 +64,7 @@ usersTests =
             describe "testing uhAuth" $ do
                 it "server should return error because something happend" $
                     routes operationsHandler hLogger tstLoginReq `shouldBe`
-                    return (Left $ BadRequest "Bad authorization. ErrorMessage")
+                    return (Left $ BadRequest "User not logged. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
@@ -73,8 +73,7 @@ usersTests =
                         (tstLoginReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
-                         MethodNotAllowed
-                             "Bad authorization. Bad method request.")
+                         MethodNotAllowed "User not logged. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
@@ -107,7 +106,7 @@ usersTests =
                     return
                         (Left
                              (InternalServerError
-                                  "Bad authorization. Database Error 0."))
+                                  "User not logged. Database Error 0."))
 {-
                                 REGISTRATION TESTS
 -}
