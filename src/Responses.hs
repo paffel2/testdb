@@ -78,42 +78,29 @@ toResponse (Right (OkMessage message)) = responseOk message
 toResponse (Right (OkImage image)) =
     responseOKImage (conType image) (fromBinary $ imageB image)
 
-{-toResponseErrorMessage :: LBS.ByteString -> SomeError -> ResponseErrorMessage
-toResponseErrorMessage prefix BadToken =
-    Forbidden $ LBS.concat [prefix, " Bad Token."]
-toResponseErrorMessage prefix NotAdmin =
-    Forbidden $ LBS.concat [prefix, " Not Admin."]
-toResponseErrorMessage prefix BadMethod =
-    MethodNotAllowed $ LBS.concat [prefix, " Bad method request."]
-toResponseErrorMessage prefix DatabaseError =
-    InternalServerError $ LBS.concat [prefix, " Database Error."]
-toResponseErrorMessage prefix (OtherError message) =
-    BadRequest $ LBS.concat [prefix, " ", lbsMessage]
-  where
-    lbsMessage = LBS.fromStrict $ BC.pack message -}
-toResponseErrorMessage' ::
+toResponseErrorMessage ::
        Monad m
     => LoggerHandle m
     -> T.Text
     -> SomeError
     -> m ResponseErrorMessage
-toResponseErrorMessage' hLogger prefix BadToken = do
+toResponseErrorMessage hLogger prefix BadToken = do
     logError hLogger $ prefix <> " Bad Token."
     return $
         Forbidden $
         LBS.concat [LBS.fromStrict $ E.encodeUtf8 prefix, " Bad Token."]
-toResponseErrorMessage' hLogger prefix NotAdmin = do
+toResponseErrorMessage hLogger prefix NotAdmin = do
     logError hLogger $ prefix <> " Not Admin."
     return $
         Forbidden $
         LBS.concat [LBS.fromStrict $ E.encodeUtf8 prefix, " Not Admin."]
-toResponseErrorMessage' hLogger prefix BadMethod = do
+toResponseErrorMessage hLogger prefix BadMethod = do
     logError hLogger $ prefix <> " Bad method request."
     return $
         MethodNotAllowed $
         LBS.concat
             [LBS.fromStrict $ E.encodeUtf8 prefix, " Bad method request."]
-toResponseErrorMessage' hLogger prefix (OtherError message) = do
+toResponseErrorMessage hLogger prefix (OtherError message) = do
     logError hLogger $ prefix <> T.pack message
     return $
         BadRequest $
@@ -122,7 +109,7 @@ toResponseErrorMessage' hLogger prefix (OtherError message) = do
             , " "
             , LBS.fromStrict $ BC.pack message
             ]
-toResponseErrorMessage' hLogger prefix (DatabaseError code) = do
+toResponseErrorMessage hLogger prefix (DatabaseError code) = do
     logError hLogger $ prefix <> T.pack (show code)
     return $
         InternalServerError $
