@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 
@@ -120,11 +119,9 @@ publicNewsOnDb ::
     -> Maybe Token
     -> Id
     -> m SendId
-publicNewsOnDb pool tokenLifeTime token draftId = do
-    authorId <- checkAuthor pool tokenLifeTime token
-    n <- insertNews authorId
-    t <- insertTags n
-    insertImages t
+publicNewsOnDb pool tokenLifeTime token draftId =
+    checkAuthor pool tokenLifeTime token >>= insertNews >>= insertTags >>=
+    insertImages
   where
     insertNews authorId = do
         let q =
@@ -186,9 +183,8 @@ createDraftOnDb _ _ DraftInf {draftInfText = Nothing} _ _ _ =
     throwError $ OtherError "No text field"
 createDraftOnDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tagsList) mainImage imagesList = do
     draftId <- newDraft tokenLifeTime pool draftUpd
-    c <- createTagConnections draftId pool tagsList
-    l <- loadMainImage c mainImage pool
-    loadImages l imagesList pool
+    createTagConnections pool tagsList draftId >>= loadMainImage mainImage pool >>=
+        loadImages imagesList pool
 
 newDraft ::
        MonadIOWithError m
@@ -227,8 +223,8 @@ getTagsIds pool tagsBs = do
             return $ fromOnly <$> rows
 
 createTagConnections ::
-       MonadIOWithError m => Int -> Pool Connection -> DraftTags -> m Int
-createTagConnections draftId pool tagsList = do
+       MonadIOWithError m => Pool Connection -> DraftTags -> Int -> m Int
+createTagConnections pool tagsList draftId = do
     tagIds <- getTagsIds pool (getDraftTags tagsList)
     let q = toQuery "insert into draft_tags (draft_id,tag_id) values (?,?)"
     let a = Prelude.map (draftId, ) tagIds
@@ -239,9 +235,9 @@ createTagConnections draftId pool tagsList = do
         else return draftId
 
 loadMainImage ::
-       MonadIOWithError m => Int -> Maybe Image -> Pool Connection -> m Int
-loadMainImage draftId Nothing _ = return draftId
-loadMainImage draftId (Just image) pool = do
+       MonadIOWithError m => Maybe Image -> Pool Connection -> Int -> m Int
+loadMainImage Nothing _ draftId = return draftId
+loadMainImage (Just image) pool draftId = do
     let q =
             toQuery $
             "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id) " <>
@@ -254,9 +250,9 @@ loadMainImage draftId (Just image) pool = do
         else return draftId
 
 loadImages ::
-       MonadIOWithError m => Int -> Maybe [Image] -> Pool Connection -> m SendId
-loadImages draftId Nothing _ = return draftId
-loadImages draftId (Just images) pool = do
+       MonadIOWithError m => Maybe [Image] -> Pool Connection -> Int -> m SendId
+loadImages Nothing _ draftId = return draftId
+loadImages (Just images) pool draftId = do
     let q =
             toQuery $
             "with m_id as (insert into images (image_name,content_type, image_b) values (?,?,?) returning image_id), " <>
@@ -290,13 +286,13 @@ updateDraftInDb _ _ DraftInf {draftInfTitle = Nothing} _ _ _ _ =
 updateDraftInDb _ _ DraftInf {draftInfText = Nothing} _ _ _ _ =
     throwError $ OtherError "No text field"
 updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tagsList) mainImage imagesList draftId = do
-    u <- updateDraft
-    dt <- deleteTagConnections u
-    ct <- createTagConnections dt pool tagsList
-    dmi <- deleteMainImage ct mainImage
-    l <- loadMainImage dmi mainImage pool
-    di <- deleteOldImages l imagesList
-    _ <- loadImages di imagesList pool
+    _ <-
+        updateDraft >>= deleteTagConnections >>=
+        createTagConnections pool tagsList >>=
+        deleteMainImage mainImage >>=
+        loadMainImage mainImage pool >>=
+        deleteOldImages imagesList >>=
+        loadImages imagesList pool
     return ()
   where
     updateDraft = do
@@ -323,8 +319,8 @@ updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
         if n < 1
             then throwError $ OtherError "Draft tags not updated"
             else return mess
-    deleteMainImage mess Nothing = return mess
-    deleteMainImage mess (Just _) = do
+    deleteMainImage Nothing mess = return mess
+    deleteMainImage (Just _) mess = do
         let q =
                 toQuery $
                 "with m_id as (select main_image from drafts where draft_id = " <>
@@ -333,8 +329,8 @@ updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _)
                 "delete from images where image_id = (select * from m_id)"
         _ <- execute_WithPool pool q
         return mess
-    deleteOldImages mess Nothing = return mess
-    deleteOldImages mess (Just _) = do
+    deleteOldImages Nothing mess = return mess
+    deleteOldImages (Just _) mess = do
         let q =
                 toQuery $
                 "delete from images where image_id in (select image_id from drafts_images where draft_id = " <>
