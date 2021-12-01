@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}

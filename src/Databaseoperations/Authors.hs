@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Databaseoperations.Authors where
@@ -101,6 +100,7 @@ createAuthorInDb pool tokenLifetime token createAuthorParams =
                 else return $ fromOnly $ Prelude.head rows) $ \e ->
         case someErrorToInt e of
             23505 -> throwError $ OtherError "Author already exist."
+            23502 -> throwError $ OtherError "User with that login not exist."
             _     -> throwError e
   where
     q =
