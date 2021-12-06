@@ -3,19 +3,22 @@
 module HelpFunction where
 
 import           Config                           (DatabaseConf (db_host, db_login, db_name, db_password, db_port))
+import           Control.Monad.Except
 import qualified Data.ByteString.Char8            as BC
-import           Data.List                        (sort)
+import           Data.List
 import           Data.Maybe                       (isNothing)
 import           Data.String                      (IsString (fromString))
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
 import           Data.Time.Calendar               (Day)
 import           Database.PostgreSQL.Simple.Types (Only (..), Query)
+import           Logger
 import           Network.Wai.Parse                (FileInfo)
+import           Responses
 import           System.Directory                 (getDirectoryContents)
 import           Text.Read                        (readMaybe)
 import           Types.NewsAndComments            (Sort (getSort))
-import           Types.Other                      (Id (Id), Page (..))
+import           Types.Other
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing
@@ -111,3 +114,25 @@ pageToBS pageParam =
 numOnlyHead :: Num a => [Only a] -> Only a
 numOnlyHead []    = Only (-1)
 numOnlyHead (x:_) = x
+
+someErrorToInt :: SomeError -> Int
+someErrorToInt (DatabaseError n) = n
+someErrorToInt _                 = 0
+
+sendResult ::
+       Monad m
+    => LoggerHandle m
+    -> T.Text
+    -> (t -> ResponseOkMessage)
+    -> ExceptT SomeError m t
+    -> m (Either ResponseErrorMessage ResponseOkMessage)
+sendResult hLogger prefix toOK result = do
+    a <- runExceptT result
+    case a of
+        Left someError ->
+            Left <$> toResponseErrorMessage hLogger prefix someError
+        Right someOK -> do
+            logInfo hLogger okMessage
+            return $ Right $ toOK someOK
+  where
+    okMessage = T.replace " not " " " prefix

@@ -1,8 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module UsersTests where
 
+import           Control.Monad.Except  (ExceptT, MonadError (throwError),
+                                        MonadIO)
 import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
@@ -18,24 +21,25 @@ import           Types.Other           (ResponseErrorMessage (BadRequest, Forbid
                                         Token (Token))
 import           Types.Users           (Profile (Profile))
 
+instance MonadIO Identity
+
 hLogger :: LoggerHandle Identity
 hLogger =
     LoggerHandle {priority = Debug, Logger.log = \prior message -> return ()}
 
-usersHandler :: UsersHandle Identity
+usersHandler :: UsersHandle (ExceptT SomeError Identity)
 usersHandler =
     UsersHandle
-        { uhAuth = \login password -> return $ Left $ OtherError "ErrorMessage"
+        { uhAuth = \login password -> throwError $ OtherError "ErrorMessage"
         , uhCreateUserInDb =
-              \create_user -> return $ Left $ OtherError "ErrorMessage"
+              \create_user -> throwError $ OtherError "ErrorMessage"
         , uhDeleteUserFromDb =
-              \token login -> return $ Left $ OtherError "ErrorMessage"
-        , uhProfileOnDb = \token -> return $ Left $ OtherError "ErrorMessage"
-        , uhLogger = hLogger
+              \token login -> throwError $ OtherError "ErrorMessage"
+        , uhProfileOnDb = \token -> throwError $ OtherError "ErrorMessage"
         , uhParseRequestBody = \_ -> return ([], [])
         }
 
-operationsHandler :: OperationsHandle Identity
+operationsHandler :: OperationsHandle (ExceptT SomeError Identity)
 operationsHandler = OperationsHandle {usersHandle = usersHandler}
 
 tstProfileReq :: Request
@@ -59,20 +63,21 @@ usersTests =
         describe "testing users functions" $ do
             describe "testing uhAuth" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstLoginReq `shouldBe`
-                    return (Left $ BadRequest "Bad authorization. ErrorMessage")
+                    routes operationsHandler hLogger tstLoginReq `shouldBe`
+                    return (Left $ BadRequest "User not logged. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstLoginReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
-                         MethodNotAllowed
-                             "Bad authorization. Bad method request.")
+                         MethodNotAllowed "User not logged. Bad method request.")
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstLoginReq {rawPathInfo = "/loging"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return token, because all is good" $
@@ -80,11 +85,9 @@ usersTests =
                         (operationsHandler
                              { usersHandle =
                                    usersHandler
-                                       { uhAuth =
-                                             \_ _ ->
-                                                 return $ Right (Token "token")
-                                       }
+                                       {uhAuth = \_ _ -> return (Token "token")}
                              })
+                        hLogger
                         tstLoginReq `shouldBe`
                     return (Right $ OkMessage "token")
                 it
@@ -94,26 +97,29 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhAuth =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstLoginReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Bad authorization. Database Error."))
+                                  "User not logged. Database Error 0."))
 {-
                                 REGISTRATION TESTS
 -}
             describe "testing uhCreateUserInDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstRegistrationReq `shouldBe`
+                    routes operationsHandler hLogger tstRegistrationReq `shouldBe`
                     return
                         (Left $ BadRequest "User not registered. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstRegistrationReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -122,6 +128,7 @@ usersTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstRegistrationReq
                              {rawPathInfo = "/registrationadasdasd"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -131,10 +138,10 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhCreateUserInDb =
-                                             \_ ->
-                                                 return $ Right $ Token "token"
+                                             \_ -> return $ Token "token"
                                        }
                              })
+                        hLogger
                         tstRegistrationReq `shouldBe`
                     return (Right (Created "token"))
                 it
@@ -144,25 +151,27 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhCreateUserInDb =
-                                             \_ -> return $ Left DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstRegistrationReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "User not registered. Database Error."))
+                                  "User not registered. Database Error 0."))
 {-
                                 DELETE USER TESTS
 -}
             describe "testing uhDeleteUserFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstDeleteUserReq `shouldBe`
+                    routes operationsHandler hLogger tstDeleteUserReq `shouldBe`
                     return (Left $ BadRequest "User not deleted. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteUserReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -171,6 +180,7 @@ usersTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteUserReq {rawPathInfo = "/delete_userssssss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return message about successful deleting" $
@@ -178,10 +188,9 @@ usersTests =
                         (operationsHandler
                              { usersHandle =
                                    usersHandler
-                                       { uhDeleteUserFromDb =
-                                             \_ _ -> return $ Right ()
-                                       }
+                                       {uhDeleteUserFromDb = \_ _ -> return ()}
                              })
+                        hLogger
                         tstDeleteUserReq `shouldBe`
                     return (Right (OkMessage "User deleted."))
                 it "server should return error, because token is not admin" $
@@ -190,9 +199,10 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhDeleteUserFromDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstDeleteUserReq `shouldBe`
                     return (Left (Forbidden "User not deleted. Not Admin."))
                 it "server should return error, because token is bad" $
@@ -201,9 +211,10 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhDeleteUserFromDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstDeleteUserReq `shouldBe`
                     return (Left (Forbidden "User not deleted. Bad Token."))
                 it
@@ -213,20 +224,22 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhDeleteUserFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstDeleteUserReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "User not deleted. Database Error."))
+                                  "User not deleted. Database Error 0."))
 {-
                                 PROFILE TESTS
 -}
             describe "testing uhProfileOnDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstProfileReq `shouldBe`
+                    routes operationsHandler hLogger tstProfileReq `shouldBe`
                     return
                         (Left $
                          BadRequest
@@ -235,6 +248,7 @@ usersTests =
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstProfileReq {requestMethod = methodPost}) `shouldBe`
                     return
                         (Left $
@@ -243,6 +257,7 @@ usersTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstProfileReq {rawPathInfo = "/profiles"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return message about profile information" $
@@ -253,13 +268,13 @@ usersTests =
                                        { uhProfileOnDb =
                                              \_ ->
                                                  return $
-                                                 Right $
                                                  Profile
                                                      (Just "first name")
                                                      (Just "last name")
                                                      (Just 1)
                                        }
                              })
+                        hLogger
                         tstProfileReq `shouldBe`
                     return
                         (Right
@@ -271,9 +286,10 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhProfileOnDb =
-                                             \_ -> return $ Left BadToken
+                                             \_ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstProfileReq `shouldBe`
                     return
                         (Left
@@ -286,11 +302,12 @@ usersTests =
                              { usersHandle =
                                    usersHandler
                                        { uhProfileOnDb =
-                                             \_ -> return $ Left DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstProfileReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Profile inforamtion not sended. Database Error."))
+                                  "Profile inforamtion not sended. Database Error 0."))

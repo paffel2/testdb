@@ -6,6 +6,7 @@ import           Config                        (ConfigModules (db_conf, lifeTime
                                                 PoolParams (idle_time, max_resources, num_stripes),
                                                 ServerConf (server_maximum_body_flush, server_port),
                                                 getConfig)
+import           Control.Monad.Except          (runExceptT)
 import           Data.Pool                     (createPool)
 import           Database.PostgreSQL.Simple    (close, connectPostgreSQL)
 import           Databaseoperations.Migrations (checkDb)
@@ -32,18 +33,15 @@ main = do
             (num_stripes poolParams)
             (idle_time poolParams)
             (max_resources poolParams)
-    let hOperations = operationsHandler hLogger pool token_lifetime
+    let hOperations = operationsHandler pool token_lifetime
     logInfo hLogger "Checking database"
-    ch_db <- checkDb hLogger pool
+    ch_db <- runExceptT $ checkDb hLogger pool
     case ch_db of
-        Left _ ->
-            logError
-                hLogger
-                "Something wrong with database or database not exist"
+        Left _ -> logError hLogger "Server can't be started"
         Right _ -> do
             logInfo hLogger "Server started"
             runSettings
                 (setMaximumBodyFlush
                      (server_maximum_body_flush . server_conf $ hConfig) $
                  setPort (server_port . server_conf $ hConfig) defaultSettings) $
-                application hOperations
+                application hOperations hLogger

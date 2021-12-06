@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module AuthorsTests where
 
@@ -16,29 +17,31 @@ import           Router                (routes)
 import           Test.Hspec            (describe, hspec, it, shouldBe)
 import           Types.Authors         (AuthorsList (AuthorsList))
 
+import           Control.Monad.Except
 import           Types.Other           (ResponseErrorMessage (BadRequest, Forbidden, InternalServerError, MethodNotAllowed, NotFound),
                                         ResponseOkMessage (Created, OkJSON, OkMessage),
                                         SomeError (BadToken, DatabaseError, NotAdmin, OtherError))
+
+instance MonadIO Identity
 
 hLogger :: LoggerHandle Identity
 hLogger =
     LoggerHandle {priority = Debug, Logger.log = \prior message -> return ()}
 
-authorsHandler :: AuthorsHandle Identity
+authorsHandler :: AuthorsHandle (ExceptT SomeError Identity)
 authorsHandler =
     AuthorsHandle
         { ahCreateAuthorInDb =
-              \token create_author -> return $ Left $ OtherError "ErrorMessage"
+              \token create_author -> throwError $ OtherError "ErrorMessage"
         , ahDeleteAuthorInDb =
-              \token author_login -> return $ Left $ OtherError "ErrorMessage"
-        , ahGetAuthorsList = \page -> return $ Left $ OtherError "ErrorMessage"
+              \token author_login -> throwError $ OtherError "ErrorMessage"
+        , ahGetAuthorsList = \page -> throwError $ OtherError "ErrorMessage"
         , ahEditAuthorInDb =
-              \token edit_author -> return $ Left $ OtherError "ErrorMessage"
-        , ahLogger = hLogger
+              \token edit_author -> throwError $ OtherError "ErrorMessage"
         , ahParseRequestBody = \request -> return ([], [])
         }
 
-operationsHandler :: OperationsHandle Identity
+operationsHandler :: OperationsHandle (ExceptT SomeError Identity)
 operationsHandler = OperationsHandle {authorsHandle = authorsHandler}
 
 tstGetAuthorsListReq :: Request
@@ -66,7 +69,7 @@ authorsTests =
         describe "testing authors functions" $ do
             describe "testing ahGetAuthorsList" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetAuthorsListReq `shouldBe`
+                    routes operationsHandler hLogger tstGetAuthorsListReq `shouldBe`
                     return
                         (Left $
                          BadRequest "List of authors not sended. ErrorMessage")
@@ -74,6 +77,7 @@ authorsTests =
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetAuthorsListReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -82,6 +86,7 @@ authorsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetAuthorsListReq {rawPathInfo = "/authorsss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of authors, because all is good" $
@@ -90,10 +95,10 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahGetAuthorsList =
-                                             \_ ->
-                                                 return $ Right (AuthorsList [])
+                                             \_ -> return (AuthorsList [])
                                        }
                              })
+                        hLogger
                         tstGetAuthorsListReq `shouldBe`
                     return (Right $ OkJSON "{\"authors\":[]}")
                 it
@@ -103,26 +108,28 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahGetAuthorsList =
-                                             \_ -> return $ Left DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstGetAuthorsListReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "List of authors not sended. Database Error."))
+                                  "List of authors not sended. Database Error 0."))
 {-
                                 CREATE AUTHOR TESTS
 -}
             describe "testing ahCreateAuthorInDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstPostAuthorReq `shouldBe`
+                    routes operationsHandler hLogger tstPostAuthorReq `shouldBe`
                     return
                         (Left $ BadRequest "Author not created. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostAuthorReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -131,6 +138,7 @@ authorsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostAuthorReq {rawPathInfo = "/authors/asdasdasd"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return authors id, because all is good" $
@@ -138,10 +146,9 @@ authorsTests =
                         (operationsHandler
                              { authorsHandle =
                                    authorsHandler
-                                       { ahCreateAuthorInDb =
-                                             \_ _ -> return $ Right 1
-                                       }
+                                       {ahCreateAuthorInDb = \_ _ -> return 1}
                              })
+                        hLogger
                         tstPostAuthorReq `shouldBe`
                     return (Right (Created "1"))
                 it "server should return error, because token is not admin" $
@@ -150,9 +157,10 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahCreateAuthorInDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstPostAuthorReq `shouldBe`
                     return (Left (Forbidden "Author not created. Not Admin."))
                 it "server should return error, because token is bad" $
@@ -161,9 +169,10 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahCreateAuthorInDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstPostAuthorReq `shouldBe`
                     return (Left (Forbidden "Author not created. Bad Token."))
                 it
@@ -173,26 +182,29 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahCreateAuthorInDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstPostAuthorReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Author not created. Database Error."))
+                                  "Author not created. Database Error 0."))
 {-
                                 DELETE AUTHOR TESTS
 -}
             describe "testing ahDeleteAuthorInDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstDeleteAuthorReq `shouldBe`
+                    routes operationsHandler hLogger tstDeleteAuthorReq `shouldBe`
                     return
                         (Left $ BadRequest "Author not deleted. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteAuthorReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -201,6 +213,7 @@ authorsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteAuthorReq
                              {rawPathInfo = "/authors/delete_aythor"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -209,10 +222,9 @@ authorsTests =
                         (operationsHandler
                              { authorsHandle =
                                    authorsHandler
-                                       { ahDeleteAuthorInDb =
-                                             \_ _ -> return $ Right ()
-                                       }
+                                       {ahDeleteAuthorInDb = \_ _ -> return ()}
                              })
+                        hLogger
                         tstDeleteAuthorReq `shouldBe`
                     return (Right (OkMessage "Author deleted."))
                 it "server should return error, because token is not admin" $
@@ -221,9 +233,10 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahDeleteAuthorInDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstDeleteAuthorReq `shouldBe`
                     return (Left (Forbidden "Author not deleted. Not Admin."))
                 it "server should return error, because token is bad" $
@@ -232,9 +245,10 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahDeleteAuthorInDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstDeleteAuthorReq `shouldBe`
                     return (Left (Forbidden "Author not deleted. Bad Token."))
                 it
@@ -244,25 +258,28 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahDeleteAuthorInDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstDeleteAuthorReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Author not deleted. Database Error."))
+                                  "Author not deleted. Database Error 0."))
 {-
                                 EDIT AUTHOR TESTS
 -}
             describe "testing ahEditAuthorInDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstUpdateAuthorReq `shouldBe`
+                    routes operationsHandler hLogger tstUpdateAuthorReq `shouldBe`
                     return (Left $ BadRequest "Author not edited. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstUpdateAuthorReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -271,6 +288,7 @@ authorsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstUpdateAuthorReq
                              {rawPathInfo = "/authors/edit_aythor"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -279,10 +297,9 @@ authorsTests =
                         (operationsHandler
                              { authorsHandle =
                                    authorsHandler
-                                       { ahEditAuthorInDb =
-                                             \_ _ -> return $ Right ()
-                                       }
+                                       {ahEditAuthorInDb = \_ _ -> return ()}
                              })
+                        hLogger
                         tstUpdateAuthorReq `shouldBe`
                     return (Right (OkMessage "Author edited."))
                 it "server should return error, because token is not admin" $
@@ -291,9 +308,10 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahEditAuthorInDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstUpdateAuthorReq `shouldBe`
                     return (Left (Forbidden "Author not edited. Not Admin."))
                 it "server should return error, because token is bad" $
@@ -302,9 +320,10 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahEditAuthorInDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstUpdateAuthorReq `shouldBe`
                     return (Left (Forbidden "Author not edited. Bad Token."))
                 it
@@ -314,11 +333,13 @@ authorsTests =
                              { authorsHandle =
                                    authorsHandler
                                        { ahEditAuthorInDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstUpdateAuthorReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Author not edited. Database Error."))
+                                  "Author not edited. Database Error 0."))

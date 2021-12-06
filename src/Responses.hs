@@ -5,7 +5,10 @@ module Responses where
 import qualified Data.ByteString.Char8      as BC
 import qualified Data.ByteString.Internal   as BI
 import qualified Data.ByteString.Lazy       as LBS
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as E
 import           Database.PostgreSQL.Simple (Binary (fromBinary))
+import           Logger
 import           Network.HTTP.Types         (Status, badRequest400,
                                              forbidden403, hContentType,
                                              internalServerError500,
@@ -49,7 +52,7 @@ responseImage contype = (`responseLBS` [(hContentType, contype)])
 responseOKImage :: BI.ByteString -> LBS.ByteString -> Response
 responseOKImage contype = responseImage contype status200
 
-badResponse :: LBS.ByteString -> SomeError -> Response
+{-badResponse :: LBS.ByteString -> SomeError -> Response
 badResponse prefix BadToken =
     responseForbidden $ LBS.concat [prefix, " Bad Token."]
 badResponse prefix NotAdmin =
@@ -61,8 +64,7 @@ badResponse prefix BadMethod =
 badResponse prefix (OtherError message) =
     responseBadRequest $ LBS.concat [prefix, lbsMessage]
   where
-    lbsMessage = LBS.fromStrict $ BC.pack message
-
+    lbsMessage = LBS.fromStrict $ BC.pack message -}
 toResponse :: Either ResponseErrorMessage ResponseOkMessage -> Response
 toResponse (Left (Forbidden message)) = responseForbidden message
 toResponse (Left (MethodNotAllowed message)) = responseMethodNotAllowed message
@@ -76,16 +78,44 @@ toResponse (Right (OkMessage message)) = responseOk message
 toResponse (Right (OkImage image)) =
     responseOKImage (conType image) (fromBinary $ imageB image)
 
-toResponseErrorMessage :: LBS.ByteString -> SomeError -> ResponseErrorMessage
-toResponseErrorMessage prefix BadToken =
-    Forbidden $ LBS.concat [prefix, " Bad Token."]
-toResponseErrorMessage prefix NotAdmin =
-    Forbidden $ LBS.concat [prefix, " Not Admin."]
-toResponseErrorMessage prefix BadMethod =
-    MethodNotAllowed $ LBS.concat [prefix, " Bad method request."]
-toResponseErrorMessage prefix DatabaseError =
-    InternalServerError $ LBS.concat [prefix, " Database Error."]
-toResponseErrorMessage prefix (OtherError message) =
-    BadRequest $ LBS.concat [prefix, " ", lbsMessage]
-  where
-    lbsMessage = LBS.fromStrict $ BC.pack message
+toResponseErrorMessage ::
+       Monad m
+    => LoggerHandle m
+    -> T.Text
+    -> SomeError
+    -> m ResponseErrorMessage
+toResponseErrorMessage hLogger prefix BadToken = do
+    logError hLogger $ prefix <> " Bad Token."
+    return $
+        Forbidden $
+        LBS.concat [LBS.fromStrict $ E.encodeUtf8 prefix, " Bad Token."]
+toResponseErrorMessage hLogger prefix NotAdmin = do
+    logError hLogger $ prefix <> " Not Admin."
+    return $
+        Forbidden $
+        LBS.concat [LBS.fromStrict $ E.encodeUtf8 prefix, " Not Admin."]
+toResponseErrorMessage hLogger prefix BadMethod = do
+    logError hLogger $ prefix <> " Bad method request."
+    return $
+        MethodNotAllowed $
+        LBS.concat
+            [LBS.fromStrict $ E.encodeUtf8 prefix, " Bad method request."]
+toResponseErrorMessage hLogger prefix (OtherError message) = do
+    logError hLogger $ prefix <> T.pack message
+    return $
+        BadRequest $
+        LBS.concat
+            [ LBS.fromStrict $ E.encodeUtf8 prefix
+            , " "
+            , LBS.fromStrict $ BC.pack message
+            ]
+toResponseErrorMessage hLogger prefix (DatabaseError code) = do
+    logError hLogger $ prefix <> T.pack (show code)
+    return $
+        InternalServerError $
+        LBS.concat
+            [ LBS.fromStrict $ E.encodeUtf8 prefix
+            , " Database Error "
+            , LBS.fromStrict $ BC.pack (show code)
+            , "."
+            ]

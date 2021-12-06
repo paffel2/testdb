@@ -197,3 +197,17 @@ toComment tokenLifeTime comm =
         , comment_text = commentWTLText comm
         , comment_news_id = commentWTLNewsId comm
         }
+
+data FilterParams
+    = TagIn (Maybe TagInFilterParam)
+    | CategoryFilter (Maybe CategoryFilterParam)
+    | TagFilter (Maybe TagFilterParam)
+    | TagAll (Maybe TagAllFilterParam)
+    | TitleFilter (Maybe TitleFilterParam)
+    | ContentFilter (Maybe ContentFilterParam)
+    | DateFilter (Maybe DateFilterParam)
+    | BeforeDate (Maybe BeforeDateFilterParam)
+    | AfterDate (Maybe AfterDateFilterParam)
+    | AuthorFilter (Maybe AuthorFilterParam)
+    | NoFilter
+    | BadFilter

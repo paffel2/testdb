@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module DraftsTests where
 
+import           Control.Monad.Except
 import           Data.Functor.Identity            (Identity)
 import           Data.Time.Clock                  (UTCTime)
 import           Database.PostgreSQL.Simple.Types (PGArray (PGArray))
@@ -24,32 +26,33 @@ import           Types.Other                      (ResponseErrorMessage (BadRequ
                                                    ResponseOkMessage (Created, OkJSON, OkMessage),
                                                    SomeError (BadToken, DatabaseError, OtherError))
 
+instance MonadIO Identity
+
 hLogger :: LoggerHandle Identity
 hLogger =
     LoggerHandle {priority = Debug, Logger.log = \prior message -> return ()}
 
-draftsHandler :: DraftsHandle Identity
+draftsHandler :: DraftsHandle (ExceptT SomeError Identity)
 draftsHandler =
     DraftsHandle
         { dhGetDraftsByAuthorToken =
-              \token -> return $ Left $ OtherError "ErrorMessage"
+              \token -> throwError $ OtherError "ErrorMessage"
         , dhDeleteDraftFromDb =
-              \token id -> return $ Left $ OtherError "ErrorMessage"
+              \token id -> throwError $ OtherError "ErrorMessage"
         , dhGetDraftByIdFromDb =
-              \token id -> return $ Left $ OtherError "ErrorMessage"
+              \token id -> throwError $ OtherError "ErrorMessage"
         , dhCreateDraftOnDb =
               \draft_information draft_tags draft_main_image draft_other_images ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , dhUpdateDraftInDb =
               \draft_information draft_tags draft_main_image draft_other_images draft_id ->
-                  return $ Left $ OtherError "ErrorMessage"
+                  throwError $ OtherError "ErrorMessage"
         , dhPublicNewsOnDb =
-              \token draft_id -> return $ Left $ OtherError "ErrorMessage"
-        , dhLogger = hLogger
+              \token draft_id -> throwError $ OtherError "ErrorMessage"
         , dhParseRequestBody = \_ -> return ([], [])
         }
 
-operationsHandler :: OperationsHandle Identity
+operationsHandler :: OperationsHandle (ExceptT SomeError Identity)
 operationsHandler = OperationsHandle {draftsHandle = draftsHandler}
 
 tstGetDraftsListReq :: Request
@@ -100,7 +103,7 @@ draftsTests =
         describe "testing drafts functions" $ do
             describe "testing dhGetDraftsByAuthorToken" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetDraftsListReq `shouldBe`
+                    routes operationsHandler hLogger tstGetDraftsListReq `shouldBe`
                     return
                         (Left $
                          BadRequest "List of drafts not sended. ErrorMessage")
@@ -108,6 +111,7 @@ draftsTests =
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetDraftsListReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -116,6 +120,7 @@ draftsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetDraftsListReq {rawPathInfo = "/draftssssss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of drafts, because all is good" $
@@ -124,10 +129,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftsByAuthorToken =
-                                             \_ ->
-                                                 return $ Right (DraftArray [])
+                                             \_ -> return (DraftArray [])
                                        }
                              })
+                        hLogger
                         tstGetDraftsListReq `shouldBe`
                     return (Right $ OkJSON "{\"drafts\":[]}")
                 it
@@ -137,23 +142,25 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftsByAuthorToken =
-                                             \_ -> return $ Left DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstGetDraftsListReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "List of drafts not sended. Database Error."))
+                                  "List of drafts not sended. Database Error 0."))
                 it "server should return error, because using bad token" $
                     routes
                         (operationsHandler
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftsByAuthorToken =
-                                             \_ -> return $ Left BadToken
+                                             \_ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstGetDraftsListReq `shouldBe`
                     return
                         (Left
@@ -163,12 +170,13 @@ draftsTests =
 -}
             describe "testing dhGetDraftByIdFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetDraftReq `shouldBe`
+                    routes operationsHandler hLogger tstGetDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not sended. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetDraftReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -177,6 +185,7 @@ draftsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetDraftReq {rawPathInfo = "/drafts/adadad"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of drafts, because all is good" $
@@ -185,9 +194,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftByIdFromDb =
-                                             \_ _ -> return $ Right draftTest
+                                             \_ _ -> return draftTest
                                        }
                              })
+                        hLogger
                         tstGetDraftReq `shouldBe`
                     return
                         (Right $
@@ -200,23 +210,26 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftByIdFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstGetDraftReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not sended. Database Error."))
+                                  "Draft not sended. Database Error 0."))
                 it "server should return error, because using bad token" $
                     routes
                         (operationsHandler
                              { draftsHandle =
                                    draftsHandler
                                        { dhGetDraftByIdFromDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstGetDraftReq `shouldBe`
                     return (Left (Forbidden "Draft not sended. Bad Token."))
 {-
@@ -224,12 +237,13 @@ draftsTests =
 -}
             describe "testing dhCreateDraftOnDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstPostDraftReq `shouldBe`
+                    routes operationsHandler hLogger tstPostDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not created. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostDraftReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -238,6 +252,7 @@ draftsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostDraftReq {rawPathInfo = "/new_draftsssss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return draft id, because all is good" $
@@ -246,9 +261,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhCreateDraftOnDb =
-                                             \_ _ _ _ -> return $ Right 1
+                                             \_ _ _ _ -> return 1
                                        }
                              })
+                        hLogger
                         tstPostDraftReq `shouldBe`
                     return (Right (Created "1"))
                 it "server should return error, because token is bad" $
@@ -257,9 +273,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhCreateDraftOnDb =
-                                             \_ _ _ _ -> return $ Left BadToken
+                                             \_ _ _ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstPostDraftReq `shouldBe`
                     return (Left (Forbidden "Draft not created. Bad Token."))
                 it
@@ -270,14 +287,15 @@ draftsTests =
                                    draftsHandler
                                        { dhCreateDraftOnDb =
                                              \_ _ _ _ ->
-                                                 return $ Left DatabaseError
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstPostDraftReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not created. Database Error."))
+                                  "Draft not created. Database Error 0."))
                 it "server should return error, because using bad image file" $
                     routes
                         (operationsHandler
@@ -290,6 +308,7 @@ draftsTests =
                                                      , [("main_image", tstFile)])
                                        }
                              })
+                        hLogger
                         tstPostDraftReq `shouldBe`
                     return
                         (Left (BadRequest "Draft not created. Bad image file"))
@@ -298,12 +317,13 @@ draftsTests =
 -}
             describe "testing dhUpdateDraftInDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstUpdateDraftReq `shouldBe`
+                    routes operationsHandler hLogger tstUpdateDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not updated. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstUpdateDraftReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -312,6 +332,7 @@ draftsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstUpdateDraftReq
                              {rawPathInfo = "/drafts/1/update_draftsssss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -322,9 +343,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhUpdateDraftInDb =
-                                             \_ _ _ _ _ -> return $ Right ()
+                                             \_ _ _ _ _ -> return ()
                                        }
                              })
+                        hLogger
                         tstUpdateDraftReq `shouldBe`
                     return (Right $ OkMessage "Draft updated")
                 it "server should return error, because token is bad" $
@@ -333,10 +355,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhUpdateDraftInDb =
-                                             \_ _ _ _ _ ->
-                                                 return $ Left BadToken
+                                             \_ _ _ _ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstUpdateDraftReq `shouldBe`
                     return (Left (Forbidden "Draft not updated. Bad Token."))
                 it
@@ -347,14 +369,15 @@ draftsTests =
                                    draftsHandler
                                        { dhUpdateDraftInDb =
                                              \_ _ _ _ _ ->
-                                                 return $ Left DatabaseError
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstUpdateDraftReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not updated. Database Error."))
+                                  "Draft not updated. Database Error 0."))
                 it "server should return error, because using bad image file" $
                     routes
                         (operationsHandler
@@ -367,6 +390,7 @@ draftsTests =
                                                      , [("main_image", tstFile)])
                                        }
                              })
+                        hLogger
                         tstUpdateDraftReq `shouldBe`
                     return
                         (Left (BadRequest "Draft not updated. Bad image file"))
@@ -374,6 +398,7 @@ draftsTests =
                     "server should return error, because something draft id is bad" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstUpdateDraftReq
                              {rawPathInfo = "/drafts/oh/update_draft"}) `shouldBe`
                     return (Left (BadRequest "Bad draft id"))
@@ -382,12 +407,13 @@ draftsTests =
 -}
             describe "testing dhDeleteDraftFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstDeleteDraftReq `shouldBe`
+                    routes operationsHandler hLogger tstDeleteDraftReq `shouldBe`
                     return (Left $ BadRequest "Draft not deleted. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteDraftReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -396,6 +422,7 @@ draftsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteDraftReq
                              {rawPathInfo = "/drafts/1/delete_draftss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -404,10 +431,9 @@ draftsTests =
                         (operationsHandler
                              { draftsHandle =
                                    draftsHandler
-                                       { dhDeleteDraftFromDb =
-                                             \_ _ -> return $ Right ()
-                                       }
+                                       {dhDeleteDraftFromDb = \_ _ -> return ()}
                              })
+                        hLogger
                         tstDeleteDraftReq `shouldBe`
                     return (Right (OkMessage "Draft deleted."))
                 it "server should return error, because token is bad" $
@@ -416,9 +442,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhDeleteDraftFromDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstDeleteDraftReq `shouldBe`
                     return (Left (Forbidden "Draft not deleted. Bad Token."))
                 it
@@ -428,25 +455,28 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhDeleteDraftFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstDeleteDraftReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Draft not deleted. Database Error."))
+                                  "Draft not deleted. Database Error 0."))
 {-
                                 PUBLIC NEWS TESTS
 -}
             describe "testing dhPublicNewsOnDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstPostNewsReq `shouldBe`
+                    routes operationsHandler hLogger tstPostNewsReq `shouldBe`
                     return (Left $ BadRequest "News not created. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostNewsReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -455,6 +485,7 @@ draftsTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostNewsReq {rawPathInfo = "/drafts/1/public_newss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return message about successful posting" $
@@ -462,10 +493,9 @@ draftsTests =
                         (operationsHandler
                              { draftsHandle =
                                    draftsHandler
-                                       { dhPublicNewsOnDb =
-                                             \_ _ -> return $ Right 1
-                                       }
+                                       {dhPublicNewsOnDb = \_ _ -> return 1}
                              })
+                        hLogger
                         tstPostNewsReq `shouldBe`
                     return (Right (Created "1"))
                 it "server should return error, because token is bad" $
@@ -474,9 +504,10 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhPublicNewsOnDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstPostNewsReq `shouldBe`
                     return (Left (Forbidden "News not created. Bad Token."))
                 it
@@ -486,11 +517,13 @@ draftsTests =
                              { draftsHandle =
                                    draftsHandler
                                        { dhPublicNewsOnDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstPostNewsReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "News not created. Database Error."))
+                                  "News not created. Database Error 0."))

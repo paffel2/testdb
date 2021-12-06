@@ -1,18 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module CategoriesTests where
 
 import           Data.Functor.Identity (Identity)
 import           Logger                (LoggerHandle (..), Priority (Debug))
 
+import           Control.Monad.Except  (ExceptT, MonadError (throwError),
+                                        MonadIO)
 import           Network.HTTP.Types    (methodDelete, methodGet, methodPost,
                                         methodPut)
 import           Network.Wai           (Request (rawPathInfo, requestMethod),
                                         defaultRequest)
 import           OperationsHandle      (CategoriesHandle (..),
                                         OperationsHandle (..))
-
 import           Router                (routes)
 import           Test.Hspec            (describe, hspec, it, shouldBe)
 import           Types.Categories      (ListOfCategories (ListOfCategories))
@@ -20,27 +22,27 @@ import           Types.Other           (ResponseErrorMessage (BadRequest, Forbid
                                         ResponseOkMessage (Created, OkJSON, OkMessage),
                                         SomeError (BadToken, DatabaseError, NotAdmin, OtherError))
 
+instance MonadIO Identity
+
 hLogger :: LoggerHandle Identity
 hLogger =
     LoggerHandle {priority = Debug, Logger.log = \prior message -> return ()}
 
-categoriesHandler :: CategoriesHandle Identity
+categoriesHandler :: CategoriesHandle (ExceptT SomeError Identity)
 categoriesHandler =
     CategoriesHandle
         { chGetCategoriesListFromDb =
-              \page -> return $ Left $ OtherError "ErrorMessage"
+              \page -> throwError $ OtherError "ErrorMessage"
         , chCreateCategoryOnDb =
-              \token create_category ->
-                  return $ Left $ OtherError "ErrorMessage"
+              \token create_category -> throwError $ OtherError "ErrorMessage"
         , chDeleteCategoryFromDb =
-              \token category_name -> return $ Left $ OtherError "ErrorMessage"
+              \token category_name -> throwError $ OtherError "ErrorMessage"
         , chEditCategoryOnDb =
-              \token edit_category -> return $ Left $ OtherError "ErrorMessage"
-        , chLogger = hLogger
+              \token edit_category -> throwError $ OtherError "ErrorMessage"
         , chParseRequestBody = \_ -> return ([], [])
         }
 
-operationsHandler :: OperationsHandle Identity
+operationsHandler :: OperationsHandle (ExceptT SomeError Identity)
 operationsHandler = OperationsHandle {categoriesHandle = categoriesHandler}
 
 tstGetCategoriesListReq :: Request
@@ -72,7 +74,7 @@ categoriesTests =
         describe "testing categories functions" $ do
             describe "testing chGetCategoriesListFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetCategoriesListReq `shouldBe`
+                    routes operationsHandler hLogger tstGetCategoriesListReq `shouldBe`
                     return
                         (Left $
                          BadRequest
@@ -81,6 +83,7 @@ categoriesTests =
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetCategoriesListReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -89,6 +92,7 @@ categoriesTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetCategoriesListReq {rawPathInfo = "/authorsss"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of authors, because all is good" $
@@ -97,11 +101,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chGetCategoriesListFromDb =
-                                             \_ ->
-                                                 return $
-                                                 Right (ListOfCategories [])
+                                             \_ -> return (ListOfCategories [])
                                        }
                              })
+                        hLogger
                         tstGetCategoriesListReq `shouldBe`
                     return (Right $ OkJSON "{\"list_of_categories\":[]}")
                 it
@@ -111,26 +114,28 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chGetCategoriesListFromDb =
-                                             \_ -> return $ Left DatabaseError
+                                             \_ -> throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstGetCategoriesListReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "List of categories not sended. Database Error."))
+                                  "List of categories not sended. Database Error 0."))
 {-
                                 CREATE CATEGORIES TESTS
 -}
             describe "testing chCreateCategoryOnDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstPostCategoryReq `shouldBe`
+                    routes operationsHandler hLogger tstPostCategoryReq `shouldBe`
                     return
                         (Left $ BadRequest "Category not created. ErrorMessage")
                 it
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostCategoryReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -139,6 +144,7 @@ categoriesTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstPostCategoryReq
                              { rawPathInfo =
                                    "/categories/create_categoryasdasda"
@@ -149,10 +155,9 @@ categoriesTests =
                         (operationsHandler
                              { categoriesHandle =
                                    categoriesHandler
-                                       { chCreateCategoryOnDb =
-                                             \_ _ -> return $ Right 1
-                                       }
+                                       {chCreateCategoryOnDb = \_ _ -> return 1}
                              })
+                        hLogger
                         tstPostCategoryReq `shouldBe`
                     return (Right (Created "1"))
                 it "server should return error, because token is not admin" $
@@ -161,9 +166,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chCreateCategoryOnDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstPostCategoryReq `shouldBe`
                     return (Left (Forbidden "Category not created. Not Admin."))
                 it "server should return error, because token is bad" $
@@ -172,9 +178,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chCreateCategoryOnDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstPostCategoryReq `shouldBe`
                     return (Left (Forbidden "Category not created. Bad Token."))
                 it
@@ -184,26 +191,29 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chCreateCategoryOnDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstPostCategoryReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Category not created. Database Error."))
+                                  "Category not created. Database Error 0."))
 {-
                                 DELETE CATEGORY TESTS
 -}
             describe "testing chDeleteCategoryFromDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstDeleteCategoryReq `shouldBe`
+                    routes operationsHandler hLogger tstDeleteCategoryReq `shouldBe`
                     return
                         (Left $ BadRequest "Category not deleted. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteCategoryReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -212,6 +222,7 @@ categoriesTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstDeleteCategoryReq
                              {rawPathInfo = "/categories/delete_aythor"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -221,9 +232,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chDeleteCategoryFromDb =
-                                             \_ _ -> return $ Right ()
+                                             \_ _ -> return ()
                                        }
                              })
+                        hLogger
                         tstDeleteCategoryReq `shouldBe`
                     return (Right (OkMessage "Category deleted."))
                 it "server should return error, because token is not admin" $
@@ -232,9 +244,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chDeleteCategoryFromDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstDeleteCategoryReq `shouldBe`
                     return (Left (Forbidden "Category not deleted. Not Admin."))
                 it "server should return error, because token is bad" $
@@ -243,9 +256,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chDeleteCategoryFromDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstDeleteCategoryReq `shouldBe`
                     return (Left (Forbidden "Category not deleted. Bad Token."))
                 it
@@ -255,26 +269,29 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chDeleteCategoryFromDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstDeleteCategoryReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Category not deleted. Database Error."))
+                                  "Category not deleted. Database Error 0."))
 {-
                                 EDIT CATEGORY TESTS
 -}
             describe "testing chEditCategoryOnDb" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstUpdateCategoryReq `shouldBe`
+                    routes operationsHandler hLogger tstUpdateCategoryReq `shouldBe`
                     return
                         (Left $ BadRequest "Category not edited. ErrorMessage")
                 it
                     "server should return error, because request sended with bad requestMethod" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstUpdateCategoryReq {requestMethod = methodGet}) `shouldBe`
                     return
                         (Left $
@@ -283,6 +300,7 @@ categoriesTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstUpdateCategoryReq
                              {rawPathInfo = "/categories/edit_aythor"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
@@ -291,10 +309,9 @@ categoriesTests =
                         (operationsHandler
                              { categoriesHandle =
                                    categoriesHandler
-                                       { chEditCategoryOnDb =
-                                             \_ _ -> return $ Right ()
-                                       }
+                                       {chEditCategoryOnDb = \_ _ -> return ()}
                              })
+                        hLogger
                         tstUpdateCategoryReq `shouldBe`
                     return (Right (OkMessage "Category edited."))
                 it "server should return error, because token is not admin" $
@@ -303,9 +320,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chEditCategoryOnDb =
-                                             \_ _ -> return $ Left NotAdmin
+                                             \_ _ -> throwError NotAdmin
                                        }
                              })
+                        hLogger
                         tstUpdateCategoryReq `shouldBe`
                     return (Left (Forbidden "Category not edited. Not Admin."))
                 it "server should return error, because token is bad" $
@@ -314,9 +332,10 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chEditCategoryOnDb =
-                                             \_ _ -> return $ Left BadToken
+                                             \_ _ -> throwError BadToken
                                        }
                              })
+                        hLogger
                         tstUpdateCategoryReq `shouldBe`
                     return (Left (Forbidden "Category not edited. Bad Token."))
                 it
@@ -326,11 +345,13 @@ categoriesTests =
                              { categoriesHandle =
                                    categoriesHandler
                                        { chEditCategoryOnDb =
-                                             \_ _ -> return $ Left DatabaseError
+                                             \_ _ ->
+                                                 throwError $ DatabaseError 0
                                        }
                              })
+                        hLogger
                         tstUpdateCategoryReq `shouldBe`
                     return
                         (Left
                              (InternalServerError
-                                  "Category not edited. Database Error."))
+                                  "Category not edited. Database Error 0."))

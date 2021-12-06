@@ -1,6 +1,7 @@
 
 ALTER TABLE Users ADD FOREIGN KEY (avatar) REFERENCES Images(image_id) ON DELETE SET NULL;
-ALTER TABLE Authors ADD FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE SET NULL;
+--ALTER TABLE Authors ADD FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE SET NULL;
+ALTER TABLE Authors ADD FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE CASCADE;
 ALTER TABLE categories ADD FOREIGN KEY (maternal_category) REFERENCES categories(category_id) ON DELETE CASCADE;
 ALTER TABLE News ADD FOREIGN KEY (author_id) REFERENCES authors (author_id) ON DELETE SET NULL;
 ALTER TABLE News ADD FOREIGN KEY (category_id) REFERENCES categories (category_id) ON DELETE CASCADE;

@@ -6,46 +6,65 @@ import           Answer                  (answer)
 import           Answers.NewsAndComments (deleteCommentHandle,
                                           getNewsByIdHandle, getNewsHandle,
                                           postCommentHandle, sendCommentsHandle)
+import           Control.Monad.Except    (ExceptT, MonadIO)
+import           Data.Aeson              (encode)
 import qualified Data.ByteString.Char8   as BC
-import           Logger                  (logError)
+import           HelpFunction            (sendResult)
+import           Logger                  (LoggerHandle, logError)
 import           Network.Wai             (Request (rawPathInfo))
-import           OperationsHandle        (NewsAndCommentsHandle (nchLogger))
+import           OperationsHandle        (NewsAndCommentsHandle)
 import           Text.Read               (readMaybe)
 import           Types.Other             (ResponseErrorMessage (BadRequest, NotFound),
-                                          ResponseOkMessage)
+                                          ResponseOkMessage (Created, OkJSON, OkMessage),
+                                          SomeError)
 
 newsAndCommentsRouter ::
-       Monad m
-    => NewsAndCommentsHandle m
+       MonadIO m
+    => NewsAndCommentsHandle (ExceptT SomeError m)
+    -> LoggerHandle m
     -> Request
     -> m (Either ResponseErrorMessage ResponseOkMessage)
-newsAndCommentsRouter operations req
-    | pathElemC == 1 = answer req (getNewsHandle operations)
-    | pathElemC == 2 = answer req (getNewsByIdHandle operations)
+newsAndCommentsRouter operations hLogger req
+    | pathElemC == 1 =
+        sendResult hLogger "News not sended." listOfNewsOK $
+        answer req (getNewsHandle operations)
+    | pathElemC == 2 =
+        sendResult hLogger "News not sended." listOfNewsOK $
+        answer req (getNewsByIdHandle operations)
     | pathElemC == 3 =
         if last pathElems == "comments"
-            then answer req (sendCommentsHandle operations)
+            then sendResult hLogger "Commentaries not sended." listOfNewsOK $
+                 answer req (sendCommentsHandle operations)
             else do
-                logError (nchLogger operations) "Bad url"
                 return $ Left $ NotFound "Not Found"
     | pathElemC == 4 =
         case last pathElems of
-            "add_comment" -> answer req (postCommentHandle operations)
+            "add_comment" ->
+                sendResult hLogger "Commentary not added." postCommentOk $
+                answer req (postCommentHandle operations)
             "delete_comment" -> do
                 let newsId =
                         readMaybe $ BC.unpack $ head $ tail pathElems :: Maybe Int
                 case newsId of
                     Nothing -> do
-                        logError (nchLogger operations) "Bad news id"
+                        logError hLogger "Bad news id"
                         return $ Left $ BadRequest "Bad news id"
-                    Just _ -> answer req (deleteCommentHandle operations)
+                    Just _ ->
+                        sendResult
+                            hLogger
+                            "Commentary not deleted."
+                            deleteCommentOk $
+                        answer req (deleteCommentHandle operations)
             _ -> do
-                logError (nchLogger operations) "Bad url"
+                logError hLogger "Bad url"
                 return $ Left $ NotFound "Not Found"
     | otherwise = do
-        logError (nchLogger operations) "Bad url"
+        logError hLogger "Bad url"
         return $ Left $ NotFound "Not Found"
   where
     path = BC.tail $ rawPathInfo req
     pathElems = BC.split '/' path
     pathElemC = length pathElems
+    listOfNewsOK someNews = OkJSON $ encode someNews
+    postCommentOk _ = Created "Commentary added."
+    deleteCommentOk _ = OkMessage "Commentary deleted."

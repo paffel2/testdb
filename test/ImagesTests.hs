@@ -1,8 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module ImagesTests where
 
+import           Control.Monad.Except       (ExceptT, MonadError (throwError),
+                                             MonadIO)
 import           Data.Functor.Identity      (Identity)
 import           Database.PostgreSQL.Simple (Binary (Binary))
 import           Logger                     (LoggerHandle (..),
@@ -16,23 +19,24 @@ import           Router                     (routes)
 import           Test.Hspec                 (describe, hspec, it, shouldBe)
 import           Types.Images               (ImageArray (ImageArray),
                                              ImageB (ImageB))
-import           Types.Other                (ResponseErrorMessage (BadRequest, MethodNotAllowed, NotFound),
+import           Types.Other                (ResponseErrorMessage (BadRequest, InternalServerError, MethodNotAllowed, NotFound),
                                              ResponseOkMessage (OkImage, OkJSON),
                                              SomeError (OtherError))
+
+instance MonadIO Identity
 
 hLogger :: LoggerHandle Identity
 hLogger =
     LoggerHandle {priority = Debug, Logger.log = \prior message -> return ()}
 
-imagesHandler :: ImagesHandle Identity
+imagesHandler :: ImagesHandle (ExceptT SomeError Identity)
 imagesHandler =
     ImagesHandle
-        { ihGetPhoto = \photo_id -> return $ Left $ OtherError "ErrorMessage"
-        , ihGetPhotoList = \page -> return $ Left $ OtherError "ErrorMessage"
-        , ihLogger = hLogger
+        { ihGetPhoto = \photo_id -> throwError $ OtherError "ErrorMessage"
+        , ihGetPhotoList = \page -> throwError $ OtherError "ErrorMessage"
         }
 
-operationsHandler :: OperationsHandle Identity
+operationsHandler :: OperationsHandle (ExceptT SomeError Identity)
 operationsHandler = OperationsHandle {imagesHandle = imagesHandler}
 
 tstGetPhotoListReq :: Request
@@ -49,7 +53,7 @@ imagesTests =
         describe "testing images functions" $ do
             describe "testing ihGetPhotoList" $ do
                 it "server should return error because something happend" $
-                    routes operationsHandler tstGetPhotoListReq `shouldBe`
+                    routes operationsHandler hLogger tstGetPhotoListReq `shouldBe`
                     return
                         (Left $
                          BadRequest "List of images not sended. ErrorMessage")
@@ -57,6 +61,7 @@ imagesTests =
                     "server should return error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetPhotoListReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -65,6 +70,7 @@ imagesTests =
                 it "server should return error, because path is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetPhotoListReq {rawPathInfo = "/imagewertyuio"}) `shouldBe`
                     return (Left $ NotFound "Not Found")
                 it "server should return list of images, because all is good" $
@@ -73,20 +79,21 @@ imagesTests =
                              { imagesHandle =
                                    imagesHandler
                                        { ihGetPhotoList =
-                                             \_ ->
-                                                 return $ Right (ImageArray [])
+                                             \_ -> return (ImageArray [])
                                        }
                              })
+                        hLogger
                         (tstGetPhotoListReq {rawPathInfo = "/image"}) `shouldBe`
                     return (Right $ OkJSON "{\"images\":[]}")
             describe "testing ihGetPhoto" $ do
                 it "server should return error  because something happend" $
-                    routes operationsHandler tstGetPhotoReq `shouldBe`
+                    routes operationsHandler hLogger tstGetPhotoReq `shouldBe`
                     return (Left $ BadRequest "Image not sended. ErrorMessage")
                 it
                     "server should return status error, because request sended with bad request method" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetPhotoReq {requestMethod = methodPut}) `shouldBe`
                     return
                         (Left $
@@ -95,6 +102,7 @@ imagesTests =
                 it "server should return error, because image id is wrong" $
                     routes
                         operationsHandler
+                        hLogger
                         (tstGetPhotoReq {rawPathInfo = "/image/wertyuio"}) `shouldBe`
                     return (Left $ BadRequest "Image not sended. Bad image id")
                 it "server should return image, because all is good" $
@@ -104,9 +112,9 @@ imagesTests =
                                    imagesHandler
                                        { ihGetPhoto =
                                              \_ ->
-                                                 return $
-                                                 Right (ImageB (Binary "") "")
+                                                 return (ImageB (Binary "") "")
                                        }
                              })
+                        hLogger
                         (tstGetPhotoReq {rawPathInfo = "/image/1"}) `shouldBe`
                     return (Right $ OkImage $ ImageB (Binary "") "")

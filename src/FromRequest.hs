@@ -2,6 +2,7 @@
 
 module FromRequest where
 
+import           Control.Applicative
 import           Control.Monad                    (join)
 import qualified Data.ByteString.Char8            as BC
 import qualified Data.ByteString.Lazy             as LBS
@@ -9,13 +10,13 @@ import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as E
 import           Database.PostgreSQL.Simple.Types (Binary (..))
-import           HelpFunction                     (readByteStringListInt,
-                                                   readByteStringToDay,
-                                                   readByteStringToId,
-                                                   readByteStringToInt)
+import           HelpFunction
 
 import           Network.Wai                      (Request (queryString))
-import           Network.Wai.Parse                (FileInfo (..), Param)
+import           Network.Wai.Parse                (File,
+                                                   FileInfo (fileContent, fileContentType, fileName),
+                                                   Param, lbsBackEnd,
+                                                   parseRequestBody)
 
 import           Types.Authors                    (AuthorLogin (AuthorLogin),
                                                    CreateAuthor (..),
@@ -26,18 +27,7 @@ import           Types.Categories                 (CategoryName (CategoryName),
 import           Types.Drafts                     (DraftInf (..),
                                                    DraftTags (DraftTags))
 import           Types.Images                     (Image (..))
-import           Types.NewsAndComments            (AfterDateFilterParam (AfterDateFilterParam),
-                                                   AuthorFilterParam (AuthorFilterParam),
-                                                   BeforeDateFilterParam (BeforeDateFilterParam),
-                                                   CategoryFilterParam (CategoryFilterParam),
-                                                   CommentText (CommentText),
-                                                   ContentFilterParam (ContentFilterParam),
-                                                   DateFilterParam (DateFilterParam),
-                                                   Sort (Sort),
-                                                   TagAllFilterParam (TagAllFilterParam),
-                                                   TagFilterParam (TagFilterParam),
-                                                   TagInFilterParam (TagInFilterParam),
-                                                   TitleFilterParam (TitleFilterParam))
+import           Types.NewsAndComments
 import           Types.Other                      (Id, Page (Page),
                                                    Token (Token))
 import           Types.Tags                       (EditTag (..),
@@ -45,6 +35,9 @@ import           Types.Tags                       (EditTag (..),
 import           Types.Users                      (CreateUser (..),
                                                    Login (Login),
                                                    Password (Password))
+
+parseRequestBodyLBS :: Request -> IO ([Param], [File LBS.ByteString])
+parseRequestBodyLBS = parseRequestBody lbsBackEnd
 
 takeToken :: Request -> Maybe Token
 takeToken req =
@@ -187,6 +180,45 @@ toSort req = Sort param
 toCommentText :: [Param] -> Maybe CommentText
 toCommentText params =
     CommentText . E.decodeUtf8 <$> lookup "comment_text" params
+
+{-data FilterParams
+    = TagIn [Int]
+    | CategoryFilter Id
+    | TagFilter Id
+    | TagAll [Int]
+    | TitleFilter T.Text
+    | ContentFilter T.Text
+    | DataFilter Day
+    | BeforeDate Day
+    | AfterDate Day
+    | AuthorFilter T.Text-}
+toFilterParams :: Request -> FilterParams
+toFilterParams req =
+    case filterParamName of
+        Just "tag_in"      -> TagIn $ toFilterParam req
+        Just "category"    -> CategoryFilter $ toFilterParam req
+        Just "title"       -> TitleFilter $ toFilterParam req
+        Just "author"      -> AuthorFilter $ toFilterParam req
+        Just "date"        -> DateFilter $ toFilterParam req
+        Just "tag_all"     -> TagAll $ toFilterParam req
+        Just "content"     -> ContentFilter $ toFilterParam req
+        Just "after_date"  -> AfterDate $ toFilterParam req
+        Just "before_date" -> BeforeDate $ toFilterParam req
+        Just "tag"         -> TagFilter $ toFilterParam req
+        Just _             -> BadFilter
+        Nothing            -> NoFilter
+  where
+    queryParams = queryString req
+    filterParamName =
+        myLookup "tag_in" queryParams <|> myLookup "category" queryParams <|>
+        myLookup "tag" queryParams <|>
+        myLookup "tag_all" queryParams <|>
+        myLookup "author" queryParams <|>
+        myLookup "title" queryParams <|>
+        myLookup "content" queryParams <|>
+        myLookup "date" queryParams <|>
+        myLookup "after_date" queryParams <|>
+        myLookup "before_date" queryParams
 
 class FilterParam a where
     toFilterParam :: Request -> Maybe a
