@@ -6,6 +6,7 @@ module Databaseoperations.Drafts where
 
 import           Control.Monad.Except       (MonadError (catchError, throwError))
 import qualified Data.ByteString.Char8      as BC
+import           Data.Functor               (void)
 import           Data.Pool                  (Pool)
 import           Database.PostgreSQL.Simple (Connection, In (In),
                                              Only (Only, fromOnly))
@@ -285,15 +286,13 @@ updateDraftInDb _ _ DraftInf {draftInfTitle = Nothing} _ _ _ _ =
     throwError $ OtherError "No short_title field"
 updateDraftInDb _ _ DraftInf {draftInfText = Nothing} _ _ _ _ =
     throwError $ OtherError "No text field"
-updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tagsList) mainImage imagesList draftId = do
-    _ <-
-        updateDraft >>= deleteTagConnections >>=
-        createTagConnections pool tagsList >>=
-        deleteMainImage mainImage >>=
-        loadMainImage mainImage pool >>=
-        deleteOldImages imagesList >>=
-        loadImages imagesList pool
-    return ()
+updateDraftInDb pool tokenLifeTime draftUpd@(DraftInf (Just _) (Just _) (Just _) (Just _)) (Just tagsList) mainImage imagesList draftId =
+    void $
+    updateDraft >>= deleteTagConnections >>= createTagConnections pool tagsList >>=
+    deleteMainImage mainImage >>=
+    loadMainImage mainImage pool >>=
+    deleteOldImages imagesList >>=
+    loadImages imagesList pool
   where
     updateDraft = do
         let q =

@@ -63,16 +63,12 @@ deleteAuthorInDb _ _ Nothing _ =
     throwError $ OtherError "Author not deleted. No token param"
 deleteAuthorInDb _ _ _ Nothing =
     throwError $ OtherError "Author not deleted. No login field"
-deleteAuthorInDb pool token_lifetime token (Just authorLogin) =
-    catchError
-        (do checkAdmin pool token_lifetime token
-            _ <- executeWithPool pool q [authorLogin]
-            return ()) $ \e ->
-        case someErrorToInt e of
-            23505 ->
-                throwError $
-                OtherError "Author not created.Author already exist"
-            _ -> throwError e
+deleteAuthorInDb pool token_lifetime token (Just authorLogin) = do
+    checkAdmin pool token_lifetime token
+    n <- executeWithPool pool q [authorLogin]
+    if n > 0
+        then return ()
+        else throwError $ OtherError "Author not exist."
   where
     q =
         "with u_id as (select user_id from users where login = ?) \
