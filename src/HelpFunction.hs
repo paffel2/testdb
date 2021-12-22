@@ -3,22 +3,25 @@
 module HelpFunction where
 
 import           Config                           (DatabaseConf (db_host, db_login, db_name, db_password, db_port))
-import           Control.Monad.Except
+import           Control.Monad.Except             (ExceptT, runExceptT)
 import qualified Data.ByteString.Char8            as BC
-import           Data.List
+import           Data.List                        (sort)
 import           Data.Maybe                       (isNothing)
 import           Data.String                      (IsString (fromString))
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
 import           Data.Time.Calendar               (Day)
 import           Database.PostgreSQL.Simple.Types (Only (..), Query)
-import           Logger
+import           Logger                           (LoggerHandle, logInfo)
 import           Network.Wai.Parse                (FileInfo)
-import           Responses
+import           Responses                        (toResponseErrorMessage)
 import           System.Directory                 (getDirectoryContents)
 import           Text.Read                        (readMaybe)
 import           Types.NewsAndComments            (Sort (getSort))
-import           Types.Other
+import           Types.Other                      (Id (Id), Page (getPage),
+                                                   ResponseErrorMessage,
+                                                   ResponseOkMessage,
+                                                   SomeError (DatabaseError))
 
 myLookup :: Eq a => a -> [(a, b)] -> Maybe a
 myLookup _key [] = Nothing

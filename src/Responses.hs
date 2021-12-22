@@ -8,7 +8,7 @@ import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 import           Database.PostgreSQL.Simple (Binary (fromBinary))
-import           Logger
+import           Logger                     (LoggerHandle, logError)
 import           Network.HTTP.Types         (Status, badRequest400,
                                              forbidden403, hContentType,
                                              internalServerError500,
@@ -52,19 +52,6 @@ responseImage contype = (`responseLBS` [(hContentType, contype)])
 responseOKImage :: BI.ByteString -> LBS.ByteString -> Response
 responseOKImage contype = responseImage contype status200
 
-{-badResponse :: LBS.ByteString -> SomeError -> Response
-badResponse prefix BadToken =
-    responseForbidden $ LBS.concat [prefix, " Bad Token."]
-badResponse prefix NotAdmin =
-    responseForbidden $ LBS.concat [prefix, " Not admin."]
-badResponse prefix DatabaseError =
-    responseInternalServerError $ LBS.concat [prefix, " Database Error."]
-badResponse prefix BadMethod =
-    responseMethodNotAllowed $ LBS.concat [prefix, " Bad method request."]
-badResponse prefix (OtherError message) =
-    responseBadRequest $ LBS.concat [prefix, lbsMessage]
-  where
-    lbsMessage = LBS.fromStrict $ BC.pack message -}
 toResponse :: Either ResponseErrorMessage ResponseOkMessage -> Response
 toResponse (Left (Forbidden message)) = responseForbidden message
 toResponse (Left (MethodNotAllowed message)) = responseMethodNotAllowed message

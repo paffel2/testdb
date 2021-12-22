@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia   #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -9,7 +8,7 @@ import qualified Data.ByteString.Lazy               as LBS
 import qualified Data.Text                          as T
 import           Database.PostgreSQL.Simple.ToField (ToField (..))
 import           Types.Images                       (ImageB)
-import Control.Monad.Except
+import Control.Monad.Except ( MonadError, MonadIO )
 
 newtype TokenLifeTime =
     TokenLifeTime
