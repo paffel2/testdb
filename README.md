@@ -1,4 +1,4 @@
-# testdb
+# News Server
 This repository contains a simple web news server. The project was created as a test task of the Metalamp company. 
 # Installation and Startup Guide
 To run and install the program, you must install the [stack](https://docs.haskellstack.org/en/stable/install_and_upgrade/).
